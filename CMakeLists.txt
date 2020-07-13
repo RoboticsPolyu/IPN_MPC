@@ -59,3 +59,6 @@ add_library(imu_factor_lib ${IMU_SOURCE})
 
 add_executable(wheel_ext_cal app/test_wheel_imu_factor.cpp)
 target_link_libraries(wheel_ext_cal gtsam imu_factor_lib)
+
+add_executable(wheel_imu_pim app/test_wheel_imu_pim.cpp)
+target_link_libraries(wheel_imu_pim gtsam imu_factor_lib)
