@@ -158,7 +158,7 @@ namespace relate_factor
                                    preintegrated_H_biasOmega_ * biasIncr.gyroscope();
     Matrix12_6 H_error_bias;
     H_error_bias.block<12, 3>(0, 0) = preintegrated_H_biasAcc_;
-    H_error_bias.block<12, 3>(3, 0) = preintegrated_H_biasOmega_;
+    H_error_bias.block<12, 3>(0, 3) = preintegrated_H_biasOmega_;
 
     if (H)
     {
