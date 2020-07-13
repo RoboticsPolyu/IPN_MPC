@@ -1,7 +1,7 @@
 #pragma once
 #include "wheel_imu_integration.h"
 
-namespace relate_factor
+namespace wio
 {
     class GTSAM_EXPORT PreintegratedImuWheelMeasurements : public WheelPreintegration
     {
@@ -12,7 +12,7 @@ namespace relate_factor
         Matrix1212 preintMeasCov_; ///< COVARIANCE OF: [PreintROTATION PreintPOSITION PreintVELOCITY]
                                    ///< (first-order propagation from *measurementCovariance*).
         Rot3 bRo_;
-        Matrix3 oCov_;
+        Matrix3 oCov_; //wheel
 
     public:
         // /// Default constructor for serialization and Cython wrapper
@@ -62,7 +62,7 @@ namespace relate_factor
             bRo_ = bRo;
         }
         const Rot3 bRo() const { return bRo_; }
-        
+
         void integrateMeasurement(const Vector3 &measuredAcc,
                                   const Vector3 &measuredOmega,
                                   const Vector3 &measuredWheelspeed,
@@ -83,8 +83,8 @@ namespace relate_factor
     private:
     };
 
-    class GTSAM_EXPORT WheelImuFactor : public NoiseModelFactor7<Pose3, Vector3, Pose3, Vector3,
-                                                                 imuBias::ConstantBias, Rot3, Vector3>
+    class GTSAM_EXPORT WheelImuFactor : public gtsam_wrapper::NoiseModelFactor7<Pose3, Vector3, Pose3, Vector3,
+                                                                                imuBias::ConstantBias, Rot3, Vector3>
     {
     public:
         WheelImuFactor(Key pose_i, Key vel_i, Key pose_j, Key vel_j, Key bias, Key b_r_o, Key b_p_o,
@@ -110,8 +110,8 @@ namespace relate_factor
 
     private:
         typedef WheelImuFactor This;
-        typedef NoiseModelFactor7<Pose3, Vector3, Pose3, Vector3,
-                                  imuBias::ConstantBias, Rot3, Vector3>
+        typedef gtsam_wrapper::NoiseModelFactor7<Pose3, Vector3, Pose3, Vector3,
+                                                 imuBias::ConstantBias, Rot3, Vector3>
             Base;
         PreintegratedImuWheelMeasurements _PIM_;
     };
@@ -149,4 +149,4 @@ namespace relate_factor
         Vector3 bPo_;
     };
 
-}; // namespace relate_factor
+}; // namespace wio

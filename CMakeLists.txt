@@ -62,3 +62,6 @@ target_link_libraries(wheel_ext_cal gtsam imu_factor_lib)
 
 add_executable(wheel_imu_pim app/test_wheel_imu_pim.cpp)
 target_link_libraries(wheel_imu_pim gtsam imu_factor_lib)
+
+add_executable(wheel_imu_factor_error app/test_wheel_imu_error.cpp)
+target_link_libraries(wheel_imu_factor_error gtsam imu_factor_lib)

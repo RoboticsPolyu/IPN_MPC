@@ -1,6 +1,6 @@
 #include "wheel_imu_factor.h"
 
-namespace relate_factor
+namespace wio
 {
     using namespace std;
 
@@ -107,7 +107,7 @@ namespace relate_factor
         Matrix3 H_rjp_rj, H_wpe_rbi_1, H_wpe_rbi_2;
         Matrix3 jac_wheel_bRo = -_PIM_.Jac_Wheel_bRo();
 
-        Vector3 delta_bRo = Rot3::LocalCoordinates(bRo.between(_PIM_.bRo())); // check ?
+        Vector3 delta_bRo = Rot3::LocalCoordinates(bRo.between(_PIM_.bRo()));
 
         std::cout << "linear bRo: "
                   << Rot3::LocalCoordinates(_PIM_.bRo()) << std::endl;
@@ -117,12 +117,6 @@ namespace relate_factor
                   << delta_bRo << std::endl;
         std::cout << "bPo: \n"
                   << bPo << std::endl;
-        std::cout << "pwj: \n"
-                  << p_w_j << "\n pwi: \n"
-                  << p_w_i << std::endl;
-        std::cout << "rwbi: \n"
-                  << Rot3::LocalCoordinates(r_w_bi) << "\n rwbj: \n"
-                  << Rot3::LocalCoordinates(r_w_bj) << "\n";
         std::cout << "wheel pim: \n"
                   << _PIM_.WheelPim()
                   << std::endl;
@@ -240,7 +234,7 @@ namespace relate_factor
         Vector3 delta_bRo = Rot3::LocalCoordinates(bRo.between(_PIM_.bRo())); // check ?
         Vector3 wheel_pim_error = r_w_bi.unrotate((p_w_j - p_w_i), H_wpe_rbi_1) - bPo_ +
                                   r_w_bi.unrotate(r_w_bj.rotate(bPo_, H_rjp_rj), H_wpe_rbi_2) -
-                                  _PIM_.WheelPim() + jac_wheel_bRo * delta_bRo; // same as （_PIM_.WheelPim() - jac_wheel_bRo * delta_bRo)
+                                  _PIM_.WheelPim() - jac_wheel_bRo * delta_bRo; // same as （_PIM_.WheelPim() - jac_wheel_bRo * delta_bRo)
 
         Matrix36 jac_wheel_posei = -r_bi_w.matrix() * jac_t_posei + (H_wpe_rbi_1 + H_wpe_rbi_2) * jac_r_posei;
         Matrix36 jac_wheel_posej = r_bi_w.matrix() * jac_t_posej + r_bi_w.matrix() * H_rjp_rj * jac_r_posej;
@@ -264,14 +258,11 @@ namespace relate_factor
         H_error_bias.block<9, 6>(0, 0) = _H5;
         H_error_bRo.block<3, 3>(9, 0) = jac_wheel_bRo;
 
-        // std::cout << "H_error_pi: " << H_error_pi << std::endl;
         if (H1)
         {
-            // std::cout << "if H1";
             *H1 = H_error_pi;
         }
 
-        // std::cout << "H1 " << *H1 << std::endl;
         if (H2)
         {
             *H2 = H_error_vi;
@@ -297,14 +288,6 @@ namespace relate_factor
         error.head(9) = imu_pim_error;
         error.tail(3) = wheel_pim_error;
 
-        // std::cout << "wheel imu error: " << error << std::endl;
-        // std::cout << "H1 " << *H1 << std::endl;
-        // std::cout << "H2 " << *H2 << std::endl;
-        // std::cout << "H3 " << *H3 << std::endl;
-        // std::cout << "H4 " << *H4 << std::endl;
-        // std::cout << "H5 " << *H5 << std::endl;
-        // std::cout << "H6 " << *H6 << std::endl;
-
         return error;
     }
-} // namespace relate_factor
+} // namespace wio

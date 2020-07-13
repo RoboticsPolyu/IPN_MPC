@@ -1,6 +1,6 @@
 #include "wheel_imu_integration.h"
 
-namespace relate_factor
+namespace wio
 {
 
   WheelPreintegration::WheelPreintegration(const boost::shared_ptr<Params> &p,
@@ -166,4 +166,4 @@ namespace relate_factor
     }
     return biasCorrected.head(9);
   }
-} // namespace relate_factor
+} // namespace wio

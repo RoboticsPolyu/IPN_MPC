@@ -8,8 +8,9 @@
 #include <gtsam/slam/BetweenFactor.h>
 
 #include <fstream>
+#include <vector>
 
-using namespace relate_factor;
+using namespace wio;
 
 using namespace std;
 using namespace gtsam;
@@ -50,13 +51,17 @@ int main(void)
 
     PreintegratedImuWheelMeasurements i_w_pim(params, prior_imu_bias, bRo, wheel_cov);
     NonlinearFactorGraph graph;
+
     Vector3 position, acc, gyro, imu_velocity, wheel_speed;
+    vector<Vector3> positions, accs, gyros, imu_velocitys, wheel_speeds;
+
     Pose3 pose_bak;
     Vector3 vel_bak;
     Pose3 pose_0;
     Vector3 vel_0;
 
     Quaternion imu_quat;
+    vector<Quaternion> imu_quats;
     double dt = 0.01f;
     Values initial_value;
     ifstream imu_file;
@@ -66,8 +71,8 @@ int main(void)
     uint64_t j = 0, key = 0;
 
     auto velnoise = noiseModel::Diagonal::Sigmas(Vector3(0.001, 0.001, 0.001));
-    auto wheelexttonoise = noiseModel::Diagonal::Sigmas(Vector3(0.001, 100, 0.001));
-    auto wheelextronoise = noiseModel::Diagonal::Sigmas(Vector3(0.001, 100, 100));
+    auto wheelexttonoise = noiseModel::Diagonal::Sigmas(Vector3(0.001, 0.001, 0.001));
+    auto wheelextronoise = noiseModel::Diagonal::Sigmas(Vector3(0, 100, 100));
     auto posnoise = noiseModel::Diagonal::Sigmas(Vector6::Constant(0.001));
     auto biasnoise = noiseModel::Diagonal::Sigmas(Vector6::Constant(1e-6));
 
@@ -81,6 +86,24 @@ int main(void)
         position << t0, t1, t2;
         imu_quat = Quaternion(qw, qx, qy, qz);
         wheel_speed << wv, 0, 0;
+
+        accs.push_back(acc);
+        gyros.push_back(gyro);
+        imu_velocitys.push_back(imu_velocity);
+        positions.push_back(position);
+        imu_quats.push_back(imu_quat);
+        wheel_speeds.push_back(wheel_speed);
+    }
+    imu_file.close();
+
+    for (uint32_t index_t = 0; index_t < accs.size(); index_t++)
+    {
+        acc = accs[index_t];
+        gyro = gyros[index_t];
+        imu_velocity = imu_velocitys[index_t];
+        position = positions[index_t];
+        imu_quat = imu_quats[index_t];
+        wheel_speed = wheel_speeds[index_t];
 
         if (j == 0)
         {
@@ -136,15 +159,14 @@ int main(void)
 
             // WheelImuFactor2 wheel_imu_factor(X(key), V(key), X(key + 1), V(key + 1), B(key), R(0), i_w_pim, bPo);
             graph.add(wheel_imu_factor);
-            if (j != 999) //499
+            if (j != 499) //499
             {
                 graph.add(BetweenFactor<imuBias::ConstantBias>(B(key), B(key + 1), zero_bias, biasnoise));
             }
             i_w_pim.resetIntegration();
             key++;
-            if (key == 100)
+            if (key == 50)
             {
-                // return 0;
                 break;
             };
         }
@@ -157,8 +179,6 @@ int main(void)
     initial_value.insert(X(key), pose_end);
     initial_value.insert(V(key), vel_end);
 
-    imu_file.close();
-
     initial_value.insert(R(0), bRo);
     initial_value.insert(P(0), bPo);
     graph.addPrior(P(0), bPo, wheelexttonoise);
@@ -169,7 +189,7 @@ int main(void)
 
     std::cout << "###################### begin optimize ######################" << std::endl;
     Values result = optimizer.optimize();
-    // result.print("Final Result:\n");
+
     Rot3 optbRo = result.at<Rot3>(R(0));
     Vector3 optbPo = result.at<Vector3>(P(0));
 

@@ -1,18 +1,11 @@
 #pragma once
 
 #include <iostream>
-#include <gtsam/geometry/Pose3.h>
-#include <gtsam/navigation/ImuFactor.h>
-#include <gtsam/nonlinear/NonlinearOptimizer.h>
-#include <gtsam/nonlinear/NonlinearFactorGraph.h>
-#include <gtsam/nonlinear/NonlinearFactor.h>
-#include <gtsam/navigation/NavState.h>
-#include <gtsam/navigation/PreintegrationBase.h>
-#include <gtsam/geometry/Rot3.h>
+#include "gtsam_wapper.h"
 
 using namespace gtsam;
 
-namespace relate_factor
+namespace wio
 {
 
     typedef Eigen::Matrix<double, 12, 3> Matrix12_3;
@@ -91,4 +84,4 @@ namespace relate_factor
 
     private:
     };
-} // namespace relate_factor
+} // namespace wio
