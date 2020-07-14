@@ -1,5 +1,6 @@
 #include "wheel_imu_factor.h"
 
+#include <gtsam/nonlinear/ISAM2.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
@@ -65,9 +66,7 @@ int main(void)
     double dt = 0.01f;
     Values initial_value;
     ifstream imu_file;
-    imu_file.open("imu_pose_noise.txt");
-    ofstream est_file;
-    est_file.open("est_pose.txt");
+    imu_file.open("imu_pose.txt");
 
     double t, qw, qx, qy, qz, t0, t1, t2, v0, v1, v2, g0, g1, g2, a0, a1, a2, wv;
     uint64_t j = 0, key = 0;
@@ -78,7 +77,6 @@ int main(void)
     auto posnoise = noiseModel::Diagonal::Sigmas(Vector6::Constant(0.001));
     auto biasnoise = noiseModel::Diagonal::Sigmas(Vector6::Constant(1e-6));
 
-    imuBias::ConstantBias init_bias(Vector3(0.019, 0.019, 0.019), Vector3(0.015, 0.015, 0.015));
     imuBias::ConstantBias zero_bias(Vector3(0, 0, 0), Vector3(0, 0, 0));
 
     while (imu_file >> t >> qw >> qx >> qy >> qz >> t0 >> t1 >> t2 >> v0 >> v1 >> v2 >> g0 >> g1 >> g2 >> a0 >> a1 >> a2 >> wv)
@@ -124,15 +122,12 @@ int main(void)
         i_w_pim.integrateMeasurement(acc, gyro, wheel_speed, dt);
         if (j % 10 == 9)
         {
-            if (key == 0)
-            {
-                graph.addPrior(X(key), pose_bak, posnoise);
-                graph.addPrior(V(key), vel_bak, velnoise);
-                graph.addPrior(B(key), init_bias, biasnoise);
-            }
+            graph.addPrior(X(key), pose_bak, posnoise);
+            graph.addPrior(V(key), vel_bak, velnoise);
+            graph.addPrior(B(key), zero_bias, biasnoise);
             initial_value.insert(X(key), pose_bak);
             initial_value.insert(V(key), vel_bak);
-            initial_value.insert(B(key), init_bias);
+            initial_value.insert(B(key), zero_bias);
 
             WheelImuFactor wheel_imu_factor(X(key), V(key), X(key + 1), V(key + 1), B(key), R(0), P(0), i_w_pim);
 
@@ -142,14 +137,36 @@ int main(void)
             Matrix jac_posei, jac_posej, jac_bias;
             Matrix jac_veli, jac_velj, jac_r, jac_p;
 
+            // Vector12 error = wheel_imu_factor.evaluateError(pose_0, vel_0, pose_end, vel_end, zero_bias, bRo, bPo, jac_posei, jac_veli, jac_posej, jac_velj, jac_bias, jac_r, jac_p);
+
+            // std::cout << "******************* evalute error *******************" << std::endl;
+            // std::cout << "error: \n"
+            //           << error << std::endl;
+            // std::cout << "jac posei: \n"
+            //           << jac_posei << std::endl;
+            // std::cout << "jac posej: \n"
+            //           << jac_posej << std::endl;
+            // std::cout << "jac veli: \n"
+            //           << jac_veli << std::endl;
+            // std::cout << "jac velj: \n"
+            //           << jac_velj << std::endl;
+            // std::cout << "jac bias: \n"
+            //           << jac_bias << std::endl;
+            // std::cout << "jac r: \n"
+            //           << jac_r << std::endl;
+            // std::cout << "jac p: \n"
+            //           << jac_p << std::endl;
+            // std::cout << "**************************************" << std::endl;
+
+            // WheelImuFactor2 wheel_imu_factor(X(key), V(key), X(key + 1), V(key + 1), B(key), R(0), i_w_pim, bPo);
             graph.add(wheel_imu_factor);
-            if (j != 1999) //499
+            if (j != 499) //499
             {
                 graph.add(BetweenFactor<imuBias::ConstantBias>(B(key), B(key + 1), zero_bias, biasnoise));
             }
             i_w_pim.resetIntegration();
             key++;
-            if (key == 200)
+            if (key == 50)
             {
                 break;
             };
@@ -181,31 +198,5 @@ int main(void)
               << Rot3::LocalCoordinates(optbRo) << std::endl;
     std::cout << "optbPo: \n"
               << optbPo << std::endl;
-    for (uint32_t ikey = 0; ikey < key; ikey++)
-    {
-        // std::cout << "------------- pose check --------------\n";
-
-        if (ikey != key)
-        {
-            imuBias::ConstantBias i_bias = result.at<imuBias::ConstantBias>(B(ikey));
-            // std::cout << "ikey: " << ikey << "\n";
-            // std::cout << "estimated i bias: \n"
-            //           << i_bias << " \n";
-        }
-
-        Pose3 i_pose = result.at<Pose3>(X(ikey));
-        Pose3 g_pose = Pose3(Rot3(imu_quats[ikey * 10].toRotationMatrix()), positions[ikey * 10]);
-        // std::cout
-        //     << "groud pose: \n"
-        //     << Pose3::Logmap(g_pose) << "\n estimated pose: \n"
-        //     << Pose3::Logmap(i_pose) << "\n";
-
-        // est_file << Pose3::Logmap(g_pose).transpose() << " " << Pose3::Logmap(i_pose).transpose() << "\n";
-        est_file << g_pose.translation().transpose() << " " << i_pose.translation().transpose() << "\n";
-        // std::cout << "---------------------------------------\n";
-
-        // Logmap vs LocalCoordinates
-    }
-    est_file.close();
     return 0;
 }
