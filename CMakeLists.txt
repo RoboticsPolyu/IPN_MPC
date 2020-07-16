@@ -52,8 +52,8 @@ message("GTSAM INCLUDE = " ${GTSAM_INCLUDE_DIR})
 include_directories(include)
 
 set(IMU_SOURCE
-    src/wheel_imu_factor.cpp
-    src/wheel_imu_integration.cpp)
+    src/wio_factor.cpp
+    src/wio_integration.cpp)
 
 add_library(imu_factor_lib ${IMU_SOURCE})
 

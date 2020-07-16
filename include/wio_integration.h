@@ -7,7 +7,6 @@ using namespace gtsam;
 
 namespace wio
 {
-
     typedef Eigen::Matrix<double, 12, 3> Matrix12_3;
     typedef Eigen::Matrix<double, 12, 12> Matrix1212;
     typedef Eigen::Matrix<double, 12, 6> Matrix12_6;

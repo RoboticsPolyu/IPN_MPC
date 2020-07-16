@@ -1,8 +1,7 @@
-#include "wheel_imu_integration.h"
+#include "wio_integration.h"
 
 namespace wio
 {
-
   WheelPreintegration::WheelPreintegration(const boost::shared_ptr<Params> &p,
                                            const Bias &biasHat)
       : PreintegrationBase(p, biasHat)
@@ -89,15 +88,15 @@ namespace wio
     }
 
     jac_wheel_bRo_ += -R.matrix() * bRo.matrix() * skewSymmetric(wheel_speed) * dt;
-    std::cout << "**********************************************************" << std::endl;
-    cout << "      jac_wheel_bRo \n"
-         << jac_wheel_bRo_ << "\n";
-    cout << "      preintegratedPlus \n"
-         << preintegratedPlus << "\n";
-    cout << " bRo:\n"
-         << bRo << " ,wheel velocity:\n"
-         << wheel_speed << "\n";
-    std::cout << "**********************************************************" << std::endl;
+    // std::cout << "**********************************************************" << std::endl;
+    // cout << "      jac_wheel_bRo \n"
+    //      << jac_wheel_bRo_ << "\n";
+    // cout << "      preintegratedPlus \n"
+    //      << preintegratedPlus << "\n";
+    // cout << " bRo:\n"
+    //      << bRo << " ,wheel velocity:\n"
+    //      << wheel_speed << "\n";
+    // std::cout << "**********************************************************" << std::endl;
 
     return preintegratedPlus;
   }
@@ -164,6 +163,7 @@ namespace wio
     {
       *H = H_error_bias.block<9, 6>(0, 0);
     }
+
     return biasCorrected.head(9);
   }
 } // namespace wio

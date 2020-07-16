@@ -1,4 +1,4 @@
-#include "wheel_imu_factor.h"
+#include "wio_factor.h"
 
 #include <gtsam/nonlinear/ISAM2.h>
 #include <gtsam/nonlinear/Values.h>

@@ -1,4 +1,4 @@
-#include "wheel_imu_factor.h"
+#include "wio_factor.h"
 
 namespace wio
 {
@@ -80,6 +80,15 @@ namespace wio
         _PIM_.print();
     }
 
+    void PreintegratedImuWheelMeasurements::Predict(const Pose3 &pose_i, const Vector3 &vel_i,
+                                                    Pose3 &pose_j, Vector3 &vel_j, const imuBias::ConstantBias &bias_i)
+    {
+        NavState state_bak(pose_i, vel_i);
+        NavState pvb = predict(state_bak, bias_i);
+        pose_j = pvb.pose();
+        vel_j = pvb.v();
+    }
+
     Vector WheelImuFactor::evaluateError(const Pose3 &pose_i, const Vector3 &vel_i,
                                          const Pose3 &pose_j, const Vector3 &vel_j,
                                          const imuBias::ConstantBias &bias_i,
@@ -89,7 +98,7 @@ namespace wio
                                          boost::optional<Matrix &> H5, boost::optional<Matrix &> H6,
                                          boost::optional<Matrix &> H7) const
     {
-        std::cout << "----------------------- imu wheel evalutor ---------------------" << std::endl;
+        // std::cout << "----------------------- imu wheel evalutor ---------------------" << std::endl;
         Matrix96 _H1, _H3, _H5;
         Matrix93 _H2, _H4;
         Vector9 imu_pim_error = _PIM_.computeErrorAndJacobians(pose_i, vel_i, pose_j, vel_j, bias_i, _H1, _H2, _H3, _H4, _H5);
@@ -109,25 +118,25 @@ namespace wio
 
         Vector3 delta_bRo = Rot3::LocalCoordinates(bRo.between(_PIM_.bRo()));
 
-        std::cout << "linear bRo: "
-                  << Rot3::LocalCoordinates(_PIM_.bRo()) << std::endl;
-        std::cout << "new bRo: \n"
-                  << Rot3::LocalCoordinates(bRo) << std::endl;
-        std::cout << "delat bRo: \n"
-                  << delta_bRo << std::endl;
-        std::cout << "bPo: \n"
-                  << bPo << std::endl;
-        std::cout << "wheel pim: \n"
-                  << _PIM_.WheelPim()
-                  << std::endl;
+        // std::cout << "linear bRo: "
+        //           << Rot3::LocalCoordinates(_PIM_.bRo()) << std::endl;
+        // std::cout << "new bRo: \n"
+        //           << Rot3::LocalCoordinates(bRo) << std::endl;
+        // std::cout << "delat bRo: \n"
+        //           << delta_bRo << std::endl;
+        // std::cout << "bPo: \n"
+        //           << bPo << std::endl;
+        // std::cout << "wheel pim: \n"
+        //           << _PIM_.WheelPim()
+        //           << std::endl;
 
         Vector3 pose_wheel = r_w_bi.unrotate((p_w_j - p_w_i), H_wpe_rbi_1) - bPo +
                              r_w_bi.unrotate(r_w_bj.rotate(bPo, H_rjp_rj), H_wpe_rbi_2);
-        std::cout << "pose wheel: \n"
-                  << pose_wheel << std::endl;
+        // std::cout << "pose wheel: \n"
+        //           << pose_wheel << std::endl;
         Vector3 dog_wheel = jac_wheel_bRo * delta_bRo;
-        std::cout << "dog wheel: \n"
-                  << dog_wheel << std::endl;
+        // std::cout << "dog wheel: \n"
+        //           << dog_wheel << std::endl;
         Vector3 wheel_pim_error = pose_wheel - _PIM_.WheelPim() - dog_wheel; // same as （_PIM_.WheelPim() - jac_wheel_bRo * delta_bRo)
 
         Matrix33 jac_wheel_bPo = r_bi_w.matrix() * r_w_bj.matrix() - Matrix3::Identity();
@@ -178,23 +187,19 @@ namespace wio
         if (H6)
         {
             *H6 = H_error_bRo;
-            std::cout << "H6 H_error_bRo: \n"
-                      << H_error_bRo << std::endl;
         }
         if (H7)
         {
             *H7 = H_error_bPo;
-            std::cout << "H7 H_error_bPo: \n"
-                      << H_error_bPo << std::endl;
         }
 
         Vector12 error;
         error.head(9) = imu_pim_error;
         error.tail(3) = wheel_pim_error;
 
-        std::cout << "imu wheel error:\n"
-                  << error << std::endl;
-        std::cout << "-------------------------------------------------------------" << std::endl;
+        // std::cout << "imu wheel error:\n"
+        //       << error << std::endl;
+        //std::cout << "-------------------------------------------------------------" << std::endl;
         return error;
     }
 

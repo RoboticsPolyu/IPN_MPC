@@ -1,5 +1,5 @@
 #pragma once
-#include "wheel_imu_integration.h"
+#include "wio_integration.h"
 
 namespace wio
 {
@@ -79,6 +79,9 @@ namespace wio
          */
         void integrateMeasurement(const Vector3 &measuredAcc,
                                   const Vector3 &measuredOmega, const double dt) override;
+
+        void Predict(const Pose3 &pose_i, const Vector3 &vel_i,
+                     Pose3 &pose_j, Vector3 &vel_j, const imuBias::ConstantBias &bias_i);
 
     private:
     };

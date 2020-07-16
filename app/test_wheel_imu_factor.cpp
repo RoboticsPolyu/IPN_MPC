@@ -1,4 +1,4 @@
-#include "wheel_imu_factor.h"
+#include "wio_factor.h"
 
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/inference/Symbol.h>
@@ -23,8 +23,6 @@ using symbol_shorthand::X;
 
 int main(void)
 {
-    std::cout << "###################### congratulation ######################" << std::endl;
-
     gtsam::LevenbergMarquardtParams parameters;
     parameters.absoluteErrorTol = 1e-8;
     parameters.relativeErrorTol = 1e-8;
@@ -34,16 +32,16 @@ int main(void)
 
     const double kGravity = 9.81;
     auto params = PreintegrationParams::MakeSharedU(kGravity);
-    params->setAccelerometerCovariance(I_3x3 * 1e-3);
-    params->setGyroscopeCovariance(I_3x3 * 1e-4);
+    params->setAccelerometerCovariance(I_3x3 * 1e-2);
+    params->setGyroscopeCovariance(I_3x3 * 1e-3);
     params->setIntegrationCovariance(I_3x3 * 1e-8);
     params->setUse2ndOrderCoriolis(false);
     params->setOmegaCoriolis(Vector3(0, 0, 0));
 
-    imuBias::ConstantBias prior_imu_bias; // assume zero initial bias
+    imuBias::ConstantBias prior_imu_bias(Vector3(0.01, 0.01, 0.01), Vector3(0.01, 0.01, 0.01)); // assume zero initial bias
     Vector3 wheel_speed_noise(0.01, 0, 0);
     Matrix3 wheel_cov = wheel_speed_noise.asDiagonal();
-    // Vector3 rot_xyz(0, 0.2, 0.3);
+
     Quaternion rot_b_o_q = Quaternion(0.996613, 0, 0.043584, 0.0697343); // 0 5deg 8deg
     // gtsam::Rot3 bRo = Rot3::RzRyRx(0, 0, 0);                             // 0 0 0
     gtsam::Rot3 bRo = Rot3(rot_b_o_q.toRotationMatrix());
@@ -55,8 +53,6 @@ int main(void)
     Vector3 position, acc, gyro, imu_velocity, wheel_speed;
     vector<Vector3> positions, accs, gyros, imu_velocitys, wheel_speeds;
 
-    Pose3 pose_bak;
-    Vector3 vel_bak;
     Pose3 pose_0;
     Vector3 vel_0;
 
@@ -65,6 +61,7 @@ int main(void)
     double dt = 0.01f;
     Values initial_value;
     ifstream imu_file;
+    // imu_file.open("imu_pose.txt");
     imu_file.open("imu_pose_noise.txt");
     ofstream est_file;
     est_file.open("est_pose.txt");
@@ -76,9 +73,10 @@ int main(void)
     auto wheelexttonoise = noiseModel::Diagonal::Sigmas(Vector3(0.001, 0.001, 0.001));
     auto wheelextronoise = noiseModel::Diagonal::Sigmas(Vector3(0, 100, 100));
     auto posnoise = noiseModel::Diagonal::Sigmas(Vector6::Constant(0.001));
-    auto biasnoise = noiseModel::Diagonal::Sigmas(Vector6::Constant(1e-6));
+    auto biasnoise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(1e-4), Vector3::Constant(1e-5)).finished());
 
     imuBias::ConstantBias init_bias(Vector3(0.019, 0.019, 0.019), Vector3(0.015, 0.015, 0.015));
+    // imuBias::ConstantBias init_bias(Vector3(0, 0, 0), Vector3(0, 0, 0));
     imuBias::ConstantBias zero_bias(Vector3(0, 0, 0), Vector3(0, 0, 0));
 
     while (imu_file >> t >> qw >> qx >> qy >> qz >> t0 >> t1 >> t2 >> v0 >> v1 >> v2 >> g0 >> g1 >> g2 >> a0 >> a1 >> a2 >> wv)
@@ -114,25 +112,24 @@ int main(void)
             vel_0 = imu_velocity;
         }
 
-        // std::cout << "j: " << j << " ,acc: " << acc << " ,gyro: " << gyro << " ,imu_vel: " << imu_velocity << " ,pos: " << position << " ,ws: " << wheel_speed << std::endl;
-        if (j % 10 == 0)
-        {
-            pose_bak = Pose3(Rot3(imu_quat.toRotationMatrix()), position);
-            vel_bak = imu_velocity;
-        }
-
         i_w_pim.integrateMeasurement(acc, gyro, wheel_speed, dt);
         if (j % 10 == 9)
         {
             if (key == 0)
             {
-                graph.addPrior(X(key), pose_bak, posnoise);
-                graph.addPrior(V(key), vel_bak, velnoise);
+                graph.addPrior(X(key), pose_0, posnoise);
+                graph.addPrior(V(key), vel_0, velnoise);
                 graph.addPrior(B(key), init_bias, biasnoise);
             }
-            initial_value.insert(X(key), pose_bak);
-            initial_value.insert(V(key), vel_bak);
+
+            initial_value.insert(X(key), pose_0);
+            initial_value.insert(V(key), vel_0);
             initial_value.insert(B(key), init_bias);
+
+            NavState state_bak(pose_0, vel_0);
+            NavState state_predict = i_w_pim.predict(state_bak, init_bias);
+            pose_0 = state_predict.pose();
+            vel_0 = state_predict.v();
 
             WheelImuFactor wheel_imu_factor(X(key), V(key), X(key + 1), V(key + 1), B(key), R(0), P(0), i_w_pim);
 
@@ -143,7 +140,7 @@ int main(void)
             Matrix jac_veli, jac_velj, jac_r, jac_p;
 
             graph.add(wheel_imu_factor);
-            if (j != 1999) //499
+            if (j != 1999)
             {
                 graph.add(BetweenFactor<imuBias::ConstantBias>(B(key), B(key + 1), zero_bias, biasnoise));
             }
@@ -207,5 +204,6 @@ int main(void)
         // Logmap vs LocalCoordinates
     }
     est_file.close();
+
     return 0;
 }
