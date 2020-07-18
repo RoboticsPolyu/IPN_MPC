@@ -67,4 +67,4 @@ add_executable(wheel_imu_factor_error app/test_wheel_imu_error.cpp)
 target_link_libraries(wheel_imu_factor_error gtsam imu_factor_lib)
 
 add_executable(wheel_imu_isam app/wheel_imu_isam.cpp)
-target_link_libraries(wheel_imu_isam gtsam imu_factor_lib)
+target_link_libraries(wheel_imu_isam gtsam gtsam_unstable imu_factor_lib)

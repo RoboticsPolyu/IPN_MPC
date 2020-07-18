@@ -77,7 +77,6 @@ namespace wio
                vel_j, bias, b_r_o, b_p_o),
           _PIM_(pim)
     {
-        _PIM_.print();
     }
 
     void PreintegratedImuWheelMeasurements::Predict(const Pose3 &pose_i, const Vector3 &vel_i,
@@ -137,7 +136,9 @@ namespace wio
         Vector3 dog_wheel = jac_wheel_bRo * delta_bRo;
         // std::cout << "dog wheel: \n"
         //           << dog_wheel << std::endl;
-        Vector3 wheel_pim_error = pose_wheel - _PIM_.WheelPim() - dog_wheel; // same as （_PIM_.WheelPim() - jac_wheel_bRo * delta_bRo)
+        Vector3 wheel_odo = _PIM_.biasCorrectedWheelDelta(bias_i);
+        // std::cout << "wheel odo:\n " << wheel_odo << std::endl;
+        Vector3 wheel_pim_error = pose_wheel - wheel_odo - dog_wheel; // same as （_PIM_.WheelPim() - jac_wheel_bRo * delta_bRo)
 
         Matrix33 jac_wheel_bPo = r_bi_w.matrix() * r_w_bj.matrix() - Matrix3::Identity();
 

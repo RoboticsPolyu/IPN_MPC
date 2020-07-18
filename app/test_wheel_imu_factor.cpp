@@ -43,8 +43,8 @@ int main(void)
     Matrix3 wheel_cov = wheel_speed_noise.asDiagonal();
 
     Quaternion rot_b_o_q = Quaternion(0.996613, 0, 0.043584, 0.0697343); // 0 5deg 8deg
-    // gtsam::Rot3 bRo = Rot3::RzRyRx(0, 0, 0);                             // 0 0 0
-    gtsam::Rot3 bRo = Rot3(rot_b_o_q.toRotationMatrix());
+    gtsam::Rot3 bRo = Rot3::RzRyRx(0, 0, 0);                             // 0 0 0
+    // gtsam::Rot3 bRo = Rot3(rot_b_o_q.toRotationMatrix());
     Vector3 bPo(0, 1, 0); // real 0 1 0
 
     PreintegratedImuWheelMeasurements i_w_pim(params, prior_imu_bias, bRo, wheel_cov);

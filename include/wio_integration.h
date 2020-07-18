@@ -68,6 +68,9 @@ namespace wio
         Vector9 biasCorrectedDelta(const imuBias::ConstantBias &bias_i,
                                    OptionalJacobian<9, 6> H = boost::none) const override;
 
+        Vector3 biasCorrectedWheelDelta(const imuBias::ConstantBias &bias_i,
+                                        OptionalJacobian<3, 6> H = boost::none) const;
+
         Vector3 deltaPij() const override { return preintegrated_.segment<3>(3); }
         Vector3 deltaVij() const override { return preintegrated_.segment<3>(6); }
         Rot3 deltaRij() const override { return Rot3::Expmap(theta()); }
@@ -79,7 +82,7 @@ namespace wio
         const Matrix12_3 &preintegrated_H_biasOmega() const { return preintegrated_H_biasOmega_; }
 
         const Vector3 WheelPim() const { return preintegrated_.tail(3); }
-        const Matrix3 Jac_Wheel_bRo() const { return jac_wheel_bRo_; }
+        const Matrix3 &Jac_Wheel_bRo() const { return jac_wheel_bRo_; }
 
     private:
     };

@@ -1,7 +1,7 @@
 close all;
 clear all;
 [p1 p2 p3 p4 p5 p6] = textread('/Users/yyqing/Self/wheel_imu_calibration/build/est_pose.txt','%f %f %f %f %f %f');
-[timestamp q1 q2 q3 q4 t1 t2 t3] = textread('/Users/yyqing/Documents/VIO/2IMU/2CODE/vio_data_simulation/bin/imu_int_pose.txt','%f %f %f %f %f %f %f %f');
+[timestamp q1 q2 q3 q4 t1 t2 t3] = textread('/Users/yyqing/Documents/VIO/2IMU/2CODE/vio_data_simulation/bin/imu_int_pose_noise.txt','%f %f %f %f %f %f %f %f');
 % [timestamp q1 q2 q3 q4 t1 t2 t3] = textread('/Users/yyqing/Documents/VIO/2IMU/2CODE/vio_data_simulation/bin/imu_int_pose_noise.txt','%f %f %f %f %f %f %f %f');
 figure; plot(p1, p2, 'black.', p4, p5, 'r*');
 hold on;

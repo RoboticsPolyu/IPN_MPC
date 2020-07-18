@@ -147,6 +147,24 @@ namespace wio
     preintegrated_H_biasOmega_ = (*A) * preintegrated_H_biasOmega_ - (*C);
   }
 
+  Vector3 WheelPreintegration::biasCorrectedWheelDelta(const imuBias::ConstantBias &bias_i,
+                                                       OptionalJacobian<3, 6> H) const
+  {
+    const imuBias::ConstantBias biasIncr = bias_i - biasHat_;
+    const Vector12 biasCorrected = preintegrated() + preintegrated_H_biasAcc_ * biasIncr.accelerometer() +
+                                   preintegrated_H_biasOmega_ * biasIncr.gyroscope();
+    Matrix12_6 H_error_bias;
+    H_error_bias.block<12, 3>(0, 0) = preintegrated_H_biasAcc_;
+    H_error_bias.block<12, 3>(0, 3) = preintegrated_H_biasOmega_;
+
+    if (H)
+    {
+      *H = H_error_bias.block<3, 6>(9, 0);
+    }
+    // std::cout << "bias corrected wheel odo: " << biasCorrected.tail(3) - preintegrated().tail(3) << std::endl;
+    return biasCorrected.tail(3);
+  }
+
   Vector9 WheelPreintegration::biasCorrectedDelta(const imuBias::ConstantBias &bias_i,
                                                   OptionalJacobian<9, 6> H) const
   {
