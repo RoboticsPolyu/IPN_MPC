@@ -26,6 +26,11 @@ namespace wio
          * jacbian of wheel pim with bRo
          */
         Matrix3 jac_wheel_bRo_;
+        /// Default constructor for serialization
+        WheelPreintegration()
+        {
+            resetIntegration();
+        }
 
     public:
         /**
@@ -85,5 +90,7 @@ namespace wio
         const Matrix3 &Jac_Wheel_bRo() const { return jac_wheel_bRo_; }
 
     private:
+    public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     };
 } // namespace wio

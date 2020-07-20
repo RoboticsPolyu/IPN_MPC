@@ -16,10 +16,10 @@ namespace wio
 
     public:
         // /// Default constructor for serialization and Cython wrapper
-        // PreintegratedImuWheelMeasurements()
-        // {
-        //     preintMeasCov_.setZero();
-        // }
+        PreintegratedImuWheelMeasurements()
+        {
+            preintMeasCov_.setZero();
+        }
 
         /**
          *  Constructor, initializes the class with no measurements
@@ -90,6 +90,10 @@ namespace wio
                                                                                 imuBias::ConstantBias, Rot3, Vector3>
     {
     public:
+        typedef boost::shared_ptr<ImuFactor> shared_ptr;
+
+        WheelImuFactor() {}
+
         WheelImuFactor(Key pose_i, Key vel_i, Key pose_j, Key vel_j, Key bias, Key b_r_o, Key b_p_o,
                        const PreintegratedImuWheelMeasurements &pim);
 
@@ -123,6 +127,9 @@ namespace wio
                                                                   imuBias::ConstantBias, Rot3>
     {
     public:
+        typedef boost::shared_ptr<ImuFactor> shared_ptr;
+
+        WheelImuFactor2() {}
         WheelImuFactor2(Key pose_i, Key vel_i, Key pose_j, Key vel_j, Key bias, Key b_r_o,
                         const PreintegratedImuWheelMeasurements &pim, Vector3 &bPo_);
 

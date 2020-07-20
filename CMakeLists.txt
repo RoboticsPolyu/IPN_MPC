@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.10)
 project(calib)
 
 set(DEFAULT_BUILD_TYPE "Release")
@@ -13,8 +13,8 @@ endif ()
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -g -Wall")
 
-message(STATUS "set env var")
-set(ENV{CC} "/usr/local/opt/llvm/bin/clang")
+# message(STATUS "set env var")
+set(ENV{CC} "/usr/local/opt/llvm/bin/clang-8")
 set(ENV{CXX} "/usr/local/opt/llvm/bin/clang++")
 set(ENV{LDFLAGS} "-L/usr/local/opt/llvm/lib")
 set(ENV{CPPFLAGS} "-I/usr/local/opt/llvm/include")
@@ -23,9 +23,6 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -Wno-reorder" CACHE STRING "" FORC
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -DNDEBUG -Wno-reorder -O2" CACHE STRING "" FORCE)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
-
-option(BUILD_APPS "Build APPs for slam course" YES)
-option(BUILD_TESTS "Build test for slam course" No)
 
 # third party libs
 # eigen
@@ -44,7 +41,7 @@ include_directories(${GLOG_INCLUDE_DIRS})
 find_package(TBB 4.4 COMPONENTS tbb tbbmalloc)
 
 #gtsam
-find_package(GTSAM REQUIRED)
+find_package(gtsam REQUIRED)
 include_directories(${GTSAM_INCLUDE_DIR})
 message("GTSAM INCLUDE = " ${GTSAM_INCLUDE_DIR})
 
@@ -55,7 +52,8 @@ set(IMU_SOURCE
     src/wio_factor.cpp
     src/wio_integration.cpp)
 
-add_library(imu_factor_lib SHARED ${IMU_SOURCE})
+# add_library(imu_factor_lib SHARED ${IMU_SOURCE})
+add_library(imu_factor_lib ${IMU_SOURCE})
 
 add_executable(wheel_ext_cal app/test_wheel_imu_factor.cpp)
 target_link_libraries(wheel_ext_cal gtsam imu_factor_lib)
