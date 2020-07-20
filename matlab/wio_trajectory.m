@@ -1,14 +1,15 @@
 close all;
 clear all;
-[p1 p2 p3 p4 p5 p6] = textread('/Users/yyqing/Self/wheel_imu_calibration/build/est_pose.txt','%f %f %f %f %f %f');
-[timestamp q1 q2 q3 q4 t1 t2 t3] = textread('/Users/yyqing/Documents/VIO/2IMU/2CODE/vio_data_simulation/bin/imu_int_pose_noise.txt','%f %f %f %f %f %f %f %f');
-% [timestamp q1 q2 q3 q4 t1 t2 t3] = textread('/Users/yyqing/Documents/VIO/2IMU/2CODE/vio_data_simulation/bin/imu_int_pose_noise.txt','%f %f %f %f %f %f %f %f');
-figure; plot(p1, p2, 'black.', p4, p5, 'r*');
-hold on;
-plot(t1(1:10:end), t2(1:10:end), 'green.');
+[grouth_x grouth_y grouth_z est_x est_y est_z] = textread('../data/est_pose.txt','%f %f %f %f %f %f');
+[timestamp q1 q2 q3 q4 int_x int_y int_z] = textread('../data/imu_int_pose_noise.txt','%f %f %f %f %f %f %f %f');
 
-for i = 1:size(p1)
-    line([p1(i) p4(i)],[p2(i) p5(i)]);
+% grouth truth and estimated trajectory
+figure; plot(grouth_x, grouth_y, 'black.', est_x, est_y, 'r*');
+hold on;
+plot(int_x(1:10:end), int_y(1:10:end), 'green.');
+
+for i = 1:size(grouth_x)
+    line([grouth_x(i) est_x(i)],[grouth_y(i) est_y(i)]);
 end
 % 
 % for i = 1:size(p1)

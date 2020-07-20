@@ -44,7 +44,7 @@ include_directories(${GLOG_INCLUDE_DIRS})
 find_package(TBB 4.4 COMPONENTS tbb tbbmalloc)
 
 #gtsam
-find_package(gtsam REQUIRED)
+find_package(GTSAM REQUIRED)
 include_directories(${GTSAM_INCLUDE_DIR})
 message("GTSAM INCLUDE = " ${GTSAM_INCLUDE_DIR})
 
@@ -55,7 +55,7 @@ set(IMU_SOURCE
     src/wio_factor.cpp
     src/wio_integration.cpp)
 
-add_library(imu_factor_lib ${IMU_SOURCE})
+add_library(imu_factor_lib SHARED ${IMU_SOURCE})
 
 add_executable(wheel_ext_cal app/test_wheel_imu_factor.cpp)
 target_link_libraries(wheel_ext_cal gtsam imu_factor_lib)

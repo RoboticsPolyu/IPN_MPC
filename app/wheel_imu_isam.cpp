@@ -7,6 +7,7 @@
 #include <gtsam/nonlinear/LevenbergMarquardtParams.h>
 #include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/slam/BetweenFactor.h>
+#include <gtsam/slam/PriorFactor.h>
 
 #include <gtsam_unstable/nonlinear/IncrementalFixedLagSmoother.h>
 
@@ -74,9 +75,9 @@ int main(void)
     Values initial_value;
     ifstream imu_file;
     // imu_file.open("imu_pose.txt");
-    imu_file.open("imu_pose_noise.txt");
+    imu_file.open("../data/imu_pose_noise.txt");
     ofstream est_file;
-    est_file.open("est_pose.txt");
+    est_file.open("../data/est_pose.txt");
 
     double t, qw, qx, qy, qz, t0, t1, t2, v0, v1, v2, g0, g1, g2, a0, a1, a2, wv;
     uint64_t j = 0, key = 0;
@@ -135,19 +136,19 @@ int main(void)
         {
             if (key == 0)
             {
-                graph.addPrior(X(key), pose_0, posnoise);
-                graph.addPrior(V(key), vel_0, velnoise);
-                graph.addPrior(B(key), init_bias, biasnoise);
+                graph.add(PriorFactor<Pose3>(X(key), pose_0, posnoise));
+                graph.add(PriorFactor<Vector3>(V(key), vel_0, velnoise));
+                graph.add(PriorFactor<imuBias::ConstantBias>(B(key), init_bias, biasnoise));
 
                 initial_value.insert(R(0), bRo);
                 initial_value.insert(P(0), bPo);
 
-                // newTimestamps[R(key)] = times[key * 10];
-                // newTimestamps[P(key)] = times[key * 10];
-
-                graph.addPrior(P(0), bPo, wheelexttonoise);
-                graph.addPrior(R(0), bRo, wheelextronoise);
+                graph.add(PriorFactor<Vector3>(P(0), bPo, wheelexttonoise));
+                graph.add(PriorFactor<Rot3>(R(0), bRo, wheelextronoise));
             }
+
+            newTimestamps[R(0)] = times[key * 10];
+            newTimestamps[P(0)] = times[key * 10];
 
             initial_value.insert(X(key), pose_0);
             initial_value.insert(V(key), vel_0);

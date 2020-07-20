@@ -6,6 +6,7 @@
 #include <gtsam/nonlinear/LevenbergMarquardtParams.h>
 #include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/slam/BetweenFactor.h>
+#include <gtsam/slam/PriorFactor.h>
 
 #include <fstream>
 
@@ -53,7 +54,7 @@ int main(void)
     double dt = 0.01f;
     Values initial_value;
     ifstream imu_file;
-    imu_file.open("imu_pose.txt");
+    imu_file.open("../data/imu_pose_noise.txt");
 
     double t, qw, qx, qy, qz, t0, t1, t2, v0, v1, v2, g0, g1, g2, a0, a1, a2, wv;
     uint64_t j = 0, key = 0;

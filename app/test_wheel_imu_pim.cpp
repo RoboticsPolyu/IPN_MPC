@@ -6,6 +6,7 @@
 #include <gtsam/nonlinear/LevenbergMarquardtParams.h>
 #include <gtsam/nonlinear/Marginals.h>
 #include <gtsam/slam/BetweenFactor.h>
+#include <gtsam/slam/PriorFactor.h>
 
 #include <fstream>
 
@@ -63,7 +64,7 @@ int main(void)
     double dt = 0.01f;
     Values initial_value;
     ifstream imu_file;
-    imu_file.open("imu_pose.txt");
+    imu_file.open("../data/imu_pose_noise.txt");
 
     double t, qw, qx, qy, qz, t0, t1, t2, v0, v1, v2, g0, g1, g2, a0, a1, a2, wv;
     uint64_t j = 0, key = 0;
@@ -74,6 +75,7 @@ int main(void)
     auto posnoise = noiseModel::Diagonal::Sigmas(Vector6::Constant(0.001));
     auto biasnoise = noiseModel::Diagonal::Sigmas(Vector6::Constant(1e-6));
 
+    imuBias::ConstantBias init_bias(Vector3(0.019, 0.019, 0.019), Vector3(0.015, 0.015, 0.015));
     imuBias::ConstantBias zero_bias(Vector3(0, 0, 0), Vector3(0, 0, 0));
 
     while (imu_file >> t >> qw >> qx >> qy >> qz >> t0 >> t1 >> t2 >> v0 >> v1 >> v2 >> g0 >> g1 >> g2 >> a0 >> a1 >> a2 >> wv)
@@ -123,9 +125,9 @@ int main(void)
         i_w_pim.integrateMeasurement(acc, gyro, wheel_speed, dt);
         if (j % 10 == 9)
         {
-            graph.addPrior(X(key), pose_bak, posnoise);
-            graph.addPrior(V(key), vel_bak, velnoise);
-            graph.addPrior(B(key), zero_bias, biasnoise);
+            graph.add(PriorFactor<Pose3>(X(key), pose_0, posnoise));
+            graph.add(PriorFactor<Vector3>(V(key), vel_0, velnoise));
+            graph.add(PriorFactor<imuBias::ConstantBias>(B(key), init_bias, biasnoise));
             initial_value.insert(X(key), pose_bak);
             initial_value.insert(V(key), vel_bak);
             initial_value.insert(B(key), zero_bias);
@@ -185,8 +187,9 @@ int main(void)
 
     initial_value.insert(R(0), bRo);
     initial_value.insert(P(0), bPo);
-    graph.addPrior(P(0), bPo, wheelexttonoise);
-    graph.addPrior(R(0), bRo, wheelextronoise);
+
+    graph.add(PriorFactor<Vector3>(P(0), bPo, wheelexttonoise));
+    graph.add(PriorFactor<Rot3>(R(0), bRo, wheelextronoise));
 
     std::cout << "###################### init optimizer ######################" << std::endl;
     LevenbergMarquardtOptimizer optimizer(graph, initial_value, parameters);
