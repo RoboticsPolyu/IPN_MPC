@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
 project(calib)
 
+option(BUILD_SHARED_LIBS "Build shared gtsam library, instead of static" ON)
+
+set(wio_factor_version 1.0)
+set(wio_factor_soversion 1.0)
+
 set(DEFAULT_BUILD_TYPE "Release")
 if (NOT CMAKE_BUILD_TYPE)
     message(STATUS "Setting build type to '${DEFAULT_BUILD_TYPE}' as none was specified.")
@@ -13,7 +18,6 @@ endif ()
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -g -Wall")
 
-# message(STATUS "set env var")
 set(ENV{CC} "/usr/local/opt/llvm/bin/clang-8")
 set(ENV{CXX} "/usr/local/opt/llvm/bin/clang++")
 set(ENV{LDFLAGS} "-L/usr/local/opt/llvm/lib")
@@ -23,6 +27,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -Wno-reorder" CACHE STRING "" FORC
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -DNDEBUG -Wno-reorder -O2" CACHE STRING "" FORCE)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "/usr/local/cmake/lib/cmake")
 
 # third party libs
 # eigen
@@ -40,29 +45,39 @@ include_directories(${GLOG_INCLUDE_DIRS})
 # tbb
 find_package(TBB 4.4 COMPONENTS tbb tbbmalloc)
 
-#gtsam
-find_package(gtsam REQUIRED)
+# gtsam
+find_package(GTSAM REQUIRED)
 include_directories(${GTSAM_INCLUDE_DIR})
-message("GTSAM INCLUDE = " ${GTSAM_INCLUDE_DIR})
 
-#include
+# include
 include_directories(include)
 
-set(IMU_SOURCE
+set(WIO_SOURCE
     src/wio_factor.cpp
     src/wio_integration.cpp)
 
-# add_library(imu_factor_lib SHARED ${IMU_SOURCE})
-add_library(imu_factor_lib ${IMU_SOURCE})
+IF(UNIX)
+ELSEIF(APPLE)    
+ENDIF()
 
-add_executable(wheel_ext_cal app/test_wheel_imu_factor.cpp)
-target_link_libraries(wheel_ext_cal gtsam imu_factor_lib)
+message(STATUS "Building GTSAM - shared: ${BUILD_SHARED_LIBS}")
+add_library(wio_factor_lib ${WIO_SOURCE})
+target_include_directories(wio_factor_lib PUBLIC ${GTSAM_INCLUDE_DIR})
+target_link_libraries(wio_factor_lib PUBLIC gtsam gtsam_unstable)
+set_target_properties(wio_factor_lib PROPERTIES
+    OUTPUT_NAME         wio_factor_lib
+    CLEAN_DIRECT_OUTPUT 1
+    VERSION             ${wio_factor_version}
+    SOVERSION           ${wio_factor_soversion})
+
+add_executable(wheel_imu_factor app/test_wheel_imu_factor.cpp)
+target_link_libraries(wheel_imu_factor gtsam wio_factor_lib)
 
 add_executable(wheel_imu_pim app/test_wheel_imu_pim.cpp)
-target_link_libraries(wheel_imu_pim gtsam imu_factor_lib)
+target_link_libraries(wheel_imu_pim gtsam wio_factor_lib)
 
-add_executable(wheel_imu_factor_error app/test_wheel_imu_error.cpp)
-target_link_libraries(wheel_imu_factor_error gtsam imu_factor_lib)
+add_executable(wheel_imu_error app/test_wheel_imu_error.cpp)
+target_link_libraries(wheel_imu_error gtsam wio_factor_lib)
 
 add_executable(wheel_imu_isam app/wheel_imu_isam.cpp)
-target_link_libraries(wheel_imu_isam gtsam gtsam_unstable imu_factor_lib)
+target_link_libraries(wheel_imu_isam gtsam gtsam_unstable wio_factor_lib)
