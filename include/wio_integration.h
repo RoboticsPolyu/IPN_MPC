@@ -1,7 +1,7 @@
 #pragma once
 
 #include <iostream>
-#include "gtsam_wapper.h"
+#include "gtsam_wrapper.h"
 
 using namespace gtsam;
 

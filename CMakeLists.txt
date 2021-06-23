@@ -5,6 +5,8 @@ option(BUILD_SHARED_LIBS "Build shared gtsam library, instead of static" ON)
 
 set(wio_factor_version 1.0)
 set(wio_factor_soversion 1.0)
+set(abb_wrapper_version 1.0)
+set(abb_wrapper_soversion 1.0)
 
 set(DEFAULT_BUILD_TYPE "Release")
 if (NOT CMAKE_BUILD_TYPE)
@@ -29,6 +31,9 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -DNDEBUG -Wno-reorder -O2" CACHE
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "/usr/local/cmake/lib/cmake")
 
+# abb libegm
+find_package(abb_libegm)
+
 # third party libs
 # eigen
 find_package(Eigen REQUIRED)
@@ -38,9 +43,9 @@ include_directories(${EIGEN_INCLUDE_DIR})
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-# glog
-find_package(Glog REQUIRED)
-include_directories(${GLOG_INCLUDE_DIRS})
+# # glog
+# find_package(Glog REQUIRED)
+# include_directories(${GLOG_INCLUDE_DIRS})
 
 # tbb
 find_package(TBB 4.4 COMPONENTS tbb tbbmalloc)
@@ -69,6 +74,18 @@ set_target_properties(wio_factor_lib PROPERTIES
     CLEAN_DIRECT_OUTPUT 1
     VERSION             ${wio_factor_version}
     SOVERSION           ${wio_factor_soversion})
+
+set(ABB_SOURCE
+    src/abb_egm_wrapper)
+
+add_library(abb_wrapper_lib ${ABB_SOURCE})
+target_include_directories(abb_wrapper_lib PUBLIC ${GTSAM_INCLUDE_DIR})
+target_link_libraries(abb_wrapper_lib PUBLIC gtsam gtsam_unstable ${abb_libegm_LIBRARIES})
+set_target_properties(abb_wrapper_lib PROPERTIES
+    OUTPUT_NAME         abb_wrapper_lib
+    CLEAN_DIRECT_OUTPUT 1
+    VERSION             ${abb_wrapper_version}
+    SOVERSION           ${abb_wrapper_soversion})
 
 add_executable(wheel_imu_factor app/test_wheel_imu_factor.cpp)
 target_link_libraries(wheel_imu_factor gtsam wio_factor_lib)
