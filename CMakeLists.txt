@@ -31,13 +31,10 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -DNDEBUG -Wno-reorder -O2" CACHE
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "/usr/local/cmake/lib/cmake")
 
-# abb libegm
-find_package(abb_libegm)
-
 # third party libs
 # eigen
-find_package(Eigen REQUIRED)
-include_directories(${EIGEN_INCLUDE_DIR})
+find_package(Eigen3 REQUIRED)
+include_directories(${EIGEN3_INCLUDE_DIR})
 
 # opencv
 find_package(OpenCV REQUIRED)
@@ -48,7 +45,7 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 # include_directories(${GLOG_INCLUDE_DIRS})
 
 # tbb
-find_package(TBB 4.4 COMPONENTS tbb tbbmalloc)
+find_package(TBB COMPONENTS tbb tbbmalloc)
 
 # gtsam
 find_package(GTSAM REQUIRED)
@@ -56,6 +53,11 @@ include_directories(${GTSAM_INCLUDE_DIR})
 
 # include
 include_directories(include)
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/ode)
+##
+find_package(Armadillo REQUIRED)
+include_directories(${ARMADILLO_INCLUDE_DIRS})
 
 set(WIO_SOURCE
     src/wio_factor.cpp
@@ -75,17 +77,20 @@ set_target_properties(wio_factor_lib PROPERTIES
     VERSION             ${wio_factor_version}
     SOVERSION           ${wio_factor_soversion})
 
-set(ABB_SOURCE
-    src/abb_egm_wrapper)
+add_library(quadrotor_dynamics src/dynamics/Quadrotor_SO3.cpp)
+target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable)
+## Declare a cpp executable
+#add_executable(odom_visualization src/odom_visualization.cpp)
+# add_executable(quadrotor_simulator_so3
+#   src/quadrotor_simulator_so3.cpp)
 
-add_library(abb_wrapper_lib ${ABB_SOURCE})
-target_include_directories(abb_wrapper_lib PUBLIC ${GTSAM_INCLUDE_DIR})
-target_link_libraries(abb_wrapper_lib PUBLIC gtsam gtsam_unstable ${abb_libegm_LIBRARIES})
-set_target_properties(abb_wrapper_lib PROPERTIES
-    OUTPUT_NAME         abb_wrapper_lib
-    CLEAN_DIRECT_OUTPUT 1
-    VERSION             ${abb_wrapper_version}
-    SOVERSION           ${abb_wrapper_soversion})
+# target_link_libraries(quadrotor_simulator_so3 
+#    ${catkin_LIBRARIES}
+#    quadrotor_dynamics
+# )
+
+# add_executable(test_dynamics src/test_dynamics/test_dynamics.cpp)
+# target_link_libraries(test_dynamics gtsam quadrotor_dynamics)
 
 add_executable(wheel_imu_factor app/test_wheel_imu_factor.cpp)
 target_link_libraries(wheel_imu_factor gtsam wio_factor_lib)
