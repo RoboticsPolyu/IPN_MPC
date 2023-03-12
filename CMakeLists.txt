@@ -77,7 +77,10 @@ set_target_properties(wio_factor_lib PROPERTIES
     VERSION             ${wio_factor_version}
     SOVERSION           ${wio_factor_soversion})
 
-add_library(quadrotor_dynamics src/dynamics/Quadrotor_SO3.cpp)
+add_library(quadrotor_dynamics 
+            src/dynamics/Quadrotor_SO3.cpp
+            src/trajectory_generator/Trajectory_generator.cpp)
+            
 target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable)
 ## Declare a cpp executable
 #add_executable(odom_visualization src/odom_visualization.cpp)
