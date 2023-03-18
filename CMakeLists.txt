@@ -33,7 +33,7 @@ list(APPEND CMAKE_MODULE_PATH "/usr/local/cmake/lib/cmake")
 
 # third party libs
 # eigen
-find_package(Eigen3 REQUIRED)
+find_package(Eigen3 REQUIRED NO_MODULE)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
 # opencv
@@ -55,13 +55,19 @@ include_directories(${GTSAM_INCLUDE_DIR})
 include_directories(include)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/ode)
-##
+
+# Armadillo
 find_package(Armadillo REQUIRED)
 include_directories(${ARMADILLO_INCLUDE_DIRS})
 
+# Pangolin
+find_package(Pangolin 0.8 REQUIRED)
+include_directories(${Pangolin_INCLUDE_DIRS})
+
+message("-- Pangolin_INCLUDE_DIRS:" ${Pangolin_INCLUDE_DIR})
 set(WIO_SOURCE
-    src/wio_factor.cpp
-    src/wio_integration.cpp)
+    src/wio/wio_factor.cpp
+    src/wio/wio_integration.cpp)
 
 IF(UNIX)
 ELSEIF(APPLE)    
@@ -81,7 +87,7 @@ add_library(quadrotor_dynamics
             src/dynamics/Quadrotor_SO3.cpp
             src/trajectory_generator/Trajectory_generator.cpp)
             
-target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable)
+target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable ${Pangolin_LIBRARIES} )
 ## Declare a cpp executable
 #add_executable(odom_visualization src/odom_visualization.cpp)
 # add_executable(quadrotor_simulator_so3
@@ -92,8 +98,8 @@ target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable)
 #    quadrotor_dynamics
 # )
 
-# add_executable(test_dynamics src/test_dynamics/test_dynamics.cpp)
-# target_link_libraries(test_dynamics gtsam quadrotor_dynamics)
+add_executable(test_dynamics src/test_dynamics/test_dynamics.cpp)
+target_link_libraries(test_dynamics gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})
 
 add_executable(wheel_imu_factor app/test_wheel_imu_factor.cpp)
 target_link_libraries(wheel_imu_factor gtsam wio_factor_lib)

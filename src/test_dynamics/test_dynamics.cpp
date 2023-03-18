@@ -1,12 +1,24 @@
-#include "quadrotor_simulator/Quadrotor.h"
+#include "color.h"
+#include "quadrotor_simulator/Quadrotor_SO3.h"
+
+#include <ctime>
 #include <Eigen/Geometry>
 #include <iostream>
+#include <iomanip>
+
+using namespace std;
+
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+using namespace Eigen;
+
 
 int main(int argc, char **argv)
 {
     double dt = 0.001;
-    QuadrotorSimulator::Quadrotor quad;
-    QuadrotorSimulator::Quadrotor::State state = quad.getState();
+    QuadrotorSimulator_SO3::Quadrotor quad;
+
+    QuadrotorSimulator_SO3::Quadrotor::State state = quad.getState();
 
     const double m = quad.getMass();
     const double g = quad.getGravity();
@@ -29,8 +41,20 @@ int main(int argc, char **argv)
     double KD = 2.5;
     const double z_des = 0.5;
     clock_gettime(CLOCK_MONOTONIC, &ts_start);
+    
+    std::cout.setf(ios::fixed);
+    std::cout.setf(ios::right);
+    std::cout.precision(3); //设置输出精度，保留有效数字
+    std::cout.width(10);
+
+
     for (int i = 0; i < 6000; i++)
     {
+        if(i % 100)
+        {
+            quad.render();
+        }
+        
         state = quad.getState();
         thrust = m * g + KP * (z_des - state.x(2)) + KD * (0 - state.v(2));
         rpm = std::sqrt(thrust / (4 * kf));
@@ -38,10 +62,12 @@ int main(int argc, char **argv)
             quad.setExternalForce(Eigen::Vector3d(0, 0, -KP * z_des));
         else
             quad.setExternalForce(Eigen::Vector3d(0, 0, 0));
-        quad.setInput(rpm, rpm, rpm, rpm);
+        quad.setInput(rpm, rpm, rpm , rpm);
         quad.step(dt);
-        Eigen::Vector3d euler = state.R.eulerAngles(2, 1, 0);
-        std::cout << i * dt << ", " << state.x(2) << ", " << euler(0) << ", " << euler(1) << ", " << euler(2) << ", " << state.omega(0) << ", " << state.omega(1) << ", " << state.omega(2) << ", " << state.motor_rpm(0) << std::endl;
+
+        Eigen::Vector3d euler = gtsam::Rot3::Logmap(state.rot);
+        
+        std::cout << RED << i * dt << ", " << BLUE << "p_z: [" <<state.x(2) << "], Eular: [" << euler(0) << ", " << euler(1) << ", " << euler(2) << "], " << state.omega(0) << ", " << state.omega(1) << ", " << state.omega(2) << ", " << state.motor_rpm(0) << std::endl;
 
         clock_gettime(CLOCK_MONOTONIC, &ts2);
         time_taken += ((ts2.tv_sec - ts1.tv_sec) * 1000000000UL + (ts2.tv_nsec - ts1.tv_nsec));
@@ -57,5 +83,6 @@ int main(int argc, char **argv)
     clock_gettime(CLOCK_MONOTONIC, &ts_end);
     std::cerr << "Time: " << (ts_end.tv_sec - ts_start.tv_sec) * 1e6 + (ts_end.tv_nsec - ts_start.tv_nsec) / 1e3 << " usec" << std::endl;
 
+    system("pause");
     return 0;
 }

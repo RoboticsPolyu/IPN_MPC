@@ -3,8 +3,117 @@
 #include <boost/bind.hpp>
 #include <iostream>
 
+#define RED   (1.0,0.0,0.0)
+#define GREEN (0.0,1.0,0.0)
+#define BLUE  (0.0,0.0,1.0)
+
 namespace QuadrotorSimulator_SO3
 {
+
+    void Quadrotor::setup()
+    {
+        axis_dist_ = 0.30;
+        propeller_dist_ = 0.10;
+        
+        pangolin::CreateWindowAndBind("Main", 640, 480);
+        //glEnable(GL_DEPTH_TEST);
+        //glEnable(GL_BLEND);
+        //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        // Define Camera Render Object (for view / scene browsing)
+        s_cam = std::make_shared<pangolin::OpenGlRenderState>(
+            pangolin::ProjectionMatrix(640, 480, 420, 420, 320, 240, 0.1, 1000),
+            pangolin::ModelViewLookAt(0, 0.5, 1, 0, 0, 0, 0.0, -1.0, 0.0));
+
+        // Choose a sensible left UI Panel width based on the width of 20
+        // charectors from the default font.
+        const int UI_WIDTH = 20 * pangolin::default_font().MaxWidth();
+
+        d_cam = pangolin::CreateDisplay()
+                    .SetBounds(0.0, 1.0, pangolin::Attach::Pix(UI_WIDTH), 1.0, 640.0f / 480.0f)
+                    .SetHandler(new pangolin::Handler3D(*s_cam));
+        
+    }
+
+    void Quadrotor::pQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot)
+    {               
+        gtsam::Vector3 begin;
+        gtsam::Vector3 end;        
+        begin = p;
+        end = rot.rotate(gtsam::Vector3(axis_dist_ / 2 / 1.414, axis_dist_ / 2 / 1.414, 0)) + p;
+        pLine(gtsam::Vector3(0,0,0), begin, end);
+        end = rot.rotate(gtsam::Vector3(-axis_dist_ / 2 / 1.414, -axis_dist_ / 2 / 1.414, 0)) + p;
+        pLine(gtsam::Vector3(0,0,0), begin, end);
+        end = rot.rotate(gtsam::Vector3(-axis_dist_ / 2 / 1.414, axis_dist_ / 2 / 1.414, 0)) + p;
+        pLine(gtsam::Vector3(0,0,0), begin, end);
+        end = rot.rotate(gtsam::Vector3(axis_dist_ / 2 / 1.414, -axis_dist_ / 2 / 1.414, 0)) + p;
+        pLine(gtsam::Vector3(0,0,0), begin, end);
+        pFrame(p, rot);
+
+        pCircle(gtsam::Vector3(0,0,0), prop_radius_, gtsam::Vector3(axis_dist_ / 2 / 1.414, axis_dist_ / 2 / 1.414, 0),
+        gtsam::Rot3::identity());
+        pCircle(gtsam::Vector3(0,0,0), prop_radius_, gtsam::Vector3(-axis_dist_ / 2 / 1.414, -axis_dist_ / 2 / 1.414, 0),
+        gtsam::Rot3::identity());
+        pCircle(gtsam::Vector3(0,0,0), prop_radius_, gtsam::Vector3(-axis_dist_ / 2 / 1.414, axis_dist_ / 2 / 1.414, 0),
+        gtsam::Rot3::identity());
+        pCircle(gtsam::Vector3(0,0,0), prop_radius_, gtsam::Vector3(axis_dist_ / 2 / 1.414, -axis_dist_ / 2 / 1.414, 0),
+        gtsam::Rot3::identity());
+
+    }
+
+    void Quadrotor::pCircle(gtsam::Vector3 color, float r, gtsam::Vector3 p, gtsam::Rot3 rot)
+    {
+
+    }
+
+    void Quadrotor::pLine(gtsam::Vector3 color, gtsam::Vector3 begin, gtsam::Vector3 end)
+    {
+        glBegin(GL_LINES);
+        glColor3f(color(0), color(1), color(2));
+        glVertex3d(begin(0), begin(1), begin(2));
+        glVertex3d(end(0), end(1), end(2));
+        glEnd();
+    }
+
+    void Quadrotor::pFrame(gtsam::Vector3 p, gtsam::Rot3 rot)
+    {
+        gtsam::Vector3 begin = p;
+        gtsam::Vector3 end;
+        end = rot.rotate(gtsam::Vector3(0.03, 0, 0)) + begin;
+        pLine(gtsam::Vector3(1,0,0), begin, end);
+        end = rot.rotate(gtsam::Vector3(0, 0.03, 0)) + begin;
+        pLine(gtsam::Vector3(0,1,0), begin, end);
+        end = rot.rotate(gtsam::Vector3(0, 0, 0.03)) + begin;
+        pLine(gtsam::Vector3(0,0,1), begin, end);
+    }
+
+    void Quadrotor::render()
+    {
+
+        if (!pangolin::ShouldQuit())
+        {
+
+            // Clear screen and activate view to render into
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            trj_.push_back(state_);
+
+            d_cam.Activate(*s_cam);
+            glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+            glLineWidth(2);
+            pFrame(gtsam::Vector3(0,0,0), gtsam::Rot3::identity());
+            for(int i = 0; i < trj_.size() -1; i++)
+            {
+                pLine(gtsam::Vector3(0.5,0,0.5), trj_[i].x, trj_[i+1].x);
+            }
+            pQuadrotor(state_.x, state_.rot);
+
+            last_state_.x = state_.x;
+
+            // Swap frames and Process Events
+            pangolin::FinishFrame();
+            usleep(10);
+        }
+    }
 
     Quadrotor::Quadrotor(void)
     {
@@ -33,9 +142,13 @@ namespace QuadrotorSimulator_SO3
         state_.omega = Eigen::Vector3d::Zero(); // angular velocity
         state_.motor_rpm = Eigen::Array4d::Zero();
 
+        last_state_ = state_;
+
         external_force_.setZero();
 
         input_ = Eigen::Array4d::Zero();
+
+        setup();
     }
 
     void Quadrotor::step(double dt)
@@ -85,6 +198,7 @@ namespace QuadrotorSimulator_SO3
         predicted_state_.omega = state_.omega + omega_dot * dt;
         predicted_state_.motor_rpm = state_.motor_rpm + motor_rpm_dot * dt;
 
+        state_ = predicted_state_;
         // Don't go below zero, simulate floor
         if (state_.x(2) < 0.0 && state_.v(2) < 0)
         {

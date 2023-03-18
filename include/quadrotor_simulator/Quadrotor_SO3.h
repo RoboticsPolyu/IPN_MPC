@@ -1,13 +1,22 @@
 #ifndef __QUADROTOR_SIMULATOR_QUADROTOR_SO3_H__
 #define __QUADROTOR_SIMULATOR_QUADROTOR_SO3_H__
 
-#include <Eigen/Core>
 #include <boost/array.hpp>
+#include <Eigen/Core>
 #include "gtsam_wrapper.h"
+#include <pangolin/var/var.h>
+#include <pangolin/var/varextra.h>
+#include <pangolin/gl/gl.h>
+#include <pangolin/gl/gldraw.h>
+#include <pangolin/display/display.h>
+#include <pangolin/display/view.h>
+#include <pangolin/display/widgets.h>
+#include <pangolin/display/default_font.h>
+#include <pangolin/handler/handler.h>
+#include <vector>
 
 namespace QuadrotorSimulator_SO3
 {
-
     class Quadrotor
     {
     public:
@@ -20,7 +29,21 @@ namespace QuadrotorSimulator_SO3
             Eigen::Array4d motor_rpm;
             EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
         };
+        
+        /********************************* Display *********************************/
+        void setup();
+        
+        void render();
 
+        void pQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot);
+
+        void pCircle(gtsam::Vector3 color, float r, gtsam::Vector3 p, gtsam::Rot3 rot);
+
+        void pLine(gtsam::Vector3 color, gtsam::Vector3 begin, gtsam::Vector3 end);
+
+        void pFrame(gtsam::Vector3 p, gtsam::Rot3 rot);
+        
+       /********************************** Dynamics **********************************/
         Quadrotor();
 
         const Quadrotor::State &getState(void) const;
@@ -65,6 +88,9 @@ namespace QuadrotorSimulator_SO3
         double getMinRPM(void) const;
         void setMinRPM(double min_rpm);
 
+        // -T0 + T1 - T2 + T3
+        // -T0 + T1 + T2 - T3
+        // -T0 - T1 + T2 + T3
         // Inputs are desired RPM for the motors
         // Rotor numbering is:
         //   *1*    Front
@@ -91,13 +117,20 @@ namespace QuadrotorSimulator_SO3
         double max_rpm_;
         double min_rpm_;
 
-        Quadrotor::State state_;
+        Quadrotor::State state_, last_state_;
+        std::vector<Quadrotor::State> trj_;
 
         Eigen::Vector3d acc_;
 
         Eigen::Array4d input_;
         Eigen::Vector3d external_force_;
         Eigen::Vector3d external_moment_;
+        
+        std::shared_ptr<pangolin::OpenGlRenderState> s_cam;
+        pangolin::View d_cam;
+        float axis_dist_;
+        float propeller_dist_;
+        // const std::string window_name = "HelloPangolinThreads";
     };
 }
 #endif

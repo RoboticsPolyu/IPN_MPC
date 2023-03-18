@@ -1,4 +1,4 @@
-#include "wio_factor.h"
+#include "wio/wio_factor.h"
 
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/inference/Symbol.h>
