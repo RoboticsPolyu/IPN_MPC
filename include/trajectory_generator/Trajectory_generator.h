@@ -5,6 +5,8 @@
 #include "gtsam_wrapper.h"
 #include "quadrotor_simulator/Dynamics_factor.h"
 
+using namespace uav_factor;
+
 namespace Trajectory
 {
     class Trajectory_generator
@@ -62,6 +64,14 @@ namespace Trajectory
             return gtsam::Rot3::Logmap(rot3);
         }
 
+        
+        gtsam::Vector3 mb(float t)
+        {
+            gtsam::Vector3 alpha(0,0,0);
+            gtsam::Vector3 mb(0,0,0);
+            return mb;
+        }
+
         gtsam::Vector3 omega(float t)
         {
             return gtsam::Vector3(0,0,0);
@@ -76,7 +86,28 @@ namespace Trajectory
 
         gtsam::Vector4 input(float t)
         {
+            gtsam::Vector3 mb_ = mb(t);
+            gtsam::Vector3 force;
+            force = thrust(t);
+            std::cout << "force: " << force << std::endl;
 
+            gtsam::Vector4 Tmb(force.norm()* dynmaics_params_.mass, 0, 0, 0);
+            gtsam::Matrix4 K1;
+            K1 << dynmaics_params_.k_f, dynmaics_params_.k_f, dynmaics_params_.k_f, dynmaics_params_.k_f,
+                0, 0, dynmaics_params_.arm_length * dynmaics_params_.k_f, -dynmaics_params_.arm_length * dynmaics_params_.k_f,
+                -dynmaics_params_.arm_length * dynmaics_params_.k_f, dynmaics_params_.arm_length * dynmaics_params_.k_f, 0, 0,
+                dynmaics_params_.k_m, dynmaics_params_.k_m, -dynmaics_params_.k_m, -dynmaics_params_.k_m;
+            gtsam::Vector4 input;
+            std::cout << "K_: " << K1 << std::endl;
+
+            input = K1.inverse() * Tmb;
+            
+            input[0] = sqrt(input[0]);
+            input[1] = sqrt(input[1]);
+            input[2] = sqrt(input[2]);
+            input[3] = sqrt(input[3]);
+
+            return input;
         }
 
 
@@ -85,7 +116,7 @@ namespace Trajectory
         float yaw_;
 
         gtsam::Vector3 g_;
-
+        DynamicsParams dynmaics_params_;
     };
 }
 

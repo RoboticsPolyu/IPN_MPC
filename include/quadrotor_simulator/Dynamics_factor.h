@@ -1,3 +1,6 @@
+#ifndef __DYNAMICS_FACTOR_H__
+#define __DYNAMICS_FACTOR_H__
+
 #include "Quadrotor_SO3.h"
 #include "gtsam_wrapper.h"
 #include <vector>
@@ -243,3 +246,5 @@ namespace uav_factor
         DynamicsParams dynmaics_params_;
     };
 }
+
+#endif // __DYNAMICS_FACTOR_H__

@@ -119,3 +119,6 @@ target_link_libraries(wheel_imu_error gtsam wio_factor_lib)
 
 add_executable(wheel_imu_isam app/wheel_imu_isam.cpp)
 target_link_libraries(wheel_imu_isam gtsam gtsam_unstable wio_factor_lib)
+
+add_executable(simple_line_motion_test app/simple_line_motion_test.cpp)
+target_link_libraries(simple_line_motion_test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})
