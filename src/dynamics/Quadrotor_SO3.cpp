@@ -189,7 +189,7 @@ namespace QuadrotorSimulator_SO3
         Eigen::Vector3d omega_dot =
             J_.inverse() *
             (moments - state_.omega.cross(J_ * state_.omega) + external_moment_);
-        motor_rpm_dot = (input_ - state_.motor_rpm) / motor_time_constant_;
+        motor_rpm_dot = (input_ - state_.motor_rpm) / dt; 
 
         // Predict state
         predicted_state_.x = state_.x + p_dot * dt;

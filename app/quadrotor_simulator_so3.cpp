@@ -6,6 +6,8 @@
 #include <sensor_msgs/Imu.h>
 #include <uav_utils/geometry_utils.h>
 
+// force + attitude as input
+
 typedef struct _Control
 {
   double rpm[4];

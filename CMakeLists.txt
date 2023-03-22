@@ -64,6 +64,12 @@ include_directories(${ARMADILLO_INCLUDE_DIRS})
 find_package(Pangolin 0.8 REQUIRED)
 include_directories(${Pangolin_INCLUDE_DIRS})
 
+# Find OSQP library and headers
+find_package(osqp REQUIRED)
+
+# # Link the OSQP shared library
+# target_link_libraries(yourTarget PRIVATE osqp::osqp)
+
 message("-- Pangolin_INCLUDE_DIRS:" ${Pangolin_INCLUDE_DIR})
 set(WIO_SOURCE
     src/wio/wio_factor.cpp
@@ -85,9 +91,10 @@ set_target_properties(wio_factor_lib PROPERTIES
 
 add_library(quadrotor_dynamics 
             src/dynamics/Quadrotor_SO3.cpp
+            src/dynamics/Dynamics_factor.cpp
             src/trajectory_generator/Trajectory_generator.cpp)
             
-target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable ${Pangolin_LIBRARIES} )
+target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable ${Pangolin_LIBRARIES} PRIVATE osqp::osqp)
 ## Declare a cpp executable
 #add_executable(odom_visualization src/odom_visualization.cpp)
 # add_executable(quadrotor_simulator_so3
