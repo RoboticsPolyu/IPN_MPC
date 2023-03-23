@@ -61,7 +61,7 @@ namespace uav_factor
             _A.block(0, 3, 3, 3) = Matrix3::Identity();
             _A.block(3, 6, 3, 3) = rot.matrix() * gtsam::Vector3(0, 0, trust);
             _A.block(6, 6, 3, 3) = -gtsam::skewSymmetric(omega);
-            _A.block(6, 9, 3, 3) = gtsam::skewSymmetric(theta);
+            _A.block(6, 9, 3, 3) = Matrix3::Identity();
 
             double a = dynmaics_params_.Ixx * (dynmaics_params_.Izz - dynmaics_params_.Iyy);
             double b = dynmaics_params_.Iyy * (dynmaics_params_.Ixx - dynmaics_params_.Izz);
