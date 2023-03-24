@@ -12,12 +12,12 @@ DynamicsFactor::DynamicsFactor(Key p_i, Key vel_i, Key rot_i, Key omega_i, Key i
 {
 };
 
-DynamicsFactor2::DynamicsFactor2(Key x_i, Key input_i, Key x_j, const SharedNoiseModel& model)
-    : Base(model, x_i, input_i, x_j)
+DynamicsFactor2::DynamicsFactor2(Key x_i, Key input_i, Key x_j, float dt, const SharedNoiseModel& model)
+   : Base(model, x_i, input_i, x_j),
+   dt_(dt)
 {
+    
 };
-
-
 
 
 }

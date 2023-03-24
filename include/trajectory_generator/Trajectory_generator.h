@@ -118,6 +118,8 @@ namespace Trajectory
         gtsam::Vector3 g_;
         DynamicsParams dynmaics_params_;
     };
+
+
 }
 
 #endif

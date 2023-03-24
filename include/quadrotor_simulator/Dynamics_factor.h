@@ -53,56 +53,6 @@ namespace uav_factor
         std::vector<UAV_State> state_refs_;
         std::vector<gtsam::Vector4> input_refs_;
         DynamicsParams dynmaics_params_;
-
-        Mat12 _A(gtsam::Rot3 &rot, gtsam::Vector3 &omega, gtsam::Vector &theta, float trust)
-        {
-            Mat12 _A;
-            _A.setZero();
-            _A.block(0, 3, 3, 3) = Matrix3::Identity();
-            _A.block(3, 6, 3, 3) = rot.matrix() * gtsam::Vector3(0, 0, trust);
-            _A.block(6, 6, 3, 3) = -gtsam::skewSymmetric(omega);
-            _A.block(6, 9, 3, 3) = Matrix3::Identity();
-
-            double a = dynmaics_params_.Ixx * (dynmaics_params_.Izz - dynmaics_params_.Iyy);
-            double b = dynmaics_params_.Iyy * (dynmaics_params_.Ixx - dynmaics_params_.Izz);
-            double c = dynmaics_params_.Izz * (dynmaics_params_.Izz - dynmaics_params_.Ixx);
-            Matrix3 d_omega;
-            d_omega << 0, a * omega[2], a * omega[1],
-                b * omega[2], 0, b * omega[1],
-                c * omega[1], c * omega[0], 0;
-
-            _A.block(9, 9, 3, 3) = d_omega;
-
-            return _A;
-        }
-
-        Matrix124 _B(gtsam::Rot3 &rot)
-        {
-            Matrix124 _B;
-            _B.setZero();
-            _B.block(3, 0, 3, 1) = -rot.matrix() * gtsam::Vector3(0, 0, 1.0 / dynmaics_params_.mass);
-            gtsam::Matrix3 J_inv;
-            J_inv << 1.0 / dynmaics_params_.Ixx, 0, 0,
-                0, 1.0 / dynmaics_params_.Iyy, 0,
-                0, 0, 1.0 / dynmaics_params_.Izz;
-
-            _B.block(9, 1, 3, 3) = J_inv;
-            return _B;
-        }
-
-        Matrix4 _K(gtsam::Vector4 &input)
-        {
-            Matrix4 K1, K2;
-            K1 << dynmaics_params_.k_f, dynmaics_params_.k_f, dynmaics_params_.k_f, dynmaics_params_.k_f,
-                0, 0, dynmaics_params_.arm_length * dynmaics_params_.k_f, -dynmaics_params_.arm_length * dynmaics_params_.k_f,
-                -dynmaics_params_.arm_length * dynmaics_params_.k_f, dynmaics_params_.arm_length * dynmaics_params_.k_f, 0, 0,
-                dynmaics_params_.k_m, dynmaics_params_.k_m, -dynmaics_params_.k_m, -dynmaics_params_.k_m;
-            K2 << 2 * input[0], 0, 0, 0,
-                0, 2 * input[1], 0, 0,
-                0, 0, 2 * input[2], 0,
-                0, 0, 0, 2 * input[3];
-            return K1 * K2;
-        }
     };
 
     /* position velocity rotation angular_velocity control_input*/
@@ -150,7 +100,7 @@ namespace uav_factor
         typedef boost::shared_ptr<DynamicsFactor> shared_ptr;
 
         DynamicsFactor2() {}
-        DynamicsFactor2(Key x_i, Key input_i, Key x_j, const SharedNoiseModel &model);
+        DynamicsFactor2(Key x_i, Key input_i, Key x_j, float dt, const SharedNoiseModel &model);
 
         virtual ~DynamicsFactor2()
         {
@@ -162,28 +112,38 @@ namespace uav_factor
         {
             gtsam::Vector12 error;
             Matrix4 K_ = _K(input_i);
-            gtsam::Vector Fmb = K_* input_i;
+            gtsam::Vector Fmb = K_ * input_i;
             gtsam::Vector3 theta = x_i.block(6, 0, 3, 0);
             gtsam::Vector3 omega = x_i.block(9, 0, 3, 0);
             Mat12 A_ = _A(omega, theta, Fmb[0]);
             Matrix124 B_ = _B(theta);
-            error = A_* x_i + B_ * K_* input_i;
 
-            if(H1)
+            error = x_j - (A_ * dt_ + Mat12::Identity()) * x_i - B_ * K_ * dt_ * input_i;
+
+            if (H1)
             {
                 *H1 = A_;
             }
-            if(H2)
+            if (H2)
             {
-                *H2 = B_* K_;
+                *H2 = B_ * K_;
             }
-            if(H3)
+            if (H3)
             {
                 *H3 = Mat12::Identity();
             }
 
             return error;
         };
+
+    private:
+        typedef DynamicsFactor2 This;
+        typedef NoiseModelFactor3<gtsam::Vector12, gtsam::Vector4, gtsam::Vector12>
+            Base;
+
+        DynamicsParams dynmaics_params_;
+
+        float dt_;
 
         Mat12 _A(gtsam::Vector3 &omega, gtsam::Vector3 &theta, float trust) const
         {
@@ -237,13 +197,6 @@ namespace uav_factor
                 0, 0, 0, 2 * input[3];
             return K1 * K2;
         }
-
-    private:
-        typedef DynamicsFactor2 This;
-        typedef NoiseModelFactor3<gtsam::Vector12, gtsam::Vector4, gtsam::Vector12>
-            Base;
-
-        DynamicsParams dynmaics_params_;
     };
 }
 
