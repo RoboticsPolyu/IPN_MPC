@@ -52,7 +52,7 @@ namespace uav_factor
         gtsam::Matrix4 K_;
         std::vector<UAV_State> state_refs_;
         std::vector<gtsam::Vector4> input_refs_;
-        DynamicsParams dynmaics_params_;
+        DynamicsParams dynamics_params_;
     };
 
     /* position velocity rotation angular_velocity control_input*/
@@ -82,6 +82,10 @@ namespace uav_factor
         typedef NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector4,
                                 gtsam::Pose3, gtsam::Vector3, gtsam::Vector3>
             Base;
+
+        DynamicsParams dynamics_params_;
+        
+        float dt_;
     };
 
     /* dynamics factor basic version*/
@@ -107,7 +111,7 @@ namespace uav_factor
         typedef NoiseModelFactor3<gtsam::Vector12, gtsam::Vector4, gtsam::Vector12>
             Base;
 
-        DynamicsParams dynmaics_params_;
+        DynamicsParams dynamics_params_;
 
         float dt_;
 

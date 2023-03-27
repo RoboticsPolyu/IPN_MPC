@@ -91,12 +91,12 @@ namespace Trajectory
             force = thrust(t);
             std::cout << "force: " << force << std::endl;
 
-            gtsam::Vector4 Tmb(force.norm()* dynmaics_params_.mass, 0, 0, 0);
+            gtsam::Vector4 Tmb(force.norm()* dynamics_params_.mass, 0, 0, 0);
             gtsam::Matrix4 K1;
-            K1 << dynmaics_params_.k_f, dynmaics_params_.k_f, dynmaics_params_.k_f, dynmaics_params_.k_f,
-                0, 0, dynmaics_params_.arm_length * dynmaics_params_.k_f, -dynmaics_params_.arm_length * dynmaics_params_.k_f,
-                -dynmaics_params_.arm_length * dynmaics_params_.k_f, dynmaics_params_.arm_length * dynmaics_params_.k_f, 0, 0,
-                dynmaics_params_.k_m, dynmaics_params_.k_m, -dynmaics_params_.k_m, -dynmaics_params_.k_m;
+            K1 << dynamics_params_.k_f, dynamics_params_.k_f, dynamics_params_.k_f, dynamics_params_.k_f,
+                0, 0, dynamics_params_.arm_length * dynamics_params_.k_f, -dynamics_params_.arm_length * dynamics_params_.k_f,
+                -dynamics_params_.arm_length * dynamics_params_.k_f, dynamics_params_.arm_length * dynamics_params_.k_f, 0, 0,
+                dynamics_params_.k_m, dynamics_params_.k_m, -dynamics_params_.k_m, -dynamics_params_.k_m;
             gtsam::Vector4 input;
             std::cout << "K_: " << K1 << std::endl;
 
@@ -116,7 +116,7 @@ namespace Trajectory
         float yaw_;
 
         gtsam::Vector3 g_;
-        DynamicsParams dynmaics_params_;
+        DynamicsParams dynamics_params_;
     };
 
 
