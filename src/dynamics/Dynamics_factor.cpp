@@ -39,8 +39,8 @@ namespace uav_factor
 
       // position rotation velocity error
       gtsam::Vector3 p_err = p_w_j - (p_w_i + vel_i * dt_);
-      gtsam::Vector3 rot_err = Rot3::Logmap(r_w_bj) - Rot3::Logmap(Rot3(r_w_bi.matrix() +
-                                                                        r_w_bi.matrix() * skewSymmetric(omega_i) * dt_));
+      gtsam::Matrix33 J_rerr_rbj;
+      gtsam::Vector3 rot_err = Rot3::Logmap(r_w_bj.between(Rot3(r_w_bi.matrix() + r_w_bi.matrix() * skewSymmetric(omega_i) * dt_)), J_rerr_rbj);
       gtsam::Vector3 vel_err = vel_j - (vel_i + (gtsam::Vector3(0, 0, dynamics_params_.g) -
                                                  r_w_bi.rotate(gtsam::Vector3(0, 0, T_mb[0])) / dynamics_params_.mass) *
                                                     dt_);
@@ -111,7 +111,7 @@ namespace uav_factor
       {
          H5->setZero();
          H5->block(0, 0, 3, 6) = jac_t_posej;
-         H5->block(3, 0, 3, 6) = jac_r_posej;
+         H5->block(3, 0, 3, 6) = J_rerr_rbj* jac_r_posej;
       }
       if (H6)
       {
