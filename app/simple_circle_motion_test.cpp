@@ -23,18 +23,10 @@ using symbol_shorthand::X;
 
 int main(void)
 {
-
-    simple_trajectory_generator stg(gtsam::Vector3(0.1, 0.1, 0.05), 0);
+    double dt = 0.01, radius = 1.0, linear_vel = 1.0;
+    circle_generator circle_generator(radius, linear_vel, dt);
 
     std::vector<Quadrotor::State> reference_of_states;
-
-    /*generate a simple line trajectory*/
-    for (int t = 0; t < 20; t = t + 1)
-    {
-        std::cout << stg.input(t * 0.10) << std::endl;
-    }
-
-    std::cout << "simple_trajectory_generator_test" << std::endl;
 
     gtsam::LevenbergMarquardtParams parameters;
     parameters.absoluteErrorTol = 1e-8;
@@ -51,7 +43,6 @@ int main(void)
 
     uint64_t key = 0;
     int opt_lens_traj = 20;
-    float dt = 0.01;
 
     // for (int idx = 0; idx < reference_of_states.size() - opt_lens_traj; idx++)
     // {
@@ -70,54 +61,62 @@ int main(void)
     //     {
     //     }
     // }
-    /*Dynamics Factor Test*/
+    // Dynamics Factor Test
+
     DynamicsFactor dynamics_factor(X(0), V(0), S(0), U(0), X(1), V(1), S(1), 0.1f, dynamics_noise);
 
-    QuadrotorSimulator_SO3::Quadrotor quad;
-    QuadrotorSimulator_SO3::Quadrotor::State state_0 = quad.getState();
+    Quadrotor quad;
+    Quadrotor::State state_0 = quad.getState();
+    Quadrotor::State state_1;
 
-    const double m = quad.getMass();
-    const double g = quad.getGravity();
-    const double kf = quad.getPropellerThrustCoefficient();
-    
-    const double hover_rpm = std::sqrt(1.2 * m * g / (4 * kf));
-    std::cerr << "hover rpm: " << hover_rpm << std::endl;
-    state_0.motor_rpm = Eigen::Array4d(hover_rpm, hover_rpm, hover_rpm + 500, hover_rpm + 500);
+    double t0 = 1.0;
+    state_0.x = circle_generator.pos(t0);
+    state_0.v = circle_generator.vel(t0);
+    state_0.rot = Rot3::Expmap(circle_generator.theta(t0));
+    state_0.omega = circle_generator.omega(t0);
+    Vector4 input = circle_generator.input(t0);
+    state_0.motor_rpm = Eigen::Array4d(input[0], input[1], input[2], input[3]);
 
     quad.setState(state_0);
-    for (int i = 0; i < 100; i++)
+
+    for (int i = 0; i < 10000; i++)
     {
-        quad.setInput(hover_rpm, hover_rpm, hover_rpm, hover_rpm);
-        std::cout << "Input: \n" << quad.getState().motor_rpm << std::endl;
-        quad.step(0.1f);
-        std::cout << "state_x: \n" << quad.getState().x << " \n,state_r: \n" << Rot3::Logmap(quad.getState().rot) << " \n,state_v:\n "
-                  << quad.getState().v << " \n,state_omega: \n" << quad.getState().omega << std::endl;
-        
+        Vector4 input = circle_generator.input(t0 + 0.01 * i);
+        quad.setInput(input[0], input[1], input[2], input[3]);
+        quad.step(0.01);
+        state_1 = quad.getState();
+        std::cout << "***********************************************************************" << std::endl;
+        std::cout << "state_predicted:  \n"
+                  << quad.getState().x.transpose() << " \n,state_r: \n"
+                  << Rot3::Logmap(quad.getState().rot).transpose() << " \n,state_v:\n "
+                  << quad.getState().v.transpose() << " \n,state_omega: \n"
+                  << quad.getState().omega.transpose() << std::endl;
+
+        std::cout << " state_pos1: [ " << circle_generator.pos(t0 + 0.01 * i)[0] << " ," << circle_generator.pos(t0 + 0.01 * i)[1] << " ," << circle_generator.pos(t0 + 0.01 * i)[2] << " ]" << std::endl;
+        std::cout << " state_vel1: [ " << circle_generator.vel(t0 + 0.01 * i)[0] << " ," << circle_generator.vel(t0 + 0.01 * i)[1] << " ," << circle_generator.vel(t0 + 0.01 * i)[2] << " ]" << std::endl;
+        std::cout << " state_theta1: [ " << circle_generator.theta(t0 + 0.01 * i)[0] << " ," << circle_generator.theta(t0 + 0.01 * i)[1] << " ," << circle_generator.theta(t0 + 0.01 * i)[2] << " ]" << std::endl;
+        std::cout << " state_omega1: [ " << circle_generator.omega(t0 + 0.01 * i)[0] << " ," << circle_generator.omega(t0 + 0.01 * i)[1] << " ," << circle_generator.omega(t0 + 0.01 * i)[2] << " ]" << std::endl;
+        quad.render();
+        std::cout << "***********************************************************************" << std::endl;
     }
 
-    state_0 = quad.getState();
-    Vector4 input(state_0.motor_rpm[0], state_0.motor_rpm[1], state_0.motor_rpm[2], state_0.motor_rpm[3]);
-    
-    quad.step(0.1);
-    QuadrotorSimulator_SO3::Quadrotor::State state_1 = quad.getState();
+    input = circle_generator.input(t0);
 
     Pose3 pose_i(state_0.rot, state_0.x), pose_j(state_1.rot, state_1.x);
     Vector3 vel_i(state_0.v), vel_j(state_1.v), omega_i(state_0.omega), omega_j(state_1.omega);
-    
-    std::cout << "pose_i: " << pose_i << std::endl;
-    std::cout << "pose_j: " << pose_j << std::endl;
+
+    std::cout << "pose_i: \n" << pose_i << std::endl;
+    std::cout << "pose_j: \n" << pose_j << std::endl;
 
     Matrix H_e_posei, H_e_posej;
     Matrix H_e_vi, H_e_oi, H_e_vj, H_e_oj;
     Matrix H_e_ui;
 
     Vector12 err = dynamics_factor.evaluateError(pose_i, vel_i, omega_i, input, pose_j, vel_j, omega_j, H_e_posei, H_e_vi, H_e_oi, H_e_ui, H_e_posej, H_e_vj, H_e_oj);
-    std::cout << "err: " << err << std::endl;
+    std::cout << "err: " << err.transpose() << std::endl;
+
+    int flag;
+    flag = getchar(); //Pause
 
     return 0;
 }
-
-// auto pos_noise = noiseModel::Diagonal::Sigmas(Vector3(0.05, 0.05, 0.05));
-// auto vel_noise = noiseModel::Diagonal::Sigmas(Vector3(0.05, 0.05, 0.05));
-// auto theta_noise = noiseModel::Diagonal::Sigmas(Vector3(0.01, 0.01, 0.01));
-// auto omega_noise = noiseModel::Diagonal::Sigmas(Vector3(0.01, 0.01, 0.01));

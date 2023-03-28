@@ -8,6 +8,7 @@
 #include <pangolin/var/varextra.h>
 #include <pangolin/gl/gl.h>
 #include <pangolin/gl/gldraw.h>
+#include <pangolin/display/default_font.h>
 #include <pangolin/display/display.h>
 #include <pangolin/display/view.h>
 #include <pangolin/display/widgets.h>
@@ -88,9 +89,9 @@ namespace QuadrotorSimulator_SO3
         double getMinRPM(void) const;
         void setMinRPM(double min_rpm);
 
-        // -T0 + T1 - T2 + T3
-        // -T0 + T1 + T2 - T3
-        // -T0 - T1 + T2 + T3
+        // -T1 + T2 - T3 + T4
+        // -T1 + T2 + T3 - T4
+        // -T1 - T2 + T3 + T4
         // Inputs are desired RPM for the motors
         // Rotor numbering is:
         //   *1*    Front

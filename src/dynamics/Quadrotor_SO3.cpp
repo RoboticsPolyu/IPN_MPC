@@ -15,14 +15,14 @@ namespace QuadrotorSimulator_SO3
         axis_dist_ = 0.30;
         propeller_dist_ = 0.10;
         
-        pangolin::CreateWindowAndBind("Main", 640, 480);
+        pangolin::CreateWindowAndBind("Main", 1280, 960);
         //glEnable(GL_DEPTH_TEST);
         //glEnable(GL_BLEND);
         //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         // Define Camera Render Object (for view / scene browsing)
         s_cam = std::make_shared<pangolin::OpenGlRenderState>(
-            pangolin::ProjectionMatrix(640, 480, 420, 420, 320, 240, 0.1, 1000),
+            pangolin::ProjectionMatrix(1280, 960, 840, 840, 640, 480, 0.1, 1000),
             pangolin::ModelViewLookAt(0, 0.5, 1, 0, 0, 0, 0.0, -1.0, 0.0));
 
         // Choose a sensible left UI Panel width based on the width of 20
@@ -109,6 +109,8 @@ namespace QuadrotorSimulator_SO3
 
             last_state_.x = state_.x;
 
+            pangolin::default_font().Text("UAV").Draw(state_.x.x(), state_.x.y(), state_.x.z());
+
             // Swap frames and Process Events
             pangolin::FinishFrame();
             usleep(10);
@@ -155,7 +157,6 @@ namespace QuadrotorSimulator_SO3
     {
         State predicted_state_;
 
-        Eigen::Array4d motor_rpm_dot;
         Eigen::Vector3d vnorm;
         Eigen::Array4d motor_rpm_sq;
 
@@ -166,8 +167,7 @@ namespace QuadrotorSimulator_SO3
         Eigen::Vector3d moments;
         moments(0) = kf_ * (motor_rpm_sq(2) - motor_rpm_sq(3)) * arm_length_;
         moments(1) = kf_ * (motor_rpm_sq(1) - motor_rpm_sq(0)) * arm_length_;
-        moments(2) = km_ * (motor_rpm_sq(0) + motor_rpm_sq(1) - motor_rpm_sq(2) -
-                            motor_rpm_sq(3));
+        moments(2) = km_ * (motor_rpm_sq(0) + motor_rpm_sq(1) - motor_rpm_sq(2) - motor_rpm_sq(3));
 
         double resistance = 0.1 *                                        // C
                             3.14159265 * (arm_length_) * (arm_length_) * // S
@@ -185,20 +185,18 @@ namespace QuadrotorSimulator_SO3
         Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) +
                                 state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ +
                                 external_force_ / mass_; // - resistance * vnorm / mass_;
+        // std::cout << " \n ------ vdot ---——" << v_dot << std::endl;
         Eigen::Vector3d p_dot = state_.v;
         
         // J* omega_dot = moments - J.cross(J* omega)
-        Eigen::Vector3d omega_dot =
-            J_.inverse() *
-            (moments - state_.omega.cross(J_ * state_.omega) + external_moment_);
-        motor_rpm_dot = (input_ - state_.motor_rpm) / dt; 
+        Eigen::Vector3d omega_dot = J_.inverse() * (moments - state_.omega.cross(J_ * state_.omega) + external_moment_);
 
         // Predict state
         predicted_state_.x = state_.x + p_dot * dt;
         predicted_state_.v = state_.v + v_dot * dt;
         predicted_state_.rot = state_.rot * gtsam::Rot3::Expmap(state_.omega * dt);
         predicted_state_.omega = state_.omega + omega_dot * dt;
-        predicted_state_.motor_rpm = state_.motor_rpm + motor_rpm_dot * dt;
+        predicted_state_.motor_rpm = state_.motor_rpm;
 
         state_ = predicted_state_;
         // Don't go below zero, simulate floor
@@ -227,6 +225,7 @@ namespace QuadrotorSimulator_SO3
             else if (input_(i) < min_rpm_)
                 input_(i) = min_rpm_;
         }
+        state_.motor_rpm << u1, u2, u3, u4;
     }
 
     const Quadrotor::State &Quadrotor::getState(void) const

@@ -30,7 +30,7 @@ int main(int argc, char **argv)
     quad.setState(state);
 
     double thrust = m * g;
-    double rpm = std::sqrt(thrust / (4 * kf));
+    double rpm = std::sqrt(1.05* thrust / (4 * kf));
     quad.setInput(rpm, rpm, rpm, rpm);
 
     struct timespec ts_start, ts1, ts2, ts_sleep, ts_end;
@@ -48,7 +48,7 @@ int main(int argc, char **argv)
     std::cout.width(10);
 
 
-    for (int i = 0; i < 6000; i++)
+    for (int i = 0; i < 4000; i++)
     {
         if(i % 100)
         {
@@ -56,18 +56,31 @@ int main(int argc, char **argv)
         }
         
         state = quad.getState();
-        thrust = m * g + KP * (z_des - state.x(2)) + KD * (0 - state.v(2));
-        rpm = std::sqrt(thrust / (4 * kf));
-        if (i < 3000)
-            quad.setExternalForce(Eigen::Vector3d(0, 0, -KP * z_des));
+        // thrust = m * g + KP * (z_des - state.x(2)) + KD * (0 - state.v(2));
+        // rpm = std::sqrt(thrust / (4 * kf));
+        // if (i < 3000)
+        //     quad.setExternalForce(Eigen::Vector3d(0, 0, -KP * z_des));
+        // else
+        //     quad.setExternalForce(Eigen::Vector3d(0, 0, 0));
+        if(i < 3000)
+        {
+            quad.setInput(rpm, rpm, rpm, rpm);
+        }
+        else if(i >= 3000 & i < 3500)
+        {
+            quad.setInput(rpm* sqrt(1+ 0.005), rpm* sqrt(1+ 0.005), rpm* sqrt(1+ 0.01), rpm); //rotx
+            // quad.setInput(rpm, rpm, rpm* sqrt(1+ 0.01), rpm);
+        }
         else
-            quad.setExternalForce(Eigen::Vector3d(0, 0, 0));
-        quad.setInput(rpm, rpm, rpm , rpm);
+        {
+            quad.setInput(rpm, rpm, rpm, rpm);
+        }
+
         quad.step(dt);
 
-        Eigen::Vector3d euler = gtsam::Rot3::Logmap(state.rot);
+        Eigen::Vector3d euler = state.rot.rpy();
         
-        std::cout << RED << i * dt << ", " << BLUE << "p_z: [" <<state.x(2) << "], Eular: [" << euler(0) << ", " << euler(1) << ", " << euler(2) << "], " << state.omega(0) << ", " << state.omega(1) << ", " << state.omega(2) << ", " << state.motor_rpm(0) << std::endl;
+        std::cout << RED << i * dt << " s, " << BLUE << "p: [" <<state.x << "], Eular: [" << euler(0) << ", " << euler(1) << ", " << euler(2) << "], " << state.omega(0) << ", " << state.omega(1) << ", " << state.omega(2) << ", " << state.motor_rpm(0) << std::endl;
 
         clock_gettime(CLOCK_MONOTONIC, &ts2);
         time_taken += ((ts2.tv_sec - ts1.tv_sec) * 1000000000UL + (ts2.tv_nsec - ts1.tv_nsec));
