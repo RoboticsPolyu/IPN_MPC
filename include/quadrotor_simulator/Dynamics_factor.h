@@ -11,6 +11,9 @@ namespace uav_factor
 {
     typedef Eigen::Matrix<double, 12, 12> Mat12;
     typedef Eigen::Matrix<double, 12, 4> Matrix124;
+    typedef Eigen::Matrix<double, 12, 6> Matrix126;
+    typedef Eigen::Matrix<double, 12, 3> Matrix123;
+    
     typedef QuadrotorSimulator_SO3::Quadrotor::State UAV_State;
     struct DynamicsParams
     {
@@ -64,7 +67,7 @@ namespace uav_factor
         typedef boost::shared_ptr<DynamicsFactor> shared_ptr;
 
         DynamicsFactor() {}
-        DynamicsFactor(Key p_i, Key vel_i, Key omega_i, Key input_i, Key p_j, Key vel_j, Key omega_j, const SharedNoiseModel &model);
+        DynamicsFactor(Key p_i, Key vel_i, Key omega_i, Key input_i, Key p_j, Key vel_j, Key omega_j, float dt, const SharedNoiseModel &model);
 
         virtual ~DynamicsFactor()
         {

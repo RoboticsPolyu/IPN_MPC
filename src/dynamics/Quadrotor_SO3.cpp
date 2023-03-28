@@ -184,7 +184,7 @@ namespace QuadrotorSimulator_SO3
 
         Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) +
                                 state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ +
-                                external_force_ / mass_ /*; //*/ - resistance * vnorm / mass_;
+                                external_force_ / mass_; // - resistance * vnorm / mass_;
         Eigen::Vector3d p_dot = state_.v;
         
         // J* omega_dot = moments - J.cross(J* omega)
