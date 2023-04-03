@@ -35,6 +35,8 @@ namespace QuadrotorSimulator_SO3
         void setup();
         
         void render();
+        
+        void render_test(std::vector<State> & trj);
 
         void pQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot);
 
@@ -117,6 +119,7 @@ namespace QuadrotorSimulator_SO3
         double motor_time_constant_; // unit: sec
         double max_rpm_;
         double min_rpm_;
+        Eigen::Vector3d drag_force_p;
 
         Quadrotor::State state_, last_state_;
         std::vector<Quadrotor::State> trj_;

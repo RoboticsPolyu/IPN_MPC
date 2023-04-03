@@ -140,11 +140,11 @@ namespace Trajectory
         {
             double round = 2* M_PI* radius_;
             double angular_speed = speed_ / radius_;
-            // double v_x = (sin(angular_speed* (t + dt_))* radius_ - sin(angular_speed* t)* radius_) / dt_;
-            // double v_y = (cos(angular_speed* (t + dt_))* radius_ - cos(angular_speed* t)* radius_) / dt_;
+            double v_x = (sin(angular_speed* (t + dt_))* radius_ - sin(angular_speed* (t - dt_))* radius_) / (2*dt_);
+            double v_y = (cos(angular_speed* (t + dt_))* radius_ - cos(angular_speed* (t - dt_))* radius_) / (2*dt_);
             
-            // return gtsam::Vector3(v_x, v_y, 0);
-            return gtsam::Vector3(cos(angular_speed* t)* angular_speed* radius_, -sin(angular_speed* t)* angular_speed* radius_, 0);
+            return gtsam::Vector3(v_x, v_y, 0);
+            // return gtsam::Vector3(cos(angular_speed* t)* angular_speed* radius_, -sin(angular_speed* t)* angular_speed* radius_, 0);
         }
 
         gtsam::Vector3 theta(double t)
@@ -170,19 +170,19 @@ namespace Trajectory
 
         gtsam::Vector3 omega(double t)
         {
-            return gtsam::Rot3::Logmap(gtsam::Rot3::Expmap(theta(t)).between(gtsam::Rot3::Expmap(theta(t + dt_)) ) ) / dt_;
+            return gtsam::Rot3::Logmap(gtsam::Rot3::Expmap(theta(t - dt_)).between(gtsam::Rot3::Expmap(theta(t + dt_)) ) ) / (2*dt_);
         }
 
         gtsam::Vector3 thrust(double t)
         {
             gtsam::Vector force;
             // double round = 2* M_PI* radius_;
-            // double angular_speed = 2* radius_* speed_;
+            double angular_speed = 2* radius_* speed_;
             // force = gtsam::Vector3(-sin(angular_speed* t)* angular_speed* angular_speed* radius_,
             //                 -cos(angular_speed* t)* angular_speed* angular_speed* radius_, 
             //                 0)  + g_;
 
-            force = (vel(t+ dt_) - vel(t))/dt_  + g_;
+            force = (vel(t+ dt_) - vel(t - dt_))/(2*dt_)  + g_;
             return force;
         }
 
@@ -192,7 +192,7 @@ namespace Trajectory
             force = thrust(t); 
             // std::cout << "\n ------force----- \n"  << force;
 
-            gtsam::Vector3 d_omega = (omega(t+ dt_) - omega(t) )/ dt_;
+            gtsam::Vector3 d_omega = (omega(t+ dt_) - omega(t - dt_) )/ (2*dt_);
             gtsam::Matrix33 J_inv;
             J_inv << 1.0 / dynamics_params_.Ixx, 0, 0,
             0, 1.0 / dynamics_params_.Iyy, 0,

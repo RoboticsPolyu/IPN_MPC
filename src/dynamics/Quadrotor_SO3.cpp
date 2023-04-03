@@ -89,10 +89,8 @@ namespace QuadrotorSimulator_SO3
 
     void Quadrotor::render()
     {
-
         if (!pangolin::ShouldQuit())
         {
-
             // Clear screen and activate view to render into
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             trj_.push_back(state_);
@@ -109,6 +107,35 @@ namespace QuadrotorSimulator_SO3
 
             last_state_.x = state_.x;
 
+            pangolin::default_font().Text("UAV").Draw(state_.x.x(), state_.x.y(), state_.x.z());
+
+            // Swap frames and Process Events
+            pangolin::FinishFrame();
+            usleep(10);
+        }
+    }
+
+    void Quadrotor::render_test(std::vector<State> & trj)
+    {
+        if (!pangolin::ShouldQuit())
+        {
+            // Clear screen and activate view to render into
+            // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            d_cam.Activate(*s_cam);
+            glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+            glLineWidth(2);
+            pFrame(gtsam::Vector3(0,0,0), gtsam::Rot3::identity());
+            for(int i = 0; i < trj.size() -1; i++)
+            {
+                pLine(gtsam::Vector3(0.5,0,0.5), trj[i].x, trj[i+1].x);
+            }
+
+            if(trj.size() > 0)
+            {
+                pQuadrotor(trj[trj.size() - 1].x, trj[trj.size() - 1].rot);
+            }
+            
             pangolin::default_font().Text("UAV").Draw(state_.x.x(), state_.x.y(), state_.x.z());
 
             // Swap frames and Process Events
@@ -137,6 +164,8 @@ namespace QuadrotorSimulator_SO3
         motor_time_constant_ = 1.0 / 30;
         min_rpm_ = 1200;
         max_rpm_ = 35000;
+
+        drag_force_p = Eigen::Vector3d::Zero();
 
         state_.x = Eigen::Vector3d::Zero();     // position
         state_.v = Eigen::Vector3d::Zero();     // velocity
@@ -173,29 +202,34 @@ namespace QuadrotorSimulator_SO3
                             3.14159265 * (arm_length_) * (arm_length_) * // S
                             state_.v.norm() * state_.v.norm();
 
-        //  ROS_INFO("resistance: %lf, Thrust: %lf%% ", resistance,
-        //           motor_rpm_sq.sum() / (4 * max_rpm_ * max_rpm_) * 100.0);
-
         vnorm = state_.v;
         if (vnorm.norm() != 0)
         {
             vnorm.normalize();
         }
 
-        Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) +
-                                state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ +
-                                external_force_ / mass_; // - resistance * vnorm / mass_;
-        // std::cout << " \n ------ vdot ---——" << v_dot << std::endl;
+        Eigen::Vector3d drag_force = - state_.rot.matrix()* Eigen::Matrix3d(drag_force_p.asDiagonal())* state_.rot.matrix().transpose()* state_.v;
+        Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) + state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ +
+                                external_force_ / mass_ + drag_force;
+        std::cout << "vdot: " << v_dot << std::endl;
         Eigen::Vector3d p_dot = state_.v;
         
         // J* omega_dot = moments - J.cross(J* omega)
         Eigen::Vector3d omega_dot = J_.inverse() * (moments - state_.omega.cross(J_ * state_.omega) + external_moment_);
 
-        // Predict state
-        predicted_state_.x = state_.x + p_dot * dt;
-        predicted_state_.v = state_.v + v_dot * dt;
-        predicted_state_.rot = state_.rot * gtsam::Rot3::Expmap(state_.omega * dt);
-        predicted_state_.omega = state_.omega + omega_dot * dt;
+        // noise
+        // std::default_random_engine generator;
+        // std::normal_distribution<double> x_noise(0.0, 0.05);
+        // std::normal_distribution<double> r_noise(0.0, 0.005);
+        // std::normal_distribution<double> v_noise(0.0, 0.005);
+        // std::normal_distribution<double> o_noise(0.0, 0.005);
+
+        // Predict state 
+        double dt22 = 0.5* dt* dt;
+        predicted_state_.x = state_.x + p_dot * dt + v_dot * dt22;// + dt* gtsam::Vector3(x_noise(generator), x_noise(generator), x_noise(generator));
+        predicted_state_.v = state_.v + v_dot * dt;// + dt* gtsam::Vector3(v_noise(generator), v_noise(generator), v_noise(generator));
+        predicted_state_.rot = state_.rot * gtsam::Rot3::Expmap(state_.omega * dt + omega_dot* dt22);  // + dt* gtsam::Vector3(r_noise(generator), r_noise(generator), r_noise(generator)) );
+        predicted_state_.omega = state_.omega + omega_dot * dt; // + dt* gtsam::Vector3(o_noise(generator), o_noise(generator), o_noise(generator));
         predicted_state_.motor_rpm = state_.motor_rpm;
 
         state_ = predicted_state_;

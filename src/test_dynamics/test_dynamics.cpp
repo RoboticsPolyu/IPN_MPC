@@ -80,7 +80,7 @@ int main(int argc, char **argv)
 
         Eigen::Vector3d euler = state.rot.rpy();
         
-        std::cout << RED << i * dt << " s, " << BLUE << "p: [" <<state.x << "], Eular: [" << euler(0) << ", " << euler(1) << ", " << euler(2) << "], " << state.omega(0) << ", " << state.omega(1) << ", " << state.omega(2) << ", " << state.motor_rpm(0) << std::endl;
+        std::cout << i * dt << " s, " << "p: [" <<state.x << "], Eular: [" << euler(0) << ", " << euler(1) << ", " << euler(2) << "], " << state.omega(0) << ", " << state.omega(1) << ", " << state.omega(2) << ", " << state.motor_rpm(0) << std::endl;
 
         clock_gettime(CLOCK_MONOTONIC, &ts2);
         time_taken += ((ts2.tv_sec - ts1.tv_sec) * 1000000000UL + (ts2.tv_nsec - ts1.tv_nsec));

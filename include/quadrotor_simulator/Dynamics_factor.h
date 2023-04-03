@@ -26,6 +26,8 @@ namespace uav_factor
         float min_rpm = 1200;
         float max_rpm = 35000;
         float arm_length = 0.26;
+        Eigen::Vector3d drag_force_p =Eigen::Vector3d(0.0, 0.0, 0.0); // 
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
     };
 
     class Dynamics
@@ -59,7 +61,7 @@ namespace uav_factor
     };
 
     /* position velocity rotation angular_velocity control_input*/
-
+    
     class GTSAM_EXPORT DynamicsFactor : public NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector4,
                                                                  gtsam::Pose3, gtsam::Vector3, gtsam::Vector3>
     {

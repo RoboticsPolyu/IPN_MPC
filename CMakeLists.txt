@@ -122,3 +122,6 @@ target_link_libraries(wheel_imu_isam gtsam gtsam_unstable wio_factor_lib)
 
 add_executable(simple_circle_motion_test app/simple_circle_motion_test.cpp)
 target_link_libraries(simple_circle_motion_test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})
+
+add_executable(Joint_opt_control_sim app/Joint_opt_control_sim.cpp)
+target_link_libraries(Joint_opt_control_sim gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})
