@@ -24,7 +24,7 @@ using symbol_shorthand::X;
 
 int main(void)
 {
-    double dt = 0.001, radius = 1.0, linear_vel = 1.0;
+    double dt = 0.01, radius = 1.0, linear_vel = 1.0;
     circle_generator circle_generator(radius, linear_vel, dt);
 
     auto dynamics_noise = noiseModel::Diagonal::Sigmas((Vector(12) << Vector3::Constant(0.05), Vector3::Constant(0.05), Vector3::Constant(0.01), Vector3::Constant(0.01)).finished());
@@ -47,7 +47,7 @@ int main(void)
 
     dt = 0.01;
     
-    for (int i = 0; i < 1000; i++)
+    for (int i = 0; i < 10000; i++)
     {
         Vector4 input = circle_generator.input(t0 + 0.01 * i);
         quad.setInput(input[0], input[1], input[2], input[3]);

@@ -105,6 +105,8 @@ namespace QuadrotorSimulator_SO3
         // Runs the actual dynamics simulation with a time step of dt
         void step(double dt);
 
+        void step_noise(double dt);
+        
         Eigen::Vector3d getAcc() const;
 
     private:
@@ -135,6 +137,8 @@ namespace QuadrotorSimulator_SO3
         float axis_dist_;
         float propeller_dist_;
         // const std::string window_name = "HelloPangolinThreads";
+
+        std::default_random_engine generator_;
     };
 }
 #endif

@@ -56,12 +56,12 @@ namespace uav_factor
       J_inv << 1.0 / dynamics_params_.Ixx, 0, 0,
           0, 1.0 / dynamics_params_.Iyy, 0,
           0, 0, 1.0 / dynamics_params_.Izz;
-      gtsam::Vector3 omega_err = omega_j - omega_i - (-J_inv * skewSymmetric(omega_i) * J * omega_i + J_inv * T_mb.tail(3)) * dt_;
+      gtsam::Vector3 omega_err = omega_j - omega_i - J_inv * (T_mb.tail(3) - skewSymmetric(omega_i) * J * omega_i) * dt_;
       // std::cout << "Dynmaics Factor omage_err: \n" << omega_err << std::endl;
 
       if (H1)
       {
-         Matrix33 Jac_perr_p = - Matrix33::Identity();
+         Matrix33 Jac_perr_p = -Matrix33::Identity();
          Matrix33 Jac_rerr_r = J_rbi; // Matrix33::Identity() - skewSymmetric(omega_i) * dt_;
          Matrix33 Jac_verr_r = r_w_bi.matrix() * skewSymmetric(gtsam::Vector3(0, 0, T_mb[0] / dynamics_params_.mass)) * dt_;
 
@@ -86,8 +86,8 @@ namespace uav_factor
       {
          Matrix123 J_e_v;
          J_e_v.setZero();
-         Matrix33 Jac_perr_veli = - Matrix33::Identity() * dt_;
-         Matrix33 Jac_verr_v = - Matrix33::Identity();
+         Matrix33 Jac_perr_veli = -Matrix33::Identity() * dt_;
+         Matrix33 Jac_verr_v = -Matrix33::Identity();
          J_e_v.block(0, 0, 3, 3) = Jac_perr_veli;
          J_e_v.block(6, 0, 3, 3) = Jac_verr_v;
 
@@ -98,18 +98,18 @@ namespace uav_factor
       {
          Matrix123 J_e_omage;
          J_e_omage.setZero();
-         double a = -1.0 /dynamics_params_.Ixx * (dynamics_params_.Izz - dynamics_params_.Iyy);
-         double b = -1.0 /dynamics_params_.Iyy * (dynamics_params_.Ixx - dynamics_params_.Izz);
-         double c = -1.0 /dynamics_params_.Izz * (dynamics_params_.Iyy - dynamics_params_.Ixx);
+         double a = -1.0 / dynamics_params_.Ixx * (dynamics_params_.Izz - dynamics_params_.Iyy);
+         double b = -1.0 / dynamics_params_.Iyy * (dynamics_params_.Ixx - dynamics_params_.Izz);
+         double c = -1.0 / dynamics_params_.Izz * (dynamics_params_.Iyy - dynamics_params_.Ixx);
          Matrix3 d_omega;
-         d_omega << 0,              a * omega_i[2], a * omega_i[1],
-                    b * omega_i[2], 0,              b * omega_i[0],
-                    c * omega_i[1], c * omega_i[0], 0;
+         d_omega << 0, a * omega_i[2], a * omega_i[1],
+             b * omega_i[2], 0, b * omega_i[0],
+             c * omega_i[1], c * omega_i[0], 0;
 
          Matrix33 Jac_r_omega = SO3::ExpmapDerivative(omega_i * dt_) * dt_;
-         Matrix33 Jac_omega_omega = - d_omega;
-         J_e_omage.block(3, 0, 3, 3) =  Jac_r_omega;
-         J_e_omage.block(9, 0, 3, 3) =  Jac_omega_omega;
+         Matrix33 Jac_omega_omega = -d_omega * dt_;
+         J_e_omage.block(3, 0, 3, 3) = Jac_r_omega;
+         J_e_omage.block(9, 0, 3, 3) = Jac_omega_omega;
 
          *H3 = J_e_omage;
          // std::cout << "*H3: \n" << *H3 << std::endl;
@@ -123,7 +123,7 @@ namespace uav_factor
          _B.block(6, 0, 3, 1) = r_w_bi.matrix() * gtsam::Vector3(0, 0, 1.0 / dynamics_params_.mass) * dt_;
          _B.block(9, 1, 3, 3) = J_inv * dt_;
 
-         J_e_input = - _B * K1 * K2;
+         J_e_input = -_B * K1 * K2;
          *H4 = J_e_input;
          // std::cout << "*H4: \n" << *H4 << std::endl;
       }
