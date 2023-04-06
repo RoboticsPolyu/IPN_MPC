@@ -51,7 +51,7 @@ int main(int argc, char **argv)
     for (int i = 0; i < 4000; i++)
     {
         if(i % 100)
-        {
+        {   
             quad.render();
         }
         

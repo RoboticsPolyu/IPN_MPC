@@ -24,7 +24,7 @@ using symbol_shorthand::X;
 
 int main(void)
 {
-    double dt = 0.01, radius = 1.0, linear_vel = 1.0;
+    double dt = 0.0001, radius = 1.0, linear_vel = 1.0;
     circle_generator circle_generator(radius, linear_vel, dt);
 
     std::vector<Quadrotor::State> ref_states;
@@ -49,17 +49,16 @@ int main(void)
     parameters.verbosity = gtsam::NonlinearOptimizerParams::ERROR;
     parameters.verbosityLM = gtsam::LevenbergMarquardtParams::SUMMARY;
 
-    
-    auto input_noise = noiseModel::Diagonal::Sigmas(Vector4(3000, 3000, 3000, 3000));
+    auto input_noise = noiseModel::Diagonal::Sigmas(Vector4(2, 1e-3, 1e-3, 1e-3));
 
-    auto dynamics_noise = noiseModel::Diagonal::Sigmas((Vector(12) << Vector3::Constant(0.01), Vector3::Constant(0.01), Vector3::Constant(0.01), Vector3::Constant(0.01)).finished());
+    auto dynamics_noise = noiseModel::Diagonal::Sigmas((Vector(12) << Vector3::Constant(0.005), Vector3::Constant(0.005), Vector3::Constant(0.005), Vector3::Constant(0.005)).finished());
     auto vicon_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.001), Vector3::Constant(0.001)).finished());
     auto vel_noise = noiseModel::Diagonal::Sigmas(Vector3(0.001, 0.001, 0.001));
     auto omega_noise = noiseModel::Diagonal::Sigmas(Vector3(0.001, 0.001, 0.001));
 
-    auto ref_predict_pose_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.01), Vector3::Constant(0.01)).finished());
-    auto ref_predict_vel_noise = noiseModel::Diagonal::Sigmas(Vector3(.1, .1, .1));
-    auto ref_predict_omega_noise = noiseModel::Diagonal::Sigmas(Vector3(.1, .1, .1));
+    auto ref_predict_pose_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.1), Vector3::Constant(0.01)).finished());
+    auto ref_predict_vel_noise = noiseModel::Diagonal::Sigmas(Vector3(.3, .3, .3));
+    auto ref_predict_omega_noise = noiseModel::Diagonal::Sigmas(Vector3(.3, .3, .3));
 
     int opt_lens_traj = 20;
 
@@ -71,7 +70,7 @@ int main(void)
 
     Quadrotor::State state_predicted;
 
-    for(int traj_idx = 0; traj_idx < 20000; traj_idx++)
+    for(int traj_idx = 0; traj_idx <100000; traj_idx++)
     {
         double t0 = traj_idx* dt;
 
@@ -81,6 +80,7 @@ int main(void)
             state_predicted.rot = gtsam::Rot3::Expmap(circle_generator.theta(t0));
             state_predicted.v = circle_generator.vel(t0);// gtsam::Vector3(0.05, 0, 0.10);
             state_predicted.omega = circle_generator.omega(t0);
+            state_predicted.force_moment = circle_generator.inputfm(t0);
         }
         
         NonlinearFactorGraph graph;
@@ -89,7 +89,7 @@ int main(void)
 
         for (int idx = 0; idx < opt_lens_traj; idx++)
         {
-            DynamicsFactor dynamics_factor(X(idx), V(idx), S(idx), U(idx), X(idx + 1), V(idx + 1), S(idx + 1), dt, dynamics_noise);
+            DynamicsFactorfm dynamics_factor(X(idx), V(idx), S(idx), U(idx), X(idx + 1), V(idx + 1), S(idx + 1), dt, dynamics_noise);
             graph.add(dynamics_factor);
             
             gtsam::Pose3 pose_idx(gtsam::Rot3::Expmap(circle_generator.theta(t0 + (idx + 1) * dt)), circle_generator.pos(t0 + (idx + 1) * dt));
@@ -101,24 +101,25 @@ int main(void)
             initial_value.insert(S(idx + 1), omega_idx);
             gtsam::Vector4 diff_input;
             diff_input.setZero();
-            diff_input << 20, -30, 5, 13;
-            gtsam::Vector4 init_input = circle_generator.input(t0 + idx * dt) + diff_input;
-            initial_value.insert(U(idx), init_input);
+            // diff_input << 0.5, 5e-6, 5e-6, 5e-6;
+            
+            gtsam::Vector4 init_input = circle_generator.inputfm(t0 + idx * dt);
+            init_input = init_input + diff_input;
 
-            graph.add(gtsam::PriorFactor<gtsam::Vector4>(U(idx), init_input, input_noise));
+            // graph.add(gtsam::PriorFactor<gtsam::Vector4>(U(idx), init_input, input_noise));
+            initial_value.insert(U(idx), init_input);
 
             graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
             graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
             graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
 
-            gtsam::Vector4 _input;
             if (idx == 0)
             {
                 std::cout << red;
-                std::cout << "init statex: " << state_predicted.x.transpose() << std::endl;
-                std::cout << "init stater: " << Rot3::Logmap(state_predicted.rot).transpose() << std::endl;
-                std::cout << "init statev: " << state_predicted.v.transpose() << std::endl;
-                std::cout << "init stateomega: " << state_predicted.omega.transpose() << std::endl;
+                std::cout << "Init statex: " << state_predicted.x.transpose() << std::endl;
+                std::cout << "Init stater: " << Rot3::Logmap(state_predicted.rot).transpose() << std::endl;
+                std::cout << "Init statev: " << state_predicted.v.transpose() << std::endl;
+                std::cout << "Init stateomega: " << state_predicted.omega.transpose() << std::endl;
                 std::cout << def;
 
                 graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx), gtsam::Pose3(state_predicted.rot, state_predicted.x), vicon_noise));
@@ -179,17 +180,22 @@ int main(void)
                 std::cout << "OPT INPUT: \n"
                         << input.transpose() << std::endl;
                 std::cout << "REF_INPUT: \n"
-                        << circle_generator.input(t0 + ikey * dt).transpose() << std::endl;
+                        << circle_generator.inputfm(t0 + ikey * dt).transpose() << std::endl;
 
         }
         m_state.x = i_pose.translation();
         m_state.rot = i_pose.rotation();
         m_state.v = vel;
         m_state.omega = omega;
+
+        input = result.at<gtsam::Vector4>(U(0));
+        state_predicted.force_moment = input;
         
         quad_.setState(state_predicted);
-        quad_.setInput(input[0], input[1], input[2], input[3]);
-        quad_.step(dt);
+        // quad_.setInput(input[0], input[1], input[2], input[3]);
+
+        input = result.at<gtsam::Vector4>(U(1));
+        quad_.stepODE(dt, input);
         // quad_.step_noise(dt);
         quad_.render();
         // std::cout << "RUNNING: \n" << std::endl;

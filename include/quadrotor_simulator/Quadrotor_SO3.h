@@ -1,9 +1,13 @@
 #ifndef __QUADROTOR_SIMULATOR_QUADROTOR_SO3_H__
 #define __QUADROTOR_SIMULATOR_QUADROTOR_SO3_H__
 
-#include <boost/array.hpp>
-#include <Eigen/Core>
+#include "color.h"
 #include "gtsam_wrapper.h"
+
+#include <boost/array.hpp>
+#include <boost/numeric/odeint.hpp>
+#include <Eigen/Core>
+#include <iostream>
 #include <pangolin/var/var.h>
 #include <pangolin/var/varextra.h>
 #include <pangolin/gl/gl.h>
@@ -16,11 +20,15 @@
 #include <pangolin/handler/handler.h>
 #include <vector>
 
+using namespace std;
+using namespace boost::numeric::odeint;
+
 namespace QuadrotorSimulator_SO3
 {
     class Quadrotor
     {
     public:
+        typedef boost::array<double, 22> stateType;
         struct State
         {
             Eigen::Vector3d x;
@@ -28,6 +36,8 @@ namespace QuadrotorSimulator_SO3
             gtsam::Rot3 rot;
             Eigen::Vector3d omega;
             Eigen::Array4d motor_rpm;
+            Eigen::Vector4d force_moment;
+            
             EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
         };
         
@@ -101,12 +111,22 @@ namespace QuadrotorSimulator_SO3
         //    2
         // with 1 and 2 clockwise and 3 and 4 counter-clockwise (looking from top)
         void setInput(double u1, double u2, double u3, double u4);
+        
+        void setInput(gtsam::Vector4 force_moment);
 
         // Runs the actual dynamics simulation with a time step of dt
         void step(double dt);
 
         void step_noise(double dt);
         
+        void operator()(const Quadrotor::stateType &x , Quadrotor::stateType &dxdt , const double t);
+
+        void stepODE(double dt, gtsam::Vector4 fm);
+
+        void printCurState();
+
+        void step_fm(double dt, gtsam::Vector4 fm);
+
         Eigen::Vector3d getAcc() const;
 
     private:
@@ -131,7 +151,8 @@ namespace QuadrotorSimulator_SO3
         Eigen::Array4d input_;
         Eigen::Vector3d external_force_;
         Eigen::Vector3d external_moment_;
-        
+        gtsam::Vector4 force_moment_;
+
         std::shared_ptr<pangolin::OpenGlRenderState> s_cam;
         pangolin::View d_cam;
         float axis_dist_;

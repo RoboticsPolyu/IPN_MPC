@@ -124,6 +124,40 @@ namespace uav_factor
         Matrix124 _B(gtsam::Vector3 &theta) const;
         Matrix4 _K(gtsam::Vector4 &input) const;
     };
+
+
+    /* position velocity rotation angular_velocity control_input:Force and Moment*/
+    
+    class GTSAM_EXPORT DynamicsFactorfm : public NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector4,
+                                                                 gtsam::Pose3, gtsam::Vector3, gtsam::Vector3>
+    {
+    public:
+        typedef boost::shared_ptr<DynamicsFactorfm> shared_ptr;
+
+        DynamicsFactorfm() {}
+        DynamicsFactorfm(Key p_i, Key vel_i, Key omega_i, Key input_i, Key p_j, Key vel_j, Key omega_j, float dt, const SharedNoiseModel &model);
+
+        virtual ~DynamicsFactorfm()
+        {
+        }
+
+        Vector evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector3 &omega_i, const gtsam::Vector4 &input_i,
+                             const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j,
+                             boost::optional<Matrix &> H1 = boost::none, boost::optional<Matrix &> H2 = boost::none,
+                             boost::optional<Matrix &> H3 = boost::none, boost::optional<Matrix &> H4 = boost::none,
+                             boost::optional<Matrix &> H5 = boost::none, boost::optional<Matrix &> H6 = boost::none,
+                             boost::optional<Matrix &> H7 = boost::none) const;
+
+    private:
+        typedef DynamicsFactorfm This;
+        typedef NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector4,
+                                gtsam::Pose3, gtsam::Vector3, gtsam::Vector3>
+            Base;
+
+        DynamicsParams dynamics_params_;
+        
+        float dt_;
+    };
 }
 
 #endif // __DYNAMICS_FACTOR_H__
