@@ -3,7 +3,7 @@
 #include <boost/bind.hpp>
 #include <iostream>
 
-namespace QuadrotorSimulator_SO3
+namespace QuadrotorSim_SO3
 {
 
     void Quadrotor::setup()

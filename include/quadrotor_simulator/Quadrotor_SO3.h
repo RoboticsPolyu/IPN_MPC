@@ -23,7 +23,7 @@
 using namespace std;
 using namespace boost::numeric::odeint;
 
-namespace QuadrotorSimulator_SO3
+namespace QuadrotorSim_SO3
 {
     class Quadrotor
     {

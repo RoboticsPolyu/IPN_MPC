@@ -7,14 +7,14 @@
 
 using namespace gtsam_wrapper;
 
-namespace uav_factor
+namespace UAV_Factor
 {
     typedef Eigen::Matrix<double, 12, 12> Mat12;
     typedef Eigen::Matrix<double, 12, 4> Matrix124;
     typedef Eigen::Matrix<double, 12, 6> Matrix126;
     typedef Eigen::Matrix<double, 12, 3> Matrix123;
     
-    typedef QuadrotorSimulator_SO3::Quadrotor::State UAV_State;
+    typedef QuadrotorSim_SO3::Quadrotor::State UAV_State;
     struct DynamicsParams
     {
         float g = 9.81;

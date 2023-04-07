@@ -12,10 +12,10 @@
 #include <gtsam/slam/PriorFactor.h>
 
 using namespace gtsam;
-using namespace QuadrotorSimulator_SO3;
+using namespace QuadrotorSim_SO3;
 using namespace std;
 using namespace Trajectory;
-using namespace uav_factor;
+using namespace UAV_Factor;
 
 using symbol_shorthand::S;
 using symbol_shorthand::U;

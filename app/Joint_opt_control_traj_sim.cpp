@@ -3,19 +3,11 @@
 #include "quadrotor_simulator/Dynamics_factor.h"
 #include "quadrotor_simulator/Quadrotor_SO3.h"
 
-#include <gtsam/nonlinear/Values.h>
-#include <gtsam/inference/Symbol.h>
-#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
-#include <gtsam/nonlinear/LevenbergMarquardtParams.h>
-#include <gtsam/nonlinear/Marginals.h>
-#include <gtsam/slam/BetweenFactor.h>
-#include <gtsam/slam/PriorFactor.h>
-
 using namespace gtsam;
-using namespace QuadrotorSimulator_SO3;
+using namespace QuadrotorSim_SO3;
 using namespace std;
 using namespace Trajectory;
-using namespace uav_factor;
+using namespace UAV_Factor;
 
 using symbol_shorthand::S;
 using symbol_shorthand::U;
@@ -24,23 +16,9 @@ using symbol_shorthand::X;
 
 int main(void)
 {
+    // Motion generation delta time
     double dt = 0.0001, radius = 1.0, linear_vel = 1.0;
     circle_generator circle_generator(radius, linear_vel, dt);
-
-    std::vector<Quadrotor::State> ref_states;
-    Quadrotor::State m_state;
-    for (int idx = 0; idx < 2000; idx++)
-    {
-        double t = 0 + dt * idx;
-
-        m_state.x = circle_generator.pos(t);
-        m_state.v = circle_generator.vel(t);
-        m_state.rot = gtsam::Rot3::Expmap(circle_generator.theta(t));
-        m_state.omega = circle_generator.omega(t);
-        gtsam::Vector4 input = circle_generator.input(t);
-        m_state.motor_rpm << input[0], input[1], input[2], input[3];
-        ref_states.push_back(m_state);
-    }
 
     gtsam::LevenbergMarquardtParams parameters;
     parameters.absoluteErrorTol = 1e-8;
@@ -52,6 +30,8 @@ int main(void)
     auto input_noise = noiseModel::Diagonal::Sigmas(Vector4(2, 1e-3, 1e-3, 1e-3));
 
     auto dynamics_noise = noiseModel::Diagonal::Sigmas((Vector(12) << Vector3::Constant(0.005), Vector3::Constant(0.005), Vector3::Constant(0.005), Vector3::Constant(0.005)).finished());
+    
+    // Initial state noise
     auto vicon_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.001), Vector3::Constant(0.001)).finished());
     auto vel_noise = noiseModel::Diagonal::Sigmas(Vector3(0.001, 0.001, 0.001));
     auto omega_noise = noiseModel::Diagonal::Sigmas(Vector3(0.001, 0.001, 0.001));
@@ -62,7 +42,7 @@ int main(void)
 
     int opt_lens_traj = 20;
 
-    dt = 0.01;
+    dt = 0.01; // Model predictive control duration
     Quadrotor quad_;
     Color::Modifier red(Color::FG_RED);
     Color::Modifier def(Color::FG_DEFAULT);
@@ -146,7 +126,7 @@ int main(void)
         gtsam::Vector3 omega;
         gtsam::Vector4 input;
 
-        for (uint32_t ikey = 0; ikey < 19; ikey++)
+        for (uint32_t ikey = 0; ikey < opt_lens_traj; ikey++)
         {
                 std::cout << "--------------------------------- " << red << ikey << def << " ----------------------------------" << std::endl;
                 i_pose = result.at<Pose3>(X(ikey));
@@ -175,37 +155,27 @@ int main(void)
                 std::cout << "REF OMEGA: \n"
                         << ref_omega.transpose() << std::endl;
 
-
-                input = result.at<gtsam::Vector4>(U(ikey));
-                std::cout << "OPT INPUT: \n"
-                        << input.transpose() << std::endl;
-                std::cout << "REF_INPUT: \n"
-                        << circle_generator.inputfm(t0 + ikey * dt).transpose() << std::endl;
+                if(ikey != opt_lens_traj - 1)
+                {
+                        input = result.at<gtsam::Vector4>(U(ikey));
+                        std::cout << "OPT INPUT: \n"
+                                << input.transpose() << std::endl;
+                        std::cout << "REF_INPUT: \n"
+                                << circle_generator.inputfm(t0 + ikey * dt).transpose() << std::endl;
+                }
 
         }
-        m_state.x = i_pose.translation();
-        m_state.rot = i_pose.rotation();
-        m_state.v = vel;
-        m_state.omega = omega;
 
         input = result.at<gtsam::Vector4>(U(0));
         state_predicted.force_moment = input;
         
         quad_.setState(state_predicted);
-        // quad_.setInput(input[0], input[1], input[2], input[3]);
 
         input = result.at<gtsam::Vector4>(U(1));
         quad_.stepODE(dt, input);
         // quad_.step_noise(dt);
         quad_.render();
-        // std::cout << "RUNNING: \n" << std::endl;
-        
         state_predicted = quad_.getState();
-        std::cout << "new statex: " << state_predicted.x.transpose() << std::endl;
-        std::cout << "new stater: " << Rot3::Logmap(state_predicted.rot).transpose() << std::endl;
-        std::cout << "new statev: " << state_predicted.v.transpose() << std::endl;
-        std::cout << "new stateomega: " << state_predicted.omega.transpose() << std::endl;
-        std::cout << def;
 
     }
 
