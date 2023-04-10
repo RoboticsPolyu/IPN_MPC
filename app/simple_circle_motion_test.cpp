@@ -41,19 +41,16 @@ int main(void)
     state_0.rot = Rot3::Expmap(circle_generator.theta(t0));
     state_0.omega = circle_generator.omega(t0);
     state_0.force_moment = circle_generator.inputfm(t0);
-    // state_0.motor_rpm = Eigen::Array4d(input[0], input[1], input[2], input[3]);
-    Vector4 input;
+
     quad.setState(state_0);
 
     dt = 0.01;
     
     for (int i = 0; i < 10000; i++)
     {
-        input = circle_generator.inputfm(t0 + dt * (i + 1));
-        // quad.setInput(input[0], input[1], input[2], input[3]);
-        // quad.setInput(input);
-        quad.stepODE(dt, input);
-        // quad.step(dt);
+        gtsam::Vector4 init_input = circle_generator.inputfm(t0 + dt * (i + 1));
+
+        quad.stepODE(dt, init_input);
 
         if(i  == 9)
         {
@@ -71,11 +68,12 @@ int main(void)
         std::cout << " state_vel1: [ " << circle_generator.vel(t0 + dt * i)[0] << " ," << circle_generator.vel(t0 + dt * i)[1] << " ," << circle_generator.vel(t0 + dt * i)[2] << " ]" << std::endl;
         std::cout << " state_theta1: [ " << circle_generator.theta(t0 + dt * i)[0] << " ," << circle_generator.theta(t0 + dt * i)[1] << " ," << circle_generator.theta(t0 + dt * i)[2] << " ]" << std::endl;
         std::cout << " state_omega1: [ " << circle_generator.omega(t0 + dt * i)[0] << " ," << circle_generator.omega(t0 + dt * i)[1] << " ," << circle_generator.omega(t0 + dt * i)[2] << " ]" << std::endl;
-        quad.render();
+        
+        quad.render_history_trj();
         std::cout << "***********************************************************************" << std::endl;
     }
 
-    input = circle_generator.inputfm(t0);
+    gtsam::Vector4 input = circle_generator.inputfm(t0);
 
     Pose3 pose_i(state_0.rot, state_0.x), pose_j(state_1.rot, state_1.x);
     Vector3 vel_i(state_0.v), vel_j(state_1.v), omega_i(state_0.omega), omega_j(state_1.omega);
@@ -92,7 +90,7 @@ int main(void)
 
     while(true)
     {
-        quad.render();
+        quad.render_history_trj();
     }
 
     return 0;

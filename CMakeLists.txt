@@ -91,6 +91,7 @@ set_target_properties(wio_factor_lib PROPERTIES
     SOVERSION           ${wio_factor_soversion})
 
 add_library(quadrotor_dynamics 
+            src/control/SE3_controller.cpp
             src/dynamics/Quadrotor_SO3.cpp
             src/dynamics/Dynamics_factor.cpp
             src/trajectory_generator/Trajectory_generator.cpp)
@@ -129,3 +130,6 @@ target_link_libraries(Joint_opt_control_sim gtsam quadrotor_dynamics ${Pangolin_
 
 add_executable(Joint_opt_control_traj_sim app/Joint_opt_control_traj_sim.cpp)
 target_link_libraries(Joint_opt_control_traj_sim gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})
+
+add_executable(Joint_opt_control_traj_isam app/Joint_opt_control_traj_isam.cpp)
+target_link_libraries(Joint_opt_control_traj_isam gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})

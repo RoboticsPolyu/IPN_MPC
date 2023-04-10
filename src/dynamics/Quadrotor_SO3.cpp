@@ -12,9 +12,6 @@ namespace QuadrotorSim_SO3
         propeller_dist_ = 0.10;
 
         pangolin::CreateWindowAndBind("Main", 1280, 960);
-        // glEnable(GL_DEPTH_TEST);
-        // glEnable(GL_BLEND);
-        // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         // Define Camera Render Object (for view / scene browsing)
         s_cam = std::make_shared<pangolin::OpenGlRenderState>(
@@ -28,6 +25,17 @@ namespace QuadrotorSim_SO3
         d_cam = pangolin::CreateDisplay()
                     .SetBounds(0.0, 1.0, pangolin::Attach::Pix(UI_WIDTH), 1.0, 640.0f / 480.0f)
                     .SetHandler(new pangolin::Handler3D(*s_cam));
+        
+        pangolin::CreatePanel("ui")
+            .SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(UI_WIDTH));
+        
+        dis_force_ = std::make_shared<pangolin::Var<std::string> >("ui.Force", "Force");
+        dis_M1_ = std::make_shared<pangolin::Var<std::string> >("ui.M1", "M1");
+        dis_M2_ = std::make_shared<pangolin::Var<std::string> >("ui.M2", "M2");
+        dis_M3_ = std::make_shared<pangolin::Var<std::string> >("ui.M3", "M3");
+        dis_UAVx_ = std::make_shared<pangolin::Var<std::string> >("ui.UAVx", "UAVx");
+        dis_UAVy_ = std::make_shared<pangolin::Var<std::string> >("ui.UAVy", "UAVy");
+        dis_UAVz_ = std::make_shared<pangolin::Var<std::string> >("ui.UAVz", "UAVz");
     }
 
     void Quadrotor::pQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot)
@@ -44,6 +52,39 @@ namespace QuadrotorSim_SO3
         end = rot.rotate(gtsam::Vector3(axis_dist_ / 2 / 1.414, -axis_dist_ / 2 / 1.414, 0)) + p;
         pLine(gtsam::Vector3(0, 0, 0), begin, end);
         pFrame(p, rot);
+
+        glColor3f(0, 0, 0);
+        glPointSize(1.0);
+        glBegin(GL_POINTS);
+        for(int i = 0; i < 360; i ++)
+        {
+            float x = sin((float)i/180* M_PI)* axis_dist_/10 + axis_dist_ / 2 / 1.414;
+            float y = cos((float)i/180* M_PI)* axis_dist_/10 + axis_dist_ / 2 / 1.414;
+            gtsam::Vector3 point = rot.rotate(gtsam::Vector3(x, y, 0)) + begin;
+            glVertex3f(point[0], point[1], point[2]);
+        }
+        for(int i = 0; i < 360; i ++)
+        {
+            float x = sin((float)i/180* M_PI)* axis_dist_/10 + -axis_dist_ / 2 / 1.414;
+            float y = cos((float)i/180* M_PI)* axis_dist_/10 + -axis_dist_ / 2 / 1.414;
+            gtsam::Vector3 point = rot.rotate(gtsam::Vector3(x, y, 0)) + begin;
+            glVertex3f(point[0], point[1], point[2]);
+        }
+        for(int i = 0; i < 360; i ++)
+        {
+            float x = sin((float)i/180* M_PI)* axis_dist_/10 + -axis_dist_ / 2 / 1.414;
+            float y = cos((float)i/180* M_PI)* axis_dist_/10 + axis_dist_ / 2 / 1.414;
+            gtsam::Vector3 point = rot.rotate(gtsam::Vector3(x, y, 0)) + begin;
+            glVertex3f(point[0], point[1], point[2]);
+        }
+        for(int i = 0; i < 360; i ++)
+        {
+            float x = sin((float)i/180* M_PI)* axis_dist_/10 + axis_dist_ / 2 / 1.414;
+            float y = cos((float)i/180* M_PI)* axis_dist_/10 + -axis_dist_ / 2 / 1.414;
+            gtsam::Vector3 point = rot.rotate(gtsam::Vector3(x, y, 0)) + begin;
+            glVertex3f(point[0], point[1], point[2]);
+        }
+        glEnd();
 
         pCircle(gtsam::Vector3(0, 0, 0), prop_radius_, gtsam::Vector3(axis_dist_ / 2 / 1.414, axis_dist_ / 2 / 1.414, 0),
                 gtsam::Rot3::identity());
@@ -80,11 +121,11 @@ namespace QuadrotorSim_SO3
         pLine(gtsam::Vector3(0, 0, 1), begin, end);
     }
 
-    void Quadrotor::render()
+    void Quadrotor::render_history_trj()
     {
         if (!pangolin::ShouldQuit())
         {
-            // Clear screen and activate view to render into
+            // Clear screen and activate view to render_history_trj into
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             trj_.push_back(state_);
 
@@ -100,41 +141,77 @@ namespace QuadrotorSim_SO3
 
             last_state_.x = state_.x;
 
-            pangolin::default_font().Text("UAV").Draw(state_.x.x(), state_.x.y(), state_.x.z());
-
+            std::string temp_str = std::to_string(state_.force_moment[0]);
+            *dis_force_ = temp_str;
+            std::stringstream ss;
+            ss << std::setprecision(15) << state_.force_moment[1];
+            *dis_M1_ = ss.str();
+            ss << std::setprecision(15) << state_.force_moment[2];
+            *dis_M2_ = ss.str();
+            ss << std::setprecision(15) << state_.force_moment[3];
+            *dis_M3_ = ss.str();
+            temp_str = std::to_string(state_.x[0]);
+            *dis_UAVx_ = temp_str;
+            temp_str = std::to_string(state_.x[1]);
+            *dis_UAVy_ = temp_str;
+            temp_str = std::to_string(state_.x[2]);
+            *dis_UAVz_ = temp_str;
+            
             // Swap frames and Process Events
             pangolin::FinishFrame();
             usleep(10);
         }
     }
 
-    void Quadrotor::render_test(std::vector<State> &trj)
+    void Quadrotor::render_history_opt(std::vector<State> &trj)
     {
         if (!pangolin::ShouldQuit())
         {
-            // Clear screen and activate view to render into
-            // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            // Clear screen and activate view to render_history_trj into
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            trj_.push_back(state_);
 
             d_cam.Activate(*s_cam);
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-            glLineWidth(2);
+            glLineWidth(1);
             pFrame(gtsam::Vector3(0, 0, 0), gtsam::Rot3::identity());
+            for (int i = 0; i < trj_.size() - 1; i++)
+            {
+                pLine(gtsam::Vector3(0.5, 0, 0.5), trj_[i].x, trj_[i + 1].x);
+            }
+            
+            glLineWidth(2);
             for (int i = 0; i < trj.size() - 1; i++)
             {
-                pLine(gtsam::Vector3(0.5, 0, 0.5), trj[i].x, trj[i + 1].x);
+                pLine(gtsam::Vector3(1.0, 0, 0), trj[i].x, trj[i + 1].x);
             }
 
-            if (trj.size() > 0)
-            {
-                pQuadrotor(trj[trj.size() - 1].x, trj[trj.size() - 1].rot);
-            }
+            pQuadrotor(state_.x, state_.rot);
+            
+            last_state_.x = state_.x;
 
-            pangolin::default_font().Text("UAV").Draw(state_.x.x(), state_.x.y(), state_.x.z());
+            std::string temp_str = std::to_string(state_.force_moment[0]);
+            *dis_force_ = temp_str;
+            std::stringstream ss;
+            ss << std::setprecision(15) << state_.force_moment[1];
+            *dis_M1_ = ss.str();
+            ss << std::setprecision(15) << state_.force_moment[2];
+            *dis_M2_ = ss.str();
+            ss << std::setprecision(15) << state_.force_moment[3];
+            *dis_M3_ = ss.str();
+            temp_str = std::to_string(state_.x[0]);
+            *dis_UAVx_ = temp_str;
+            temp_str = std::to_string(state_.x[1]);
+            *dis_UAVy_ = temp_str;
+            temp_str = std::to_string(state_.x[2]);
+            *dis_UAVz_ = temp_str;
 
             // Swap frames and Process Events
             pangolin::FinishFrame();
             usleep(10);
         }
+
+        // pangolin::default_font().Text("UAV").Draw(state_.x.x(), state_.x.y(), state_.x.z());
     }
 
     Quadrotor::Quadrotor(void)
@@ -361,13 +438,11 @@ namespace QuadrotorSim_SO3
         // noise
         std::normal_distribution<double> x_noise(0.0, 0.05);
         std::normal_distribution<double> r_noise(0.0, 0.005);
-        std::normal_distribution<double> v_noise(0.0, 0.005);
+        std::normal_distribution<double> v_noise(0.0, 0.05);
         std::normal_distribution<double> o_noise(0.0, 0.005);
 
-        gtsam::Vector3 pos_noise = dt* gtsam::Vector3(x_noise(generator_), x_noise(generator_), x_noise(generator_));
-        std::cout << "pos_noise: " << pos_noise.transpose() << std::endl;
-        gtsam::Vector3 vel_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(v_noise(generator_), v_noise(generator_), v_noise(generator_));
-        std::cout << "vel_noise: " << vel_noise.transpose() << std::endl;
+        gtsam::Vector3 pos_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(x_noise(generator_), x_noise(generator_), x_noise(generator_));
+        gtsam::Vector3 vel_noise = dt* gtsam::Vector3(v_noise(generator_), v_noise(generator_), v_noise(generator_));
         gtsam::Vector3 rot_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(r_noise(generator_), r_noise(generator_), r_noise(generator_));
         gtsam::Vector3 ome_noise = dt * gtsam::Vector3(o_noise(generator_), o_noise(generator_), o_noise(generator_));
 

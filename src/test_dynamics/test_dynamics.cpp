@@ -52,7 +52,7 @@ int main(int argc, char **argv)
     {
         if(i % 100)
         {   
-            quad.render();
+            quad.render_history_trj();
         }
         
         state = quad.getState();

@@ -402,4 +402,24 @@ namespace UAV_Factor
       return K1 * K2;
    }
 
+   BetForceMoment::BetForceMoment(Key input_i, Key input_j, const SharedNoiseModel &model)
+       : Base(model, input_i, input_j){};
+
+   Vector BetForceMoment::evaluateError(const gtsam::Vector4 &input_i, const gtsam::Vector4 &input_j,
+                        boost::optional<Matrix &> H1, boost::optional<Matrix &> H2
+                        ) const
+   {
+      gtsam::Vector4 err;
+      err = input_j - input_i;
+      if(H1)
+      {
+         *H1 = - gtsam::Matrix4::Identity();
+      }
+      if(H2)
+      {
+         *H2 = gtsam::Matrix4::Identity();
+      }
+
+      return err;
+   }
 }

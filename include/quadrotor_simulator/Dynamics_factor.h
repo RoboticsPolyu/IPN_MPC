@@ -158,6 +158,30 @@ namespace UAV_Factor
         
         float dt_;
     };
+
+
+    class GTSAM_EXPORT BetForceMoment : public NoiseModelFactor2<gtsam::Vector4, gtsam::Vector4>
+    {
+    public:
+        typedef boost::shared_ptr<BetForceMoment> shared_ptr;
+
+        BetForceMoment() {}
+        BetForceMoment(Key input_i, Key input_j, const SharedNoiseModel &model);
+
+        virtual ~BetForceMoment()
+        {
+        }
+
+        Vector evaluateError(const gtsam::Vector4 &input_i, const gtsam::Vector4 &input_j,
+                             boost::optional<Matrix &> H1 = boost::none, boost::optional<Matrix &> H2 = boost::none
+                             ) const;
+
+    private:
+        typedef BetForceMoment This;
+        typedef NoiseModelFactor2<gtsam::Vector4, gtsam::Vector4>
+            Base;
+    };
+
 }
 
 #endif // __DYNAMICS_FACTOR_H__

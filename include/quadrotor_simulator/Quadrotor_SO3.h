@@ -44,9 +44,9 @@ namespace QuadrotorSim_SO3
         /********************************* Display *********************************/
         void setup();
         
-        void render();
+        void render_history_trj();
         
-        void render_test(std::vector<State> & trj);
+        void render_history_opt(std::vector<State> & trj);
 
         void pQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot);
 
@@ -155,6 +155,13 @@ namespace QuadrotorSim_SO3
 
         std::shared_ptr<pangolin::OpenGlRenderState> s_cam;
         pangolin::View d_cam;
+        std::shared_ptr<pangolin::Var<std::string> > dis_force_;
+        std::shared_ptr<pangolin::Var<std::string> > dis_M1_;
+        std::shared_ptr<pangolin::Var<std::string> > dis_M2_;
+        std::shared_ptr<pangolin::Var<std::string> > dis_M3_;
+        std::shared_ptr<pangolin::Var<std::string> > dis_UAVx_;
+        std::shared_ptr<pangolin::Var<std::string> > dis_UAVy_;
+        std::shared_ptr<pangolin::Var<std::string> > dis_UAVz_;
         float axis_dist_;
         float propeller_dist_;
         // const std::string window_name = "HelloPangolinThreads";

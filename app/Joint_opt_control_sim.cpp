@@ -165,7 +165,7 @@ int main(void)
         state_.x = i_pose.translation();
         state_.rot = i_pose.rotation();
         quad_.setState(state_);
-        quad_.render();
+        quad_.render_history_trj();
 
         state_.x = ref_pose.translation();
         state_.rot = ref_pose.rotation();
@@ -203,11 +203,11 @@ int main(void)
         std::cout << def;
     }
 
-    quad_.render_test(opt_trj);
+    quad_.render_history_opt(opt_trj);
 
     while (true)
     {
-        quad_.render();
+        quad_.render_history_trj();
     }
 
     return 0;

@@ -27,7 +27,7 @@ int main(void)
     parameters.verbosity = gtsam::NonlinearOptimizerParams::ERROR;
     parameters.verbosityLM = gtsam::LevenbergMarquardtParams::SUMMARY;
 
-    auto input_noise = noiseModel::Diagonal::Sigmas(Vector4(2, 1e-3, 1e-3, 1e-3));
+    auto input_noise = noiseModel::Diagonal::Sigmas(Vector4(2, 1, 1, 1));
 
     auto dynamics_noise = noiseModel::Diagonal::Sigmas((Vector(12) << Vector3::Constant(0.005), Vector3::Constant(0.005), Vector3::Constant(0.005), Vector3::Constant(0.005)).finished());
     
@@ -36,7 +36,7 @@ int main(void)
     auto vel_noise = noiseModel::Diagonal::Sigmas(Vector3(0.001, 0.001, 0.001));
     auto omega_noise = noiseModel::Diagonal::Sigmas(Vector3(0.001, 0.001, 0.001));
 
-    auto ref_predict_pose_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.1), Vector3::Constant(0.01)).finished());
+    auto ref_predict_pose_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.1), Vector3::Constant(0.03)).finished());
     auto ref_predict_vel_noise = noiseModel::Diagonal::Sigmas(Vector3(.3, .3, .3));
     auto ref_predict_omega_noise = noiseModel::Diagonal::Sigmas(Vector3(.3, .3, .3));
 
@@ -85,8 +85,11 @@ int main(void)
             
             gtsam::Vector4 init_input = circle_generator.inputfm(t0 + idx * dt);
             init_input = init_input + diff_input;
-
-            // graph.add(gtsam::PriorFactor<gtsam::Vector4>(U(idx), init_input, input_noise));
+            if(idx != 0)
+            {
+                BetForceMoment bet_FM_factor(U(idx - 1), U(idx), input_noise);
+                graph.add(bet_FM_factor);
+            }
             initial_value.insert(U(idx), init_input);
 
             graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
@@ -163,6 +166,9 @@ int main(void)
                         std::cout << "REF_INPUT: \n"
                                 << circle_generator.inputfm(t0 + ikey * dt).transpose() << std::endl;
                 }
+                Quadrotor::State m_state;
+                m_state.x = i_pose.translation();
+                opt_trj.push_back(m_state);
 
         }
 
@@ -174,16 +180,17 @@ int main(void)
         input = result.at<gtsam::Vector4>(U(1));
         quad_.stepODE(dt, input);
         // quad_.step_noise(dt);
-        quad_.render();
+        // quad_.render_history_trj();
+        quad_.render_history_opt(opt_trj);
         state_predicted = quad_.getState();
 
     }
 
-    // quad_.render_test(opt_trj);
+    // quad_.render_history_opt(opt_trj);
 
     while (true)
     {
-        quad_.render();
+        quad_.render_history_trj();
     }
 
     return 0;
