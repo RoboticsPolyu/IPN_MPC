@@ -24,18 +24,19 @@ using symbol_shorthand::X;
 
 int main(void)
 {
-    double dt = 0.0001, radius = 1.0, linear_vel = 1.0;
-    circle_generator circle_generator(radius, linear_vel, dt);
+    double dt = 0.001, radius = 1.0, linear_vel = 3.0, acc = 0.1;
+    // circle_generator circle_generator(radius, linear_vel, dt);
+    cir_conacc_generator circle_generator(radius, linear_vel, acc, dt);
 
     auto dynamics_noise = noiseModel::Diagonal::Sigmas((Vector(12) << Vector3::Constant(0.05), Vector3::Constant(0.05), Vector3::Constant(0.01), Vector3::Constant(0.01)).finished());
 
     DynamicsFactorfm dynamics_factor(X(0), V(0), S(0), U(0), X(1), V(1), S(1), 0.1f, dynamics_noise);
 
     Quadrotor quad;
-    Quadrotor::State state_0 = quad.getState();
+    Quadrotor::State state_0;
     Quadrotor::State state_1;
 
-    double t0 = 1.0;
+    double t0 = 0.0;
     state_0.x = circle_generator.pos(t0);
     state_0.v = circle_generator.vel(t0);
     state_0.rot = Rot3::Expmap(circle_generator.theta(t0));
@@ -46,11 +47,11 @@ int main(void)
 
     dt = 0.01;
     
-    for (int i = 0; i < 10000; i++)
+    for (int i = 0; i < 3000; i++)
     {
-        gtsam::Vector4 init_input = circle_generator.inputfm(t0 + dt * (i + 1));
+        gtsam::Vector4 input = circle_generator.inputfm(t0 + dt * (i + 1));
 
-        quad.stepODE(dt, init_input);
+        quad.stepODE2(dt, input);
 
         if(i  == 9)
         {
@@ -58,14 +59,14 @@ int main(void)
         }
         
         std::cout << "***********************************************************************" << std::endl;
-        std::cout << "state_predicted:  \n"
-                  << quad.getState().x.transpose() << " \n,state_r: \n"
-                  << Rot3::Logmap(quad.getState().rot).transpose() << " \n,state_v:\n "
-                  << quad.getState().v.transpose() << " \n,state_omega: \n"
+        std::cout << " state_predicted_x:"
+                  << quad.getState().x.transpose() << " \n state_r:"
+                  << Rot3::Logmap(quad.getState().rot).transpose() << " \n state_v:"
+                  << quad.getState().v.transpose() << " \n state_omega:"
                   << quad.getState().omega.transpose() << std::endl;
 
-        std::cout << " state_pos1: [ " << circle_generator.pos(t0 + dt * i)[0] << " ," << circle_generator.pos(t0 + dt * i)[1] << " ," << circle_generator.pos(t0 + dt * i)[2] << " ]" << std::endl;
-        std::cout << " state_vel1: [ " << circle_generator.vel(t0 + dt * i)[0] << " ," << circle_generator.vel(t0 + dt * i)[1] << " ," << circle_generator.vel(t0 + dt * i)[2] << " ]" << std::endl;
+        std::cout << " state_pos1:   [ " << circle_generator.pos(t0 + dt * i)[0] << " ," << circle_generator.pos(t0 + dt * i)[1] << " ," << circle_generator.pos(t0 + dt * i)[2] << " ]" << std::endl;
+        std::cout << " state_vel1:   [ " << circle_generator.vel(t0 + dt * i)[0] << " ," << circle_generator.vel(t0 + dt * i)[1] << " ," << circle_generator.vel(t0 + dt * i)[2] << " ]" << std::endl;
         std::cout << " state_theta1: [ " << circle_generator.theta(t0 + dt * i)[0] << " ," << circle_generator.theta(t0 + dt * i)[1] << " ," << circle_generator.theta(t0 + dt * i)[2] << " ]" << std::endl;
         std::cout << " state_omega1: [ " << circle_generator.omega(t0 + dt * i)[0] << " ," << circle_generator.omega(t0 + dt * i)[1] << " ," << circle_generator.omega(t0 + dt * i)[2] << " ]" << std::endl;
         

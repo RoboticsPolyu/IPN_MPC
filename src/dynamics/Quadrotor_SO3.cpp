@@ -6,7 +6,7 @@
 namespace QuadrotorSim_SO3
 {
 
-    void Quadrotor::setup()
+    void Quadrotor::display_setup()
     {
         axis_dist_ = 0.30;
         propeller_dist_ = 0.10;
@@ -36,6 +36,9 @@ namespace QuadrotorSim_SO3
         dis_UAVx_ = std::make_shared<pangolin::Var<std::string> >("ui.UAVx", "UAVx");
         dis_UAVy_ = std::make_shared<pangolin::Var<std::string> >("ui.UAVy", "UAVy");
         dis_UAVz_ = std::make_shared<pangolin::Var<std::string> >("ui.UAVz", "UAVz");
+        dis_UAV_velx_ = std::make_shared<pangolin::Var<std::string> >("ui.UAV_vx", "UAV_vx");
+        dis_UAV_vely_ = std::make_shared<pangolin::Var<std::string> >("ui.UAV_vy", "UAV_vy");
+        dis_UAV_velz_ = std::make_shared<pangolin::Var<std::string> >("ui.UAV_vz", "UAV_vz");
     }
 
     void Quadrotor::pQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot)
@@ -141,21 +144,7 @@ namespace QuadrotorSim_SO3
 
             last_state_.x = state_.x;
 
-            std::string temp_str = std::to_string(state_.force_moment[0]);
-            *dis_force_ = temp_str;
-            std::stringstream ss;
-            ss << std::setprecision(15) << state_.force_moment[1];
-            *dis_M1_ = ss.str();
-            ss << std::setprecision(15) << state_.force_moment[2];
-            *dis_M2_ = ss.str();
-            ss << std::setprecision(15) << state_.force_moment[3];
-            *dis_M3_ = ss.str();
-            temp_str = std::to_string(state_.x[0]);
-            *dis_UAVx_ = temp_str;
-            temp_str = std::to_string(state_.x[1]);
-            *dis_UAVy_ = temp_str;
-            temp_str = std::to_string(state_.x[2]);
-            *dis_UAVz_ = temp_str;
+            render_panel();
             
             // Swap frames and Process Events
             pangolin::FinishFrame();
@@ -169,8 +158,12 @@ namespace QuadrotorSim_SO3
         {
             // Clear screen and activate view to render_history_trj into
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            trj_.push_back(state_);
+            if(trj_.size() > HISTORY_TRJ_LENS)
+            {
+                trj_.erase(trj_.begin());
+            }
 
+            trj_.push_back(state_);
             d_cam.Activate(*s_cam);
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
             glLineWidth(1);
@@ -190,28 +183,39 @@ namespace QuadrotorSim_SO3
             
             last_state_.x = state_.x;
 
-            std::string temp_str = std::to_string(state_.force_moment[0]);
-            *dis_force_ = temp_str;
-            std::stringstream ss;
-            ss << std::setprecision(15) << state_.force_moment[1];
-            *dis_M1_ = ss.str();
-            ss << std::setprecision(15) << state_.force_moment[2];
-            *dis_M2_ = ss.str();
-            ss << std::setprecision(15) << state_.force_moment[3];
-            *dis_M3_ = ss.str();
-            temp_str = std::to_string(state_.x[0]);
-            *dis_UAVx_ = temp_str;
-            temp_str = std::to_string(state_.x[1]);
-            *dis_UAVy_ = temp_str;
-            temp_str = std::to_string(state_.x[2]);
-            *dis_UAVz_ = temp_str;
+            render_panel();
 
             // Swap frames and Process Events
             pangolin::FinishFrame();
             usleep(10);
         }
 
-        // pangolin::default_font().Text("UAV").Draw(state_.x.x(), state_.x.y(), state_.x.z());
+    }
+
+    void Quadrotor::render_panel()
+    {
+        std::string temp_str = std::to_string(state_.force_moment[0]);
+        *dis_force_ = temp_str;
+        std::stringstream ss;
+        ss << std::setprecision(15) << state_.force_moment[1];
+        *dis_M1_ = ss.str();
+        ss << std::setprecision(15) << state_.force_moment[2];
+        *dis_M2_ = ss.str();
+        ss << std::setprecision(15) << state_.force_moment[3];
+        *dis_M3_ = ss.str();
+        temp_str = std::to_string(state_.x[0]);
+        *dis_UAVx_ = temp_str;
+        temp_str = std::to_string(state_.x[1]);
+        *dis_UAVy_ = temp_str;
+        temp_str = std::to_string(state_.x[2]);
+        *dis_UAVz_ = temp_str;
+        temp_str = std::to_string(state_.v[0]);
+        *dis_UAV_velx_ = temp_str;
+        temp_str = std::to_string(state_.v[1]);
+        *dis_UAV_vely_ = temp_str;
+        temp_str = std::to_string(state_.v[2]);
+        *dis_UAV_velz_ = temp_str;
+
     }
 
     Quadrotor::Quadrotor(void)
@@ -249,7 +253,7 @@ namespace QuadrotorSim_SO3
 
         input_ = Eigen::Array4d::Zero();
 
-        setup();
+        display_setup();
     }
 
     void Quadrotor::step(double dt)
@@ -449,6 +453,54 @@ namespace QuadrotorSim_SO3
         
         state_.x = state_.x + pos_noise;
         state_.v = state_.v + vel_noise;
+        
+        printCurState();
+    }
+
+    void Quadrotor::stepODE2(double dt, gtsam::Vector4 fm)
+    {
+        stateType x;
+        Eigen::Matrix3d r = state_.rot.matrix();
+        for (int i = 0; i < 3; i++)
+        {
+            x[0 + i] = state_.x(i);
+            x[3 + i] = state_.v(i);
+            x[6 + i] = r(i, 0);
+            x[9 + i] = r(i, 1);
+            x[12 + i] = r(i, 2);
+            x[15 + i] = state_.omega(i);
+        }
+
+        for(int i = 0; i < 4; i++)
+        {
+            x[18 +i] = state_.force_moment[i];
+        }
+
+        force_moment_ = fm; // control at future dt. 
+        integrate(boost::ref(*this), x, 0.0, dt, dt/10);
+
+        Eigen::Matrix3d cur_rotm;
+        for (int i = 0; i < 3; i++)
+        {
+            state_.x(i) = x[0 + i];
+            state_.v(i) = x[3 + i];
+            cur_rotm(i, 0) = x[6 + i];
+            cur_rotm(i, 1) = x[9 + i];
+            cur_rotm(i, 2) = x[12 + i];
+            state_.omega(i) = x[15 + i];
+        }
+
+        for(int i = 0; i < 4; i++)
+        {
+            state_.force_moment[i] = x[18 + i];
+        }
+
+        // Re-orthonormalize R (polar decomposition)
+        Eigen::LLT<Eigen::Matrix3d> llt(cur_rotm.transpose() * cur_rotm);
+        Eigen::Matrix3d P = llt.matrixL();
+        Eigen::Matrix3d R = cur_rotm * P.inverse();
+
+        state_.rot = gtsam::Rot3(R);
         
         printCurState();
     }

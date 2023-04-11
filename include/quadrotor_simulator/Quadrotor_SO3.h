@@ -42,7 +42,7 @@ namespace QuadrotorSim_SO3
         };
         
         /********************************* Display *********************************/
-        void setup();
+        void display_setup();
         
         void render_history_trj();
         
@@ -56,6 +56,8 @@ namespace QuadrotorSim_SO3
 
         void pFrame(gtsam::Vector3 p, gtsam::Rot3 rot);
         
+        void render_panel();
+
        /********************************** Dynamics **********************************/
         Quadrotor();
 
@@ -122,6 +124,7 @@ namespace QuadrotorSim_SO3
         void operator()(const Quadrotor::stateType &x , Quadrotor::stateType &dxdt , const double t);
 
         void stepODE(double dt, gtsam::Vector4 fm);
+        void stepODE2(double dt, gtsam::Vector4 fm);
 
         void printCurState();
 
@@ -153,8 +156,8 @@ namespace QuadrotorSim_SO3
         Eigen::Vector3d external_moment_;
         gtsam::Vector4 force_moment_;
 
-        std::shared_ptr<pangolin::OpenGlRenderState> s_cam;
         pangolin::View d_cam;
+        std::shared_ptr<pangolin::OpenGlRenderState> s_cam;
         std::shared_ptr<pangolin::Var<std::string> > dis_force_;
         std::shared_ptr<pangolin::Var<std::string> > dis_M1_;
         std::shared_ptr<pangolin::Var<std::string> > dis_M2_;
@@ -162,9 +165,16 @@ namespace QuadrotorSim_SO3
         std::shared_ptr<pangolin::Var<std::string> > dis_UAVx_;
         std::shared_ptr<pangolin::Var<std::string> > dis_UAVy_;
         std::shared_ptr<pangolin::Var<std::string> > dis_UAVz_;
+        std::shared_ptr<pangolin::Var<std::string> > dis_UAV_velx_;
+        std::shared_ptr<pangolin::Var<std::string> > dis_UAV_vely_;
+        std::shared_ptr<pangolin::Var<std::string> > dis_UAV_velz_;
+        std::shared_ptr<pangolin::Var<std::string> > dis_UAVRx_;
+        std::shared_ptr<pangolin::Var<std::string> > dis_UAVRy_;
+        std::shared_ptr<pangolin::Var<std::string> > dis_UAVRz_;
+        
         float axis_dist_;
         float propeller_dist_;
-        // const std::string window_name = "HelloPangolinThreads";
+        const uint64_t HISTORY_TRJ_LENS = 1000;
 
         std::default_random_engine generator_;
     };

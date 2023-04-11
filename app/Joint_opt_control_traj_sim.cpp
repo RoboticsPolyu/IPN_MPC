@@ -17,7 +17,7 @@ using symbol_shorthand::X;
 int main(void)
 {
     // Motion generation delta time
-    double dt = 0.0001, radius = 1.0, linear_vel = 1.0;
+    double dt = 0.0001, radius = 1.0, linear_vel = 3.0;
     circle_generator circle_generator(radius, linear_vel, dt);
 
     gtsam::LevenbergMarquardtParams parameters;
@@ -27,7 +27,7 @@ int main(void)
     parameters.verbosity = gtsam::NonlinearOptimizerParams::ERROR;
     parameters.verbosityLM = gtsam::LevenbergMarquardtParams::SUMMARY;
 
-    auto input_noise = noiseModel::Diagonal::Sigmas(Vector4(2, 1, 1, 1));
+    auto input_noise = noiseModel::Diagonal::Sigmas(Vector4(4, 1, 1, 1));
 
     auto dynamics_noise = noiseModel::Diagonal::Sigmas((Vector(12) << Vector3::Constant(0.005), Vector3::Constant(0.005), Vector3::Constant(0.005), Vector3::Constant(0.005)).finished());
     
@@ -36,7 +36,7 @@ int main(void)
     auto vel_noise = noiseModel::Diagonal::Sigmas(Vector3(0.001, 0.001, 0.001));
     auto omega_noise = noiseModel::Diagonal::Sigmas(Vector3(0.001, 0.001, 0.001));
 
-    auto ref_predict_pose_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.1), Vector3::Constant(0.03)).finished());
+    auto ref_predict_pose_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.1), Vector3::Constant(0.10)).finished());
     auto ref_predict_vel_noise = noiseModel::Diagonal::Sigmas(Vector3(.3, .3, .3));
     auto ref_predict_omega_noise = noiseModel::Diagonal::Sigmas(Vector3(.3, .3, .3));
 
