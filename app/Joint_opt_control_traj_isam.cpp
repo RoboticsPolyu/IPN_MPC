@@ -218,7 +218,9 @@ int main(void)
         quad_.stepODE(dt, input);
         // quad_.step_noise(dt);
         // quad_.render_history_trj();
-        quad_.render_history_opt(opt_trj);
+        gtsam::Vector3 err;
+        err.Zero();
+        quad_.render_history_opt(opt_trj, err);
         state_predicted = quad_.getState();
 
         cur_est_idx++;

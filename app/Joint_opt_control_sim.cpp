@@ -202,8 +202,10 @@ int main(void)
         }
         std::cout << def;
     }
+    gtsam::Vector3 err;
+    err.Zero();
 
-    quad_.render_history_opt(opt_trj);
+    quad_.render_history_opt(opt_trj, err);
 
     while (true)
     {

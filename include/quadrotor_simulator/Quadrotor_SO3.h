@@ -18,6 +18,7 @@
 #include <pangolin/display/widgets.h>
 #include <pangolin/display/default_font.h>
 #include <pangolin/handler/handler.h>
+#include <fstream>
 #include <vector>
 
 using namespace std;
@@ -46,7 +47,7 @@ namespace QuadrotorSim_SO3
         
         void render_history_trj();
         
-        void render_history_opt(std::vector<State> & trj);
+        void render_history_opt(std::vector<State> & trj, gtsam::Vector3 & err);
 
         void pQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot);
 
@@ -171,12 +172,22 @@ namespace QuadrotorSim_SO3
         std::shared_ptr<pangolin::Var<std::string> > dis_UAVRx_;
         std::shared_ptr<pangolin::Var<std::string> > dis_UAVRy_;
         std::shared_ptr<pangolin::Var<std::string> > dis_UAVRz_;
-        
+        std::shared_ptr<pangolin::Var<std::string> > dis_AVE_ERR_;
+
+        std::vector<gtsam::Vector3> errs_;
+        const uint64_t ERRS_LENS = 1;
+
         float axis_dist_;
         float propeller_dist_;
         const uint64_t HISTORY_TRJ_LENS = 1000;
 
         std::default_random_engine generator_;
+        std::ofstream err_file_;
+
+        // force noise
+        double AT_NOISE_MEAN = 0.0;
+        double AT_NOISE_COV  = 0.0;
+    
     };
 }
 #endif

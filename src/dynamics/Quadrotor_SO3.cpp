@@ -1,7 +1,10 @@
 #include "quadrotor_simulator/Quadrotor_SO3.h"
-#include <Eigen/Geometry>
+
 #include <boost/bind.hpp>
+#include <Eigen/Geometry>
 #include <iostream>
+#include <yaml-cpp/yaml.h>
+
 
 namespace QuadrotorSim_SO3
 {
@@ -39,6 +42,7 @@ namespace QuadrotorSim_SO3
         dis_UAV_velx_ = std::make_shared<pangolin::Var<std::string> >("ui.UAV_vx", "UAV_vx");
         dis_UAV_vely_ = std::make_shared<pangolin::Var<std::string> >("ui.UAV_vy", "UAV_vy");
         dis_UAV_velz_ = std::make_shared<pangolin::Var<std::string> >("ui.UAV_vz", "UAV_vz");
+        dis_AVE_ERR_ = std::make_shared<pangolin::Var<std::string> >("ui.AVE_ERR", "AVE_ERR");
     }
 
     void Quadrotor::pQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot)
@@ -152,9 +156,11 @@ namespace QuadrotorSim_SO3
         }
     }
 
-    void Quadrotor::render_history_opt(std::vector<State> &trj)
+    void Quadrotor::render_history_opt(std::vector<State> &trj, gtsam::Vector3 & err)
     {
-        if (!pangolin::ShouldQuit())
+        err_file_ << err[0] << " " << err[1] << " " << err[2] << std::endl;
+
+        if (!pangolin::ShouldQuit()) 
         {
             // Clear screen and activate view to render_history_trj into
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -183,11 +189,17 @@ namespace QuadrotorSim_SO3
             
             last_state_.x = state_.x;
 
+            if(errs_.size() >= ERRS_LENS)
+            {
+                errs_.erase(errs_.begin());
+            }
+            errs_.push_back(err);
+
             render_panel();
 
             // Swap frames and Process Events
             pangolin::FinishFrame();
-            usleep(10);
+            usleep(10000);
         }
 
     }
@@ -216,6 +228,14 @@ namespace QuadrotorSim_SO3
         temp_str = std::to_string(state_.v[2]);
         *dis_UAV_velz_ = temp_str;
 
+        double err_sum = 0;
+        for(uint j = 0; j < errs_.size(); j++)
+        {
+                err_sum += errs_[j].transpose()* errs_[j];
+        }
+        double ave_err = std::sqrt(err_sum / errs_.size());
+        temp_str = std::to_string(ave_err);
+        *dis_AVE_ERR_ = temp_str;
     }
 
     Quadrotor::Quadrotor(void)
@@ -254,6 +274,14 @@ namespace QuadrotorSim_SO3
         input_ = Eigen::Array4d::Zero();
 
         display_setup();
+
+        err_file_.open("err_opt.txt");
+
+        YAML::Node config = YAML::LoadFile("../config/quadrotor.yaml");  
+        double AT_NOISE_MEAN = config["AT_NOISE_MEAN"].as<double>();  
+        double AT_NOISE_COV = config["AT_NOISE_COV"].as<double>();
+
+
     }
 
     void Quadrotor::step(double dt)
@@ -407,8 +435,11 @@ namespace QuadrotorSim_SO3
             x[15 + i] = state_.omega(i);
         }
 
+        std::normal_distribution<double> aT_noise(AT_NOISE_MEAN, AT_NOISE_COV);
+
         for(int i = 0; i < 4; i++)
         {
+            state_.force_moment[0] = state_.force_moment[0] + aT_noise(generator_);
             x[18 +i] = state_.force_moment[i];
         }
 
@@ -431,7 +462,6 @@ namespace QuadrotorSim_SO3
             state_.force_moment[i] = x[18 + i];
         }
 
-        // std::cout << "force_moment diff: " << force_moment_ - state_.force_moment << std::endl;
         // Re-orthonormalize R (polar decomposition)
         Eigen::LLT<Eigen::Matrix3d> llt(cur_rotm.transpose() * cur_rotm);
         Eigen::Matrix3d P = llt.matrixL();
@@ -439,20 +469,19 @@ namespace QuadrotorSim_SO3
 
         state_.rot = gtsam::Rot3(R);
 
-        // noise
-        std::normal_distribution<double> x_noise(0.0, 0.05);
-        std::normal_distribution<double> r_noise(0.0, 0.005);
-        std::normal_distribution<double> v_noise(0.0, 0.05);
-        std::normal_distribution<double> o_noise(0.0, 0.005);
+        // std::normal_distribution<double> x_noise(0.0, 0.05);
+        // std::normal_distribution<double> r_noise(0.0, 0.005);
+        // std::normal_distribution<double> v_noise(0.0, 0.20);
+        // std::normal_distribution<double> o_noise(0.0, 0.005);
 
-        gtsam::Vector3 pos_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(x_noise(generator_), x_noise(generator_), x_noise(generator_));
-        gtsam::Vector3 vel_noise = dt* gtsam::Vector3(v_noise(generator_), v_noise(generator_), v_noise(generator_));
-        gtsam::Vector3 rot_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(r_noise(generator_), r_noise(generator_), r_noise(generator_));
-        gtsam::Vector3 ome_noise = dt * gtsam::Vector3(o_noise(generator_), o_noise(generator_), o_noise(generator_));
+        // gtsam::Vector3 pos_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(x_noise(generator_), x_noise(generator_), x_noise(generator_));
+        // gtsam::Vector3 vel_noise = dt* gtsam::Vector3(v_noise(generator_), v_noise(generator_), v_noise(generator_));
+        // gtsam::Vector3 rot_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(r_noise(generator_), r_noise(generator_), r_noise(generator_));
+        // gtsam::Vector3 ome_noise = dt * gtsam::Vector3(o_noise(generator_), o_noise(generator_), o_noise(generator_));
 
         
-        state_.x = state_.x + pos_noise;
-        state_.v = state_.v + vel_noise;
+        state_.x = state_.x;
+        state_.v = state_.v;
         
         printCurState();
     }

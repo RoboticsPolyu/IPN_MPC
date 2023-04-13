@@ -71,6 +71,11 @@ find_package(OsqpEigen REQUIRED)
 # # Link the OSQP shared library
 # target_link_libraries(yourTarget PRIVATE osqp::osqp)
 
+find_package(yaml-cpp)
+include_directories(${YAML_CPP_INCLUDE_DIRS})
+message("-- yaml-cpp_DIRS: " ${YAML_CPP_INCLUDE_DIRS})
+message("-- yaml-cpp_DIRS: " ${YAML_CPP_LIBRARIES})
+
 message("-- Pangolin_INCLUDE_DIRS:" ${Pangolin_INCLUDE_DIR})
 set(WIO_SOURCE
     src/wio/wio_factor.cpp
@@ -96,7 +101,7 @@ add_library(quadrotor_dynamics
             src/dynamics/Dynamics_factor.cpp
             src/trajectory_generator/Trajectory_generator.cpp)
             
-target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable ${Pangolin_LIBRARIES} PRIVATE osqp::osqp OsqpEigen::OsqpEigen)
+target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES} PRIVATE osqp::osqp OsqpEigen::OsqpEigen )
 ## Declare a cpp executable
 #add_executable(odom_visualization src/odom_visualization.cpp)
 # add_executable(quadrotor_simulator_so3
@@ -129,7 +134,7 @@ add_executable(Joint_opt_control_sim app/Joint_opt_control_sim.cpp)
 target_link_libraries(Joint_opt_control_sim gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})
 
 add_executable(Joint_opt_control_traj_sim app/Joint_opt_control_traj_sim.cpp)
-target_link_libraries(Joint_opt_control_traj_sim gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})
+target_link_libraries(Joint_opt_control_traj_sim gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
 add_executable(Joint_opt_control_traj_isam app/Joint_opt_control_traj_isam.cpp)
-target_link_libraries(Joint_opt_control_traj_isam gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})
+target_link_libraries(Joint_opt_control_traj_isam gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
