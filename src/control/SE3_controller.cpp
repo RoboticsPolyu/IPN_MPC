@@ -4,6 +4,11 @@ namespace Control
 {
     SE3_controller::SE3_controller(/* args */)
     {
+        YAML::Node SE3_config = YAML::LoadFile("../config/se3_controller.yaml");  
+        se3_params_.kep = SE3_config["KeP"].as<double>();  
+        se3_params_.kev = SE3_config["KeV"].as<double>();
+        se3_params_.ker = SE3_config["KeR"].as<double>(); 
+        se3_params_.kew = SE3_config["KeW"].as<double>();
     }
 
     SE3_controller::~SE3_controller()

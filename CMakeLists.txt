@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(calib)
+project(MPC_FGO)
 
 option(BUILD_SHARED_LIBS "Build shared gtsam library, instead of static" ON)
 
@@ -32,7 +32,7 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "/usr/local/cmake/lib/cmake")
 
 # third party libs
-# eigen
+# Eigen
 find_package(Eigen3 REQUIRED NO_MODULE)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
@@ -54,8 +54,6 @@ include_directories(${GTSAM_INCLUDE_DIR})
 # include
 include_directories(include)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/ode)
-
 # Armadillo
 find_package(Armadillo REQUIRED)
 include_directories(${ARMADILLO_INCLUDE_DIRS})
@@ -66,17 +64,12 @@ include_directories(${Pangolin_INCLUDE_DIRS})
 
 # Find OSQP library and headers
 find_package(osqp REQUIRED)
-
 find_package(OsqpEigen REQUIRED)
-# # Link the OSQP shared library
-# target_link_libraries(yourTarget PRIVATE osqp::osqp)
 
+# Find yaml-cpp
 find_package(yaml-cpp)
 include_directories(${YAML_CPP_INCLUDE_DIRS})
-message("-- yaml-cpp_DIRS: " ${YAML_CPP_INCLUDE_DIRS})
-message("-- yaml-cpp_DIRS: " ${YAML_CPP_LIBRARIES})
 
-message("-- Pangolin_INCLUDE_DIRS:" ${Pangolin_INCLUDE_DIR})
 set(WIO_SOURCE
     src/wio/wio_factor.cpp
     src/wio/wio_integration.cpp)
@@ -97,20 +90,12 @@ set_target_properties(wio_factor_lib PROPERTIES
 
 add_library(quadrotor_dynamics 
             src/control/SE3_controller.cpp
-            src/dynamics/Quadrotor_SO3.cpp
+            src/dynamics/Dynamics_control_factor.cpp
             src/dynamics/Dynamics_factor.cpp
+            src/dynamics/Quadrotor_SO3.cpp
             src/trajectory_generator/Trajectory_generator.cpp)
             
 target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES} PRIVATE osqp::osqp OsqpEigen::OsqpEigen )
-## Declare a cpp executable
-#add_executable(odom_visualization src/odom_visualization.cpp)
-# add_executable(quadrotor_simulator_so3
-#   src/quadrotor_simulator_so3.cpp)
-
-# target_link_libraries(quadrotor_simulator_so3 
-#    ${catkin_LIBRARIES}
-#    quadrotor_dynamics
-# )
 
 add_executable(test_dynamics src/test_dynamics/test_dynamics.cpp)
 target_link_libraries(test_dynamics gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})

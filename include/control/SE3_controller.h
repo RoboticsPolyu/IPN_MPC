@@ -4,6 +4,9 @@
 #include "quadrotor_simulator/Dynamics_factor.h"
 #include "quadrotor_simulator/Quadrotor_SO3.h"
 
+#include <yaml-cpp/yaml.h>
+
+
 using namespace QuadrotorSim_SO3;
 using namespace UAV_Factor;
 

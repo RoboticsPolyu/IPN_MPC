@@ -7,6 +7,7 @@
 #include <boost/array.hpp>
 #include <boost/numeric/odeint.hpp>
 #include <Eigen/Core>
+#include <fstream>
 #include <iostream>
 #include <pangolin/var/var.h>
 #include <pangolin/var/varextra.h>
@@ -18,7 +19,6 @@
 #include <pangolin/display/widgets.h>
 #include <pangolin/display/default_font.h>
 #include <pangolin/handler/handler.h>
-#include <fstream>
 #include <vector>
 
 using namespace std;

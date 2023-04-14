@@ -27,9 +27,11 @@ int main(void)
     YAML::Node FGO_config = YAML::LoadFile("../config/factor_graph.yaml");  
     double PRI_VICON_COV = FGO_config["PRI_VICON_COV"].as<double>();  
     double CONTROL_P_COV = FGO_config["CONTROL_P_COV"].as<double>();
+    double CONTROL_P_FINAL_COV = FGO_config["CONTROL_P_FINAL_COV"].as<double>();
     double DYNAMIC_P_COV = FGO_config["DYNAMIC_P_COV"].as<double>(); 
     double CONTROL_R_COV = FGO_config["CONTROL_R_COV"].as<double>();
     uint16_t OPT_LENS_TRAJ = FGO_config["OPT_LENS_TRAJ"].as<uint16_t>();
+
 
     YAML::Node quadrotor_config = YAML::LoadFile("../config/quadrotor.yaml");  
     double RADIUS = quadrotor_config["RADIUS"].as<double>();
@@ -38,7 +40,6 @@ int main(void)
 
     double dt = 0.0001, radius = RADIUS, linear_vel = LINEAR_VEL;
     circle_generator circle_generator(radius, linear_vel, dt);
-    std::vector<gtsam::Vector3> errs;
 
     gtsam::LevenbergMarquardtParams parameters;
     parameters.absoluteErrorTol = 1e-8;
@@ -60,7 +61,7 @@ int main(void)
     auto ref_predict_vel_noise = noiseModel::Diagonal::Sigmas(Vector3(.3, .3, .3));
     auto ref_predict_omega_noise = noiseModel::Diagonal::Sigmas(Vector3(.3, .3, .3));
 
-    dt = 0.01; // Model predictive control duration
+    dt = 0.01f; // Model predictive control duration
 
     Quadrotor quadrotor;
     Quadrotor::State predicted_state;
@@ -109,20 +110,23 @@ int main(void)
             initial_value.insert(U(idx), init_input);
             // graph.add(gtsam::PriorFactor<gtsam::Vector4>(U(idx), init_input, input_noise));
             
-            auto ref_predict_pose_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(CONTROL_R_COV), Vector3::Constant(CONTROL_P_COV)).finished());  
-            graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
-            graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
-            graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
+            if(idx == OPT_LENS_TRAJ - 1)
+            {
+                auto ref_predict_pose_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(CONTROL_R_COV), Vector3::Constant(CONTROL_P_FINAL_COV)).finished());  
+                graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
+                graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
+                graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
+            }
+            else
+            {
+                auto ref_predict_pose_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(CONTROL_R_COV), Vector3::Constant(CONTROL_P_COV)).finished());  
+                graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
+                graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
+                graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
+            }
 
             if (idx == 0)
-            {
-                std::cout << red;
-                std::cout << "Init statex: " << predicted_state.x.transpose() << std::endl;
-                std::cout << "Init stater: " << Rot3::Logmap(predicted_state.rot).transpose() << std::endl;
-                std::cout << "Init statev: " << predicted_state.v.transpose() << std::endl;
-                std::cout << "Init stateomega: " << predicted_state.omega.transpose() << std::endl;
-                std::cout << def;
-                
+            {                
                 gtsam::Vector3 pos_noise = gtsam::Vector3(position_noise(meas_x_gen), position_noise(meas_y_gen), position_noise(meas_z_gen));
                 std::cout << "pos_noise: " << pos_noise.transpose() << std::endl;
                 graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx), gtsam::Pose3(predicted_state.rot, predicted_state.x + pos_noise), vicon_noise));
@@ -152,39 +156,39 @@ int main(void)
 
         for (uint32_t ikey = 0; ikey < OPT_LENS_TRAJ; ikey++)
         {
-                std::cout << "--------------------------------- " << red << ikey << def << " ----------------------------------" << std::endl;
+                std::cout << red << "--------------------------------- TRAJECTORY CONTROL OPTIMIZATION: "  << ikey << " ----------------------------------" << def << std::endl;
                 i_pose = result.at<Pose3>(X(ikey));
-                std::cout << green << "OPT Translation: \n"
+                std::cout << green << "OPT Translation: "
                         << i_pose.translation() << std::endl;
                 gtsam::Pose3 ref_pose(gtsam::Rot3::Expmap(circle_generator.theta(t0 + ikey * dt)), circle_generator.pos(t0 + ikey * dt));
-                std::cout << "REF Translation: \n"
+                std::cout << "REF Translation: "
                         << ref_pose.translation() << std::endl;
 
-                std::cout << "OPT Rotation: \n"
+                std::cout << "OPT    Rotation: "
                         << Rot3::Logmap(i_pose.rotation()).transpose() << std::endl;
-                std::cout << "REF Rotation: \n"
+                std::cout << "REF    Rotation: "
                         << Rot3::Logmap(ref_pose.rotation()).transpose() << std::endl;
 
                 vel = result.at<Vector3>(V(ikey));
-                std::cout << "OPT VEL: \n"
+                std::cout << "OPT         VEL: "
                         << vel.transpose() << std::endl;
                 gtsam::Vector3 ref_vel = circle_generator.vel(t0 + ikey * dt); //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
-                std::cout << "REF VEL: \n"
+                std::cout << "REF         VEL: "
                         << ref_vel.transpose() << std::endl;
 
                 omega = result.at<Vector3>(S(ikey));
-                std::cout << "OPT OMEGA: \n"
+                std::cout << "OPT       OMEGA: "
                         << omega.transpose() << std::endl;
                 gtsam::Vector3 ref_omega = circle_generator.omega(t0 + ikey * dt); //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
-                std::cout << "REF OMEGA: \n"
+                std::cout << "REF       OMEGA: "
                         << ref_omega.transpose() << std::endl;
 
                 if(ikey != OPT_LENS_TRAJ - 1)
                 {
                         input = result.at<gtsam::Vector4>(U(ikey));
-                        std::cout << "OPT INPUT: \n"
+                        std::cout << "OPT      INPUT: "
                                 << input.transpose() << std::endl;
-                        std::cout << "REF_INPUT: \n"
+                        std::cout << "REF      INPUT: "
                                 << circle_generator.inputfm(t0 + ikey * dt).transpose() << std::endl;
                 }
                 Quadrotor::State m_state;
@@ -196,7 +200,6 @@ int main(void)
         input = result.at<gtsam::Vector4>(U(0));
         predicted_state.force_moment = input;
         
-
         quadrotor.setState(predicted_state);
 
         input = result.at<gtsam::Vector4>(U(1));
@@ -205,14 +208,9 @@ int main(void)
         predicted_state = quadrotor.getState();
         gtsam::Vector3 tar_position = circle_generator.pos(t0 + 1 * dt);
         gtsam::Vector3 err = predicted_state.x - tar_position;
-        // quadrotor.step_noise(dt);
-        // quadrotor.render_history_trj();
+
         quadrotor.render_history_opt(opt_trj, err);
-        
-
     }
-
-    // quadrotor.render_history_opt(opt_trj);
 
     while (true)
     {

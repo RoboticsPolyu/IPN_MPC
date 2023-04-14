@@ -5,7 +5,6 @@
 #include <iostream>
 #include <yaml-cpp/yaml.h>
 
-
 namespace QuadrotorSim_SO3
 {
 
@@ -14,7 +13,7 @@ namespace QuadrotorSim_SO3
         axis_dist_ = 0.30;
         propeller_dist_ = 0.10;
 
-        pangolin::CreateWindowAndBind("Main", 1280, 960);
+        pangolin::CreateWindowAndBind("Model Predictive Control based on FGO", 1280, 960);
 
         // Define Camera Render Object (for view / scene browsing)
         s_cam = std::make_shared<pangolin::OpenGlRenderState>(
@@ -28,21 +27,21 @@ namespace QuadrotorSim_SO3
         d_cam = pangolin::CreateDisplay()
                     .SetBounds(0.0, 1.0, pangolin::Attach::Pix(UI_WIDTH), 1.0, 640.0f / 480.0f)
                     .SetHandler(new pangolin::Handler3D(*s_cam));
-        
+
         pangolin::CreatePanel("ui")
             .SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(UI_WIDTH));
-        
-        dis_force_ = std::make_shared<pangolin::Var<std::string> >("ui.Force", "Force");
-        dis_M1_ = std::make_shared<pangolin::Var<std::string> >("ui.M1", "M1");
-        dis_M2_ = std::make_shared<pangolin::Var<std::string> >("ui.M2", "M2");
-        dis_M3_ = std::make_shared<pangolin::Var<std::string> >("ui.M3", "M3");
-        dis_UAVx_ = std::make_shared<pangolin::Var<std::string> >("ui.UAVx", "UAVx");
-        dis_UAVy_ = std::make_shared<pangolin::Var<std::string> >("ui.UAVy", "UAVy");
-        dis_UAVz_ = std::make_shared<pangolin::Var<std::string> >("ui.UAVz", "UAVz");
-        dis_UAV_velx_ = std::make_shared<pangolin::Var<std::string> >("ui.UAV_vx", "UAV_vx");
-        dis_UAV_vely_ = std::make_shared<pangolin::Var<std::string> >("ui.UAV_vy", "UAV_vy");
-        dis_UAV_velz_ = std::make_shared<pangolin::Var<std::string> >("ui.UAV_vz", "UAV_vz");
-        dis_AVE_ERR_ = std::make_shared<pangolin::Var<std::string> >("ui.AVE_ERR", "AVE_ERR");
+
+        dis_force_ = std::make_shared<pangolin::Var<std::string>>("ui.Force", "Force");
+        dis_M1_ = std::make_shared<pangolin::Var<std::string>>("ui.M1", "M1");
+        dis_M2_ = std::make_shared<pangolin::Var<std::string>>("ui.M2", "M2");
+        dis_M3_ = std::make_shared<pangolin::Var<std::string>>("ui.M3", "M3");
+        dis_UAVx_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVx", "UAVx");
+        dis_UAVy_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVy", "UAVy");
+        dis_UAVz_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVz", "UAVz");
+        dis_UAV_velx_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vx", "UAV_vx");
+        dis_UAV_vely_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vy", "UAV_vy");
+        dis_UAV_velz_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vz", "UAV_vz");
+        dis_AVE_ERR_ = std::make_shared<pangolin::Var<std::string>>("ui.AVE_ERR", "AVE_ERR");
     }
 
     void Quadrotor::pQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot)
@@ -63,31 +62,31 @@ namespace QuadrotorSim_SO3
         glColor3f(0, 0, 0);
         glPointSize(1.0);
         glBegin(GL_POINTS);
-        for(int i = 0; i < 360; i ++)
+        for (int i = 0; i < 360; i++)
         {
-            float x = sin((float)i/180* M_PI)* axis_dist_/10 + axis_dist_ / 2 / 1.414;
-            float y = cos((float)i/180* M_PI)* axis_dist_/10 + axis_dist_ / 2 / 1.414;
+            float x = sin((float)i / 180 * M_PI) * axis_dist_ / 10 + axis_dist_ / 2 / 1.414;
+            float y = cos((float)i / 180 * M_PI) * axis_dist_ / 10 + axis_dist_ / 2 / 1.414;
             gtsam::Vector3 point = rot.rotate(gtsam::Vector3(x, y, 0)) + begin;
             glVertex3f(point[0], point[1], point[2]);
         }
-        for(int i = 0; i < 360; i ++)
+        for (int i = 0; i < 360; i++)
         {
-            float x = sin((float)i/180* M_PI)* axis_dist_/10 + -axis_dist_ / 2 / 1.414;
-            float y = cos((float)i/180* M_PI)* axis_dist_/10 + -axis_dist_ / 2 / 1.414;
+            float x = sin((float)i / 180 * M_PI) * axis_dist_ / 10 + -axis_dist_ / 2 / 1.414;
+            float y = cos((float)i / 180 * M_PI) * axis_dist_ / 10 + -axis_dist_ / 2 / 1.414;
             gtsam::Vector3 point = rot.rotate(gtsam::Vector3(x, y, 0)) + begin;
             glVertex3f(point[0], point[1], point[2]);
         }
-        for(int i = 0; i < 360; i ++)
+        for (int i = 0; i < 360; i++)
         {
-            float x = sin((float)i/180* M_PI)* axis_dist_/10 + -axis_dist_ / 2 / 1.414;
-            float y = cos((float)i/180* M_PI)* axis_dist_/10 + axis_dist_ / 2 / 1.414;
+            float x = sin((float)i / 180 * M_PI) * axis_dist_ / 10 + -axis_dist_ / 2 / 1.414;
+            float y = cos((float)i / 180 * M_PI) * axis_dist_ / 10 + axis_dist_ / 2 / 1.414;
             gtsam::Vector3 point = rot.rotate(gtsam::Vector3(x, y, 0)) + begin;
             glVertex3f(point[0], point[1], point[2]);
         }
-        for(int i = 0; i < 360; i ++)
+        for (int i = 0; i < 360; i++)
         {
-            float x = sin((float)i/180* M_PI)* axis_dist_/10 + axis_dist_ / 2 / 1.414;
-            float y = cos((float)i/180* M_PI)* axis_dist_/10 + -axis_dist_ / 2 / 1.414;
+            float x = sin((float)i / 180 * M_PI) * axis_dist_ / 10 + axis_dist_ / 2 / 1.414;
+            float y = cos((float)i / 180 * M_PI) * axis_dist_ / 10 + -axis_dist_ / 2 / 1.414;
             gtsam::Vector3 point = rot.rotate(gtsam::Vector3(x, y, 0)) + begin;
             glVertex3f(point[0], point[1], point[2]);
         }
@@ -149,22 +148,22 @@ namespace QuadrotorSim_SO3
             last_state_.x = state_.x;
 
             render_panel();
-            
+
             // Swap frames and Process Events
             pangolin::FinishFrame();
             usleep(10);
         }
     }
 
-    void Quadrotor::render_history_opt(std::vector<State> &trj, gtsam::Vector3 & err)
+    void Quadrotor::render_history_opt(std::vector<State> &trj, gtsam::Vector3 &err)
     {
         err_file_ << err[0] << " " << err[1] << " " << err[2] << std::endl;
 
-        if (!pangolin::ShouldQuit()) 
+        if (!pangolin::ShouldQuit())
         {
             // Clear screen and activate view to render_history_trj into
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            if(trj_.size() > HISTORY_TRJ_LENS)
+            if (trj_.size() > HISTORY_TRJ_LENS)
             {
                 trj_.erase(trj_.begin());
             }
@@ -178,7 +177,7 @@ namespace QuadrotorSim_SO3
             {
                 pLine(gtsam::Vector3(0.5, 0, 0.5), trj_[i].x, trj_[i + 1].x);
             }
-            
+
             glLineWidth(2);
             for (int i = 0; i < trj.size() - 1; i++)
             {
@@ -186,10 +185,10 @@ namespace QuadrotorSim_SO3
             }
 
             pQuadrotor(state_.x, state_.rot);
-            
+
             last_state_.x = state_.x;
 
-            if(errs_.size() >= ERRS_LENS)
+            if (errs_.size() >= ERRS_LENS)
             {
                 errs_.erase(errs_.begin());
             }
@@ -201,7 +200,6 @@ namespace QuadrotorSim_SO3
             pangolin::FinishFrame();
             usleep(10000);
         }
-
     }
 
     void Quadrotor::render_panel()
@@ -229,9 +227,9 @@ namespace QuadrotorSim_SO3
         *dis_UAV_velz_ = temp_str;
 
         double err_sum = 0;
-        for(uint j = 0; j < errs_.size(); j++)
+        for (uint j = 0; j < errs_.size(); j++)
         {
-                err_sum += errs_[j].transpose()* errs_[j];
+            err_sum += errs_[j].transpose() * errs_[j];
         }
         double ave_err = std::sqrt(err_sum / errs_.size());
         temp_str = std::to_string(ave_err);
@@ -277,11 +275,9 @@ namespace QuadrotorSim_SO3
 
         err_file_.open("err_opt.txt");
 
-        YAML::Node config = YAML::LoadFile("../config/quadrotor.yaml");  
-        double AT_NOISE_MEAN = config["AT_NOISE_MEAN"].as<double>();  
+        YAML::Node config = YAML::LoadFile("../config/quadrotor.yaml");
+        double AT_NOISE_MEAN = config["AT_NOISE_MEAN"].as<double>();
         double AT_NOISE_COV = config["AT_NOISE_COV"].as<double>();
-
-
     }
 
     void Quadrotor::step(double dt)
@@ -356,7 +352,7 @@ namespace QuadrotorSim_SO3
             cur_rotm(i, 2) = x[12 + i];
             cur_state.omega(i) = x[15 + i];
         }
-        
+
         // Re-orthonormalize R (polar decomposition)
         Eigen::LLT<Eigen::Matrix3d> llt(cur_rotm.transpose() * cur_rotm);
         Eigen::Matrix3d P = llt.matrixL();
@@ -366,13 +362,9 @@ namespace QuadrotorSim_SO3
 
         Eigen::Vector3d vnorm;
 
-        // std::cout << "ode: " << cur_state.x.transpose() << std::endl;
-
         double thrust = x[18]; // cur force
-        // std::cout << "thrust: " << thrust << std::endl;
-        Eigen::Vector3d moment(x[19], x[20], x[21]); // cur moment
 
-        // std::cout << "moments: " << moment.transpose() << std::endl;
+        Eigen::Vector3d moment(x[19], x[20], x[21]); // cur moment
 
         double resistance = 0.1 *                                        // C
                             3.14159265 * (arm_length_) * (arm_length_) * // S
@@ -385,11 +377,11 @@ namespace QuadrotorSim_SO3
         }
 
         Eigen::Vector3d drag_force = -cur_state.rot.matrix() * Eigen::Matrix3d(drag_force_p.asDiagonal()) * cur_state.rot.matrix().transpose() * cur_state.v;
-        Eigen::Vector3d v_dot = - Eigen::Vector3d(0, 0, g_) + cur_state.rot.rotate(gtsam::Vector3(0, 0, thrust / mass_)) +
+        Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) + cur_state.rot.rotate(gtsam::Vector3(0, 0, thrust / mass_)) +
                                 external_force_ / mass_ + drag_force;
-        // std::cout << "vdot: " << v_dot << std::endl;
+
         Eigen::Vector3d p_dot = cur_state.v;
-        // std::cout << "pdot: " << p_dot << std::endl;
+
         Eigen::Matrix3d r_dot = cur_state.rot.matrix() * gtsam::skewSymmetric(cur_state.omega);
 
         // J* omega_dot = moment - J.cross(J* omega)
@@ -405,11 +397,10 @@ namespace QuadrotorSim_SO3
             dxdt[15 + i] = omega_dot(i);
         }
 
-        for(int i = 0; i < 4; i++)
+        for (int i = 0; i < 4; i++)
         {
-            dxdt[18 +i] = (force_moment_[i] - state_.force_moment[i]) / 0.01;
+            dxdt[18 + i] = (force_moment_[i] - state_.force_moment[i]) / 0.01;
         }
-        // std::cout << "dxdt18-21: " << (force_moment_ - state_.force_moment).transpose() / 0.01 << std::endl;
 
         for (int i = 0; i < 22; ++i)
         {
@@ -437,13 +428,13 @@ namespace QuadrotorSim_SO3
 
         std::normal_distribution<double> aT_noise(AT_NOISE_MEAN, AT_NOISE_COV);
 
-        for(int i = 0; i < 4; i++)
+        for (int i = 0; i < 4; i++)
         {
             state_.force_moment[0] = state_.force_moment[0] + aT_noise(generator_);
-            x[18 +i] = state_.force_moment[i];
+            x[18 + i] = state_.force_moment[i];
         }
 
-        force_moment_ = fm; // control at future dt. 
+        force_moment_ = fm; // control at future dt.
         integrate(boost::ref(*this), x, 0.0, dt, dt);
 
         Eigen::Matrix3d cur_rotm;
@@ -457,7 +448,7 @@ namespace QuadrotorSim_SO3
             state_.omega(i) = x[15 + i];
         }
 
-        for(int i = 0; i < 4; i++)
+        for (int i = 0; i < 4; i++)
         {
             state_.force_moment[i] = x[18 + i];
         }
@@ -479,10 +470,9 @@ namespace QuadrotorSim_SO3
         // gtsam::Vector3 rot_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(r_noise(generator_), r_noise(generator_), r_noise(generator_));
         // gtsam::Vector3 ome_noise = dt * gtsam::Vector3(o_noise(generator_), o_noise(generator_), o_noise(generator_));
 
-        
         state_.x = state_.x;
         state_.v = state_.v;
-        
+
         printCurState();
     }
 
@@ -500,13 +490,13 @@ namespace QuadrotorSim_SO3
             x[15 + i] = state_.omega(i);
         }
 
-        for(int i = 0; i < 4; i++)
+        for (int i = 0; i < 4; i++)
         {
-            x[18 +i] = state_.force_moment[i];
+            x[18 + i] = state_.force_moment[i];
         }
 
-        force_moment_ = fm; // control at future dt. 
-        integrate(boost::ref(*this), x, 0.0, dt, dt/10);
+        force_moment_ = fm; // control at future dt.
+        integrate(boost::ref(*this), x, 0.0, dt, dt / 10);
 
         Eigen::Matrix3d cur_rotm;
         for (int i = 0; i < 3; i++)
@@ -519,7 +509,7 @@ namespace QuadrotorSim_SO3
             state_.omega(i) = x[15 + i];
         }
 
-        for(int i = 0; i < 4; i++)
+        for (int i = 0; i < 4; i++)
         {
             state_.force_moment[i] = x[18 + i];
         }
@@ -530,7 +520,7 @@ namespace QuadrotorSim_SO3
         Eigen::Matrix3d R = cur_rotm * P.inverse();
 
         state_.rot = gtsam::Rot3(R);
-        
+
         printCurState();
     }
 
