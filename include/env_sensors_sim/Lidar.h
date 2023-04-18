@@ -6,16 +6,19 @@
 #include "Common.h"
 #include "Landmarks.h"
 
-
-namespace SENSORS_SIM
+namespace Sensors_Sim
 {
+    template <typename T>
     class Lidar
     {
     public:
-        Lidar();
+        Lidar(float range)
+            : range_(range)
+        {
+        }
 
-        template <class T>
-        Features Measurement(T &env);
+        
+        Features Measurement(T &env, gtsam::Pose3 &body_pose);
 
     private:
         Features features_;

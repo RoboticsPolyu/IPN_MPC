@@ -7,7 +7,7 @@
 #include "Common.h"
 #include "gtsam_wrapper.h"
 
-namespace SENSORS_SIM
+namespace Sensors_Sim
 {
     class IMU
     {

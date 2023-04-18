@@ -10,9 +10,9 @@ struct Feature
 {
     uint32_t frame_id;
     uint32_t feature_id;
-    uint32_t x;
-    uint32_t y;
-    uint32_t z;
+    double x;
+    double y;
+    double z;
 };
 typedef std::vector<Feature> Features;
 

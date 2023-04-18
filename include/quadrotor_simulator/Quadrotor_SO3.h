@@ -2,6 +2,7 @@
 #define __QUADROTOR_SIMULATOR_QUADROTOR_SO3_H__
 
 #include "color.h"
+#include "env_sensors_sim/Common.h"
 #include "gtsam_wrapper.h"
 
 #include <boost/array.hpp>
@@ -49,7 +50,7 @@ namespace QuadrotorSim_SO3
         
         void render_history_trj();
         
-        void render_history_opt(std::vector<State> & trj, gtsam::Vector3 & err);
+        void render_history_opt(std::vector<State> & trj, gtsam::Vector3 & err, boost::optional<Features&> features = boost::none);
 
         void pQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot);
 

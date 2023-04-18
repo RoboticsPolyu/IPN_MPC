@@ -1,13 +1,17 @@
 #include "color.h"
-#include "trajectory_generator/Trajectory_generator.h"
+#include "env_sensors_sim/Landmarks.h"
+#include "env_sensors_sim/Lidar.h"
 #include "quadrotor_simulator/Dynamics_control_factor.h"
 #include "quadrotor_simulator/Quadrotor_SO3.h"
+#include "trajectory_generator/Trajectory_generator.h"
 
 #include <yaml-cpp/yaml.h>
 
 
+using namespace Env_Sim;
 using namespace gtsam;
 using namespace QuadrotorSim_SO3;
+using namespace Sensors_Sim;
 using namespace std;
 using namespace Trajectory;
 using namespace UAV_Factor;
@@ -45,6 +49,13 @@ int main(void)
     double POS_MEAS_COV = quadrotor_config["POS_MEAS_COV"].as<double>();
     double POS_MEAS_MEAN = quadrotor_config["POS_MEAS_MEAN"].as<double>();
 
+    double MAP_X = quadrotor_config["MAP_X"].as<double>();
+    double MAP_Y = quadrotor_config["MAP_Y"].as<double>();
+    double MAP_CENTER_X = quadrotor_config["MAP_CENTER_X"].as<double>();
+    double MAP_CENTER_Y = quadrotor_config["MAP_CENTER_Y"].as<double>();
+    double LIDAR_RANGE = quadrotor_config["LIDAR_RANGE"].as<double>();
+    double LANDMARKS_SIZE = quadrotor_config["LANDMARKS_SIZE"].as<uint32_t>();
+
     double dt = 0.001f, radius = RADIUS, linear_vel = LINEAR_VEL;
     circle_generator circle_generator(radius, linear_vel, dt);
 
@@ -77,7 +88,10 @@ int main(void)
     std::default_random_engine meas_z_gen;
     std::normal_distribution<double> position_noise(POS_MEAS_MEAN, POS_MEAS_COV);
     
-
+    Features landmarkk; 
+    Landmarks env(MAP_X, MAP_Y, MAP_CENTER_X, MAP_CENTER_Y, LANDMARKS_SIZE);
+    Lidar<Landmarks> lidar(LIDAR_RANGE);
+    
     for(int traj_idx = 0; traj_idx < SIM_STEPS; traj_idx++)
     {
         double t0 = traj_idx* dt;
@@ -141,12 +155,6 @@ int main(void)
             if (idx == 0)
             {                
                 gtsam::Vector3 pos_noise = gtsam::Vector3(position_noise(meas_x_gen), position_noise(meas_y_gen), position_noise(meas_z_gen));
-
-                // if(traj_idx == 300)
-                // {
-                //     pos_noise[0] = pos_noise[0] - 0.10f;
-                //     pos_noise[2] = pos_noise[2] + 0.05f;
-                // }
 
                 graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx), gtsam::Pose3(predicted_state.rot, predicted_state.x + pos_noise), vicon_noise));
 
@@ -225,10 +233,13 @@ int main(void)
         quadrotor.stepODE(dt, input);  
 
         predicted_state = quadrotor.getState();
+        gtsam::Pose3 predicted_pose = gtsam::Pose3(predicted_state.rot, predicted_state.x);
+
+        landmarkk = lidar.Measurement(env, predicted_pose);
         gtsam::Vector3 tar_position = circle_generator.pos(t0 + 1 * dt);
         gtsam::Vector3 err = predicted_state.x - tar_position;
 
-        quadrotor.render_history_opt(opt_trj, err);
+        quadrotor.render_history_opt(opt_trj, err, landmarkk);
     }
 
     while (true)

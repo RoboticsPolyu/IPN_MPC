@@ -122,8 +122,8 @@ target_link_libraries(simple_circle_motion_test gtsam quadrotor_dynamics ${Pango
 add_executable(Dynamics_factor_test app/Dynamics_factor_test.cpp)
 target_link_libraries(Dynamics_factor_test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})
 
-add_executable(JEC app/JEC.cpp)
-target_link_libraries(JEC gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+add_executable(Joint_Optimization_MPC app/Joint_Optimization_MPC.cpp)
+target_link_libraries(Joint_Optimization_MPC gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
-add_executable(JEC_iSAM app/JEC_iSAM.cpp)
-target_link_libraries(JEC_iSAM gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+add_executable(Joint_Optimization_MPC_iSAM app/Joint_Optimization_MPC_iSAM.cpp)
+target_link_libraries(Joint_Optimization_MPC_iSAM gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})

@@ -156,7 +156,7 @@ namespace QuadrotorSim_SO3
         }
     }
 
-    void Quadrotor::render_history_opt(std::vector<State> &trj, gtsam::Vector3 &err)
+    void Quadrotor::render_history_opt(std::vector<State> &trj, gtsam::Vector3 &err, boost::optional<Features&> features)
     {
         err_file_ << err[0] << " " << err[1] << " " << err[2] << std::endl;
 
@@ -195,6 +195,22 @@ namespace QuadrotorSim_SO3
             }
             errs_.push_back(err);
 
+            glColor3f(0.1, 0.2, 0.7);
+            glPointSize(5.0);
+            glBegin(GL_POINTS);
+            if(features)
+            {
+                Features f = *features;
+                for(int idx = 0; idx < f.size(); idx++)
+                {
+                    gtsam::Vector3 l_body_body(f[idx].x, f[idx].y, f[idx].z);
+                    gtsam::Vector3 l_body_w = state_.rot.rotate(l_body_body) + state_.x;
+                    glVertex3f(l_body_w.x(), l_body_w.y(), l_body_w.z());
+                    
+                }
+            }
+            glEnd();
+            
             render_panel();
 
             // Swap frames and Process Events
