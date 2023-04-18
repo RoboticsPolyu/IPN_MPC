@@ -42,6 +42,7 @@ namespace QuadrotorSim_SO3
         dis_UAV_vely_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vy", "UAV_vy");
         dis_UAV_velz_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vz", "UAV_vz");
         dis_AVE_ERR_ = std::make_shared<pangolin::Var<std::string>>("ui.AVE_ERR", "AVE_ERR");
+        dis_timestamp_ = std::make_shared<pangolin::Var<std::string>>("ui.TIMESTAMP", "TIMESTAMP");
     }
 
     void Quadrotor::pQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot)
@@ -151,7 +152,7 @@ namespace QuadrotorSim_SO3
 
             // Swap frames and Process Events
             pangolin::FinishFrame();
-            usleep(10);
+            usleep(10000); // 10ms
         }
     }
 
@@ -225,6 +226,8 @@ namespace QuadrotorSim_SO3
         *dis_UAV_vely_ = temp_str;
         temp_str = std::to_string(state_.v[2]);
         *dis_UAV_velz_ = temp_str;
+        temp_str = std::to_string(state_.timestamp);
+        *dis_timestamp_ = temp_str;
 
         double err_sum = 0;
         for (uint j = 0; j < errs_.size(); j++)
@@ -257,7 +260,7 @@ namespace QuadrotorSim_SO3
         min_rpm_ = 1200;
         max_rpm_ = 35000;
 
-        drag_force_p = Eigen::Vector3d::Zero();
+        
 
         state_.x = Eigen::Vector3d::Zero();     // position
         state_.v = Eigen::Vector3d::Zero();     // velocity
@@ -276,8 +279,14 @@ namespace QuadrotorSim_SO3
         err_file_.open("err_opt.txt");
 
         YAML::Node config = YAML::LoadFile("../config/quadrotor.yaml");
-        double AT_NOISE_MEAN = config["AT_NOISE_MEAN"].as<double>();
-        double AT_NOISE_COV = config["AT_NOISE_COV"].as<double>();
+        AT_NOISE_MEAN = config["AT_NOISE_MEAN"].as<double>();
+        AT_NOISE_COV = config["AT_NOISE_COV"].as<double>();
+        ANGULAR_SPEED_MEAN = config["ANGULAR_SPEED_MEAN"].as<double>();
+        ANGULAR_SPEED_COV = config["ANGULAR_SPEED_COV"].as<double>();
+        double DRAG_FORCE_X = config["DRAG_FORCE_X"].as<double>();
+        double DRAG_FORCE_Y = config["DRAG_FORCE_Y"].as<double>();
+        double DRAG_FORCE_Z = config["DRAG_FORCE_Z"].as<double>();
+        drag_force_p_ = Eigen::Vector3d(DRAG_FORCE_X, DRAG_FORCE_Y, DRAG_FORCE_Z);
     }
 
     void Quadrotor::step(double dt)
@@ -306,7 +315,7 @@ namespace QuadrotorSim_SO3
             vnorm.normalize();
         }
 
-        Eigen::Vector3d drag_force = -state_.rot.matrix() * Eigen::Matrix3d(drag_force_p.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
+        Eigen::Vector3d drag_force = -state_.rot.matrix() * Eigen::Matrix3d(drag_force_p_.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
         Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) + state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ +
                                 external_force_ / mass_ + drag_force;
         // std::cout << "vdot: " << v_dot << std::endl;
@@ -376,7 +385,7 @@ namespace QuadrotorSim_SO3
             vnorm.normalize();
         }
 
-        Eigen::Vector3d drag_force = -cur_state.rot.matrix() * Eigen::Matrix3d(drag_force_p.asDiagonal()) * cur_state.rot.matrix().transpose() * cur_state.v;
+        Eigen::Vector3d drag_force = -cur_state.rot.matrix() * Eigen::Matrix3d(drag_force_p_.asDiagonal()) * cur_state.rot.matrix().transpose() * cur_state.v;
         Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) + cur_state.rot.rotate(gtsam::Vector3(0, 0, thrust / mass_)) +
                                 external_force_ / mass_ + drag_force;
 
@@ -427,10 +436,13 @@ namespace QuadrotorSim_SO3
         }
 
         std::normal_distribution<double> aT_noise(AT_NOISE_MEAN, AT_NOISE_COV);
+        double at_noise = aT_noise(generator_);
+
+        state_.force_moment[0] = state_.force_moment[0] + at_noise;
 
         for (int i = 0; i < 4; i++)
         {
-            state_.force_moment[0] = state_.force_moment[0] + aT_noise(generator_);
+            
             x[18 + i] = state_.force_moment[i];
         }
 
@@ -463,15 +475,16 @@ namespace QuadrotorSim_SO3
         // std::normal_distribution<double> x_noise(0.0, 0.05);
         // std::normal_distribution<double> r_noise(0.0, 0.005);
         // std::normal_distribution<double> v_noise(0.0, 0.20);
-        // std::normal_distribution<double> o_noise(0.0, 0.005);
+        std::normal_distribution<double> o_noise(ANGULAR_SPEED_MEAN, ANGULAR_SPEED_COV);
 
         // gtsam::Vector3 pos_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(x_noise(generator_), x_noise(generator_), x_noise(generator_));
         // gtsam::Vector3 vel_noise = dt* gtsam::Vector3(v_noise(generator_), v_noise(generator_), v_noise(generator_));
         // gtsam::Vector3 rot_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(r_noise(generator_), r_noise(generator_), r_noise(generator_));
-        // gtsam::Vector3 ome_noise = dt * gtsam::Vector3(o_noise(generator_), o_noise(generator_), o_noise(generator_));
+        gtsam::Vector3 ome_noise = dt * dt * gtsam::Vector3(o_noise(generator_), o_noise(generator_), o_noise(generator_));
 
         state_.x = state_.x;
         state_.v = state_.v;
+        state_.omega = state_.omega + ome_noise;
 
         printCurState();
     }
@@ -562,7 +575,7 @@ namespace QuadrotorSim_SO3
             vnorm.normalize();
         }
 
-        Eigen::Vector3d drag_force = -state_.rot.matrix() * Eigen::Matrix3d(drag_force_p.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
+        Eigen::Vector3d drag_force = -state_.rot.matrix() * Eigen::Matrix3d(drag_force_p_.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
         Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) + state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ +
                                 external_force_ / mass_ + drag_force;
         // std::cout << "vdot: " << v_dot << std::endl;
@@ -632,7 +645,7 @@ namespace QuadrotorSim_SO3
             vnorm.normalize();
         }
 
-        Eigen::Vector3d drag_force = -state_.rot.matrix() * Eigen::Matrix3d(drag_force_p.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
+        Eigen::Vector3d drag_force = -state_.rot.matrix() * Eigen::Matrix3d(drag_force_p_.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
         Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) + state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ +
                                 external_force_ / mass_ + drag_force;
         // std::cout << "vdot: " << v_dot << std::endl;
@@ -704,6 +717,7 @@ namespace QuadrotorSim_SO3
         state_.omega = state.omega;
         state_.motor_rpm = state.motor_rpm;
         state_.force_moment = state.force_moment;
+        state_.timestamp = state.timestamp;
     }
 
     void Quadrotor::setStatePos(const Eigen::Vector3d &Pos)

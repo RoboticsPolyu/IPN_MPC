@@ -3,7 +3,7 @@
 
 #include <Eigen/Core>
 #include "gtsam_wrapper.h"
-#include "quadrotor_simulator/Dynamics_planning_factor.h"
+#include "quadrotor_simulator/Dynamics_params.h"
 
 using namespace UAV_Factor;
 

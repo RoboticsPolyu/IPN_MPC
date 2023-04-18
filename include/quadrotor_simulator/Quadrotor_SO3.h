@@ -32,6 +32,8 @@ namespace QuadrotorSim_SO3
         typedef boost::array<double, 22> stateType;
         struct State
         {
+            int64_t id;
+            double timestamp;
             Eigen::Vector3d x;
             Eigen::Vector3d v;
             gtsam::Rot3 rot;
@@ -145,7 +147,7 @@ namespace QuadrotorSim_SO3
         double motor_time_constant_; // unit: sec
         double max_rpm_;
         double min_rpm_;
-        Eigen::Vector3d drag_force_p;
+        Eigen::Vector3d drag_force_p_;
 
         Quadrotor::State state_, last_state_;
         std::vector<Quadrotor::State> trj_;
@@ -173,6 +175,7 @@ namespace QuadrotorSim_SO3
         std::shared_ptr<pangolin::Var<std::string> > dis_UAVRy_;
         std::shared_ptr<pangolin::Var<std::string> > dis_UAVRz_;
         std::shared_ptr<pangolin::Var<std::string> > dis_AVE_ERR_;
+        std::shared_ptr<pangolin::Var<std::string> > dis_timestamp_;
 
         std::vector<gtsam::Vector3> errs_;
         const uint64_t ERRS_LENS = 1;
@@ -187,7 +190,8 @@ namespace QuadrotorSim_SO3
         // force noise
         double AT_NOISE_MEAN = 0.0;
         double AT_NOISE_COV  = 0.0;
-    
+        double ANGULAR_SPEED_MEAN = 0.0;
+        double ANGULAR_SPEED_COV = 0.0;
     };
 }
 #endif

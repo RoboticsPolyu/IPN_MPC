@@ -18,7 +18,7 @@ if (NOT CMAKE_BUILD_TYPE)
             "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif ()
 
-set(CMAKE_CXX_FLAGS "-std=c++11 -g -Wall")
+set(CMAKE_CXX_FLAGS "-std=c++14 -g -Wall")
 
 set(ENV{CC} "/usr/local/opt/llvm/bin/clang-8")
 set(ENV{CXX} "/usr/local/opt/llvm/bin/clang++")
@@ -89,9 +89,13 @@ set_target_properties(wio_factor_lib PROPERTIES
     SOVERSION           ${wio_factor_soversion})
 
 add_library(quadrotor_dynamics 
+            src/calibration/Dynamics_calib.cpp
             src/control/SE3_controller.cpp
             src/dynamics/Dynamics_control_factor.cpp
             src/dynamics/Dynamics_factor.cpp
+            src/env_sensors_sim/IMU.cpp
+            src/env_sensors_sim/Landmarks.cpp
+            src/env_sensors_sim/Lidar.cpp
             src/dynamics/Quadrotor_SO3.cpp
             src/trajectory_generator/Trajectory_generator.cpp)
             
@@ -112,14 +116,14 @@ target_link_libraries(wheel_imu_error gtsam wio_factor_lib)
 add_executable(wheel_imu_isam app/wheel_imu_isam.cpp)
 target_link_libraries(wheel_imu_isam gtsam gtsam_unstable wio_factor_lib)
 
-add_executable(simple_circle_motion_test app/simple_circle_motion_test.cpp)
+add_executable(simple_circle_motion_test app/circle_trajectory_test.cpp)
 target_link_libraries(simple_circle_motion_test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})
 
-add_executable(Joint_opt_control_sim app/Joint_opt_control_sim.cpp)
-target_link_libraries(Joint_opt_control_sim gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})
+add_executable(Dynamics_factor_test app/Dynamics_factor_test.cpp)
+target_link_libraries(Dynamics_factor_test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})
 
-add_executable(Joint_opt_control_traj_sim app/Joint_opt_control_traj_sim.cpp)
-target_link_libraries(Joint_opt_control_traj_sim gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+add_executable(JEC app/JEC.cpp)
+target_link_libraries(JEC gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
-add_executable(Joint_opt_control_traj_isam app/Joint_opt_control_traj_isam.cpp)
-target_link_libraries(Joint_opt_control_traj_isam gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+add_executable(JEC_iSAM app/JEC_iSAM.cpp)
+target_link_libraries(JEC_iSAM gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})

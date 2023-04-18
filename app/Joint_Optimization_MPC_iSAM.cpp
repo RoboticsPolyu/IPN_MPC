@@ -1,6 +1,6 @@
 #include "color.h"
 #include "trajectory_generator/Trajectory_generator.h"
-#include "quadrotor_simulator/Dynamics_factor.h"
+#include "quadrotor_simulator/Dynamics_control_factor.h"
 #include "quadrotor_simulator/Quadrotor_SO3.h"
 
 using namespace gtsam;
@@ -82,6 +82,18 @@ int main(void)
         {
             for (int idx = 0; idx < opt_lens_traj; idx++)
             {
+                if (idx == 0)
+                {
+                    // measurement part state prior
+                    newFactors.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx), gtsam::Pose3(state_predicted.rot, state_predicted.x), vicon_noise));
+                    newFactors.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx), state_predicted.v, vel_noise));
+                    newFactors.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), state_predicted.omega, omega_noise));
+
+                    newValues.insert(X(idx), gtsam::Pose3(state_predicted.rot, state_predicted.x));
+                    newValues.insert(V(idx), state_predicted.v);
+                    newValues.insert(S(idx), state_predicted.omega);
+                }
+
                 DynamicsFactorfm dynamics_factor(X(idx), V(idx), S(idx), U(idx), X(idx + 1), V(idx + 1), S(idx + 1), dt, dynamics_noise);
                 newFactors.add(dynamics_factor);
                 
@@ -92,32 +104,21 @@ int main(void)
                 newValues.insert(X(idx + 1), pose_idx);
                 newValues.insert(V(idx + 1), vel_idx);
                 newValues.insert(S(idx + 1), omega_idx);
-                gtsam::Vector4 diff_input;
-                diff_input.setZero();
-                // diff_input << 0.5, 5e-6, 5e-6, 5e-6;
                 
                 gtsam::Vector4 init_input = circle_generator.inputfm(t0 + idx * dt);
-                init_input = init_input + diff_input;
 
                 // newFactors.add(gtsam::PriorFactor<gtsam::Vector4>(U(idx), init_input, input_noise));
                 newValues.insert(U(idx), init_input);
-
+                
+                // control part state prior
                 newFactors.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
                 newFactors.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
                 newFactors.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
 
-                if (idx == 0)
-                {
-                    newFactors.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx), gtsam::Pose3(state_predicted.rot, state_predicted.x), vicon_noise));
-                    newFactors.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx), state_predicted.v, vel_noise));
-                    newFactors.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), state_predicted.omega, omega_noise));
+                // FactorIndices contains there initial state prior factor (3), dynamics factor (1) + control state prior (3) 
+                // FactorIndices sum : 4 * 20 + 3 = 83
 
-                    newValues.insert(X(idx), gtsam::Pose3(state_predicted.rot, state_predicted.x));
-                    newValues.insert(V(idx), state_predicted.v);
-                    newValues.insert(S(idx), state_predicted.omega);
-                }
             }
-            
 
         }
         else
@@ -146,13 +147,13 @@ int main(void)
             newFactors.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
 
             /* Add current state measurement */
-            newFactors.add(gtsam::PriorFactor<gtsam::Pose3>(X(cur_est_idx), gtsam::Pose3(state_predicted.rot, state_predicted.x), vicon_noise));
-            newFactors.add(gtsam::PriorFactor<gtsam::Vector3>(V(cur_est_idx), state_predicted.v, vel_noise));
-            newFactors.add(gtsam::PriorFactor<gtsam::Vector3>(S(cur_est_idx), state_predicted.omega, omega_noise));
+            std::cout << "Add current state measurement: " << cur_est_idx << std::endl;
+            newFactors.addPrior(X(cur_est_idx), gtsam::Pose3(state_predicted.rot, state_predicted.x), vicon_noise);
+            newFactors.addPrior(V(cur_est_idx), state_predicted.v, vel_noise);
+            newFactors.addPrior(S(cur_est_idx), state_predicted.omega, omega_noise);
 
-            // newValues.insert(X(cur_est_idx), gtsam::Pose3(state_predicted.rot, state_predicted.x));
-            // newValues.insert(V(cur_est_idx), state_predicted.v);
-            // newValues.insert(S(cur_est_idx), state_predicted.omega);
+            // FactorIndices: adding newest control state prior (3), then current estimation state prior (3)
+            // FactorIndices = 83 + (3 + 3) * cur_est_idx 
         }
 
         ISAM2Result resultI = isam.update(newFactors, newValues);
@@ -216,12 +217,27 @@ int main(void)
 
         input = result.at<gtsam::Vector4>(U(cur_est_idx + 1));
         quad_.stepODE(dt, input);
-        // quad_.step_noise(dt);
-        // quad_.render_history_trj();
+
         gtsam::Vector3 err;
         err.Zero();
         quad_.render_history_opt(opt_trj, err);
         state_predicted = quad_.getState();
+
+        FactorIndices marginalFactorsIndices;
+        FactorIndices deletedFactorsIndices;
+        if(cur_est_idx <= opt_lens_traj)
+        {
+            deletedFactorsIndices.push_back(0 + cur_est_idx* 4);
+            deletedFactorsIndices.push_back(1 + cur_est_idx* 4);
+            deletedFactorsIndices.push_back(2 + cur_est_idx* 4);
+            // deletedFactorsIndices.push_back(3 + cur_est_idx* 4);
+        }
+        else
+        {
+        //     deletedFactorsIndices.push_back(); 
+        //     deletedFactorsIndices.push_back(); 
+        //     deletedFactorsIndices.push_back();    
+        }
 
         cur_est_idx++;
         FastList<Key> leafKeys;
@@ -229,16 +245,12 @@ int main(void)
         leafKeys.push_back(V(cur_est_idx - 1));
         leafKeys.push_back(S(cur_est_idx - 1));
         leafKeys.push_back(U(cur_est_idx - 1));
-        isam.marginalizeLeaves(leafKeys);
-        // isam.marginalFactor(X(cur_est_idx - 1));
-        // isam.marginalFactor(V(cur_est_idx - 1));
-        // isam.marginalFactor(S(cur_est_idx - 1));
-        // isam.marginalFactor(U(cur_est_idx - 1));
+
+        isam.marginalizeLeaves(leafKeys, marginalFactorsIndices, deletedFactorsIndices);
+
         newFactors.resize(0);
         newValues.clear();
     }
-
-    // quad_.render_history_opt(opt_trj);
 
     while (true)
     {

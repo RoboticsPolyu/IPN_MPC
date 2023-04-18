@@ -42,7 +42,7 @@ namespace Trajectory
     gtsam::Vector3 circle_generator::omega(double t)
     {
         // return gtsam::Rot3::Logmap(gtsam::Rot3::Expmap(theta(t - dt_)).between(gtsam::Rot3::Expmap(theta(t + dt_)) ) ) / (2*dt_);
-        return gtsam::Rot3::Logmap(gtsam::Rot3::Expmap(theta(t - dt_)).between(gtsam::Rot3::Expmap(theta(t + dt_)))) / 2/dt_;
+        return gtsam::Rot3::Logmap(gtsam::Rot3::Expmap(theta(t - dt_)).between(gtsam::Rot3::Expmap(theta(t + dt_)))) / 2 / dt_;
     }
 
     gtsam::Vector3 circle_generator::thrust(double t)
@@ -115,7 +115,6 @@ namespace Trajectory
         return input;
     }
 
-
     /*Circle motion based on constant linear acc*/
 
     double cir_conacc_generator::angle(double t)
@@ -123,7 +122,7 @@ namespace Trajectory
         double t_shark = max_speed_ / acc_;
         double angular_acc = acc_ * radius_;
         double angle = 0;
-        if(t < t_shark)
+        if (t < t_shark)
         {
             angle = 0.5 * angular_acc * t * t;
         }
@@ -140,7 +139,7 @@ namespace Trajectory
         double t_shark = max_speed_ / acc_;
         double angular_acc = acc_ * radius_;
         double angle = 0;
-        if(t < t_shark)
+        if (t < t_shark)
         {
             angle = 0.5 * angular_acc * t * t;
         }
@@ -151,13 +150,13 @@ namespace Trajectory
 
         return gtsam::Vector3(sin(angle) * radius_, cos(angle) * radius_, 1.0);
     }
-    
+
     gtsam::Vector3 cir_conacc_generator::vel(double t)
     {
         double t_shark = max_speed_ / acc_;
         double angular_acc = acc_ * radius_;
         double angle = 0;
-        if(t < t_shark)
+        if (t < t_shark)
         {
             angle = 0.5 * angular_acc * t * t;
         }
@@ -168,16 +167,16 @@ namespace Trajectory
 
         gtsam::Vector3 vel = gtsam::Vector3(cos(angle) * angular_acc * t * radius_, -sin(angle) * angular_acc * t * radius_, 0);
         // std::cout << "Analytical vel: " << vel.transpose() << std::endl;
-        
-        vel = (pos(t + dt_) - pos(t))/dt_; // better than Analytical solution ???
+
+        vel = (pos(t + dt_) - pos(t)) / dt_; // better than Analytical solution ???
         // std::cout << "Diff vel:     " << vel.transpose() << std::endl;
-        
+
         return vel;
     }
 
     gtsam::Vector3 cir_conacc_generator::theta(double t)
     {
-        double yaw = - angle(t);
+        double yaw = -angle(t);
 
         gtsam::Vector3 force = thrust(t);
         gtsam::Vector3 zB = force / force.norm();
@@ -202,7 +201,7 @@ namespace Trajectory
     {
         gtsam::Vector force;
 
-        force = (vel(t + dt_) - vel(t - dt_))/2/dt_ + g_;
+        force = (vel(t + dt_) - vel(t - dt_)) / 2 / dt_ + g_;
 
         return force;
     }
@@ -225,7 +224,7 @@ namespace Trajectory
         gtsam::Vector3 mb = J * d_omega + omega(t).cross(J * omega(t));
 
         gtsam::Vector4 Tmb(acc.norm() * dynamics_params_.mass, mb(0), mb(1), mb(2));
-        
+
         return Tmb;
     }
 
