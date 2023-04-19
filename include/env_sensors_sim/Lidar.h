@@ -12,8 +12,8 @@ namespace Sensors_Sim
     class Lidar
     {
     public:
-        Lidar(float range)
-            : range_(range)
+        Lidar(float range, float range_min)
+            : range_(range), range_min_(range_min)
         {
         }
 
@@ -23,6 +23,7 @@ namespace Sensors_Sim
     private:
         Features features_;
         float range_;
+        float range_min_;
     };
 
 }

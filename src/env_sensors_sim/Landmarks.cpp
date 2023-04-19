@@ -4,8 +4,8 @@
 namespace Env_Sim
 {
 
-    Landmarks::Landmarks(float map_x, float map_y, float map_center_x, float map_center_y, uint32_t feature_size)
-        : map_x_(map_x), map_y_(map_y), feature_size_(feature_size), map_center_x_(map_center_x), map_center_y_(map_center_y)
+    Landmarks::Landmarks(float map_x, float map_y, float map_z, float map_center_x, float map_center_y, float map_center_z, uint32_t feature_size)
+        : map_x_(map_x), map_y_(map_y), map_z_(map_z), feature_size_(feature_size), map_center_x_(map_center_x), map_center_y_(map_center_y), map_center_z_(map_center_z)
     {
         Feature feature;
         double random;
@@ -19,7 +19,8 @@ namespace Env_Sim
             random = rand() / double(RAND_MAX);
             feature.y = (random - 0.5f)* map_y_ + map_center_y_;
 
-            feature.z = 1.0;
+            random = rand() / double(RAND_MAX);
+            feature.z = (random - 0.5f)* map_z_ + map_center_z_;
 
             features_.push_back(feature);
 

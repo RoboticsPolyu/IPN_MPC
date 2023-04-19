@@ -50,7 +50,7 @@ namespace QuadrotorSim_SO3
         
         void render_history_trj();
         
-        void render_history_opt(std::vector<State> & trj, gtsam::Vector3 & err, boost::optional<Features&> features = boost::none);
+        void render_history_opt(std::vector<State> & trj, boost::optional<gtsam::Vector3&> err = boost::none, boost::optional<Features&> features = boost::none);
 
         void pQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot);
 
@@ -59,6 +59,8 @@ namespace QuadrotorSim_SO3
         void pLine(gtsam::Vector3 color, gtsam::Vector3 begin, gtsam::Vector3 end);
 
         void pFrame(gtsam::Vector3 p, gtsam::Rot3 rot);
+        
+        void pLidarCloud(Features & features);
         
         void render_panel();
 

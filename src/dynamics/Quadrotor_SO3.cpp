@@ -31,18 +31,18 @@ namespace QuadrotorSim_SO3
         pangolin::CreatePanel("ui")
             .SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(UI_WIDTH));
 
-        dis_force_ = std::make_shared<pangolin::Var<std::string>>("ui.Force", "Force");
-        dis_M1_ = std::make_shared<pangolin::Var<std::string>>("ui.M1", "M1");
-        dis_M2_ = std::make_shared<pangolin::Var<std::string>>("ui.M2", "M2");
-        dis_M3_ = std::make_shared<pangolin::Var<std::string>>("ui.M3", "M3");
-        dis_UAVx_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVx", "UAVx");
-        dis_UAVy_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVy", "UAVy");
-        dis_UAVz_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVz", "UAVz");
-        dis_UAV_velx_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vx", "UAV_vx");
-        dis_UAV_vely_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vy", "UAV_vy");
-        dis_UAV_velz_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vz", "UAV_vz");
-        dis_AVE_ERR_ = std::make_shared<pangolin::Var<std::string>>("ui.AVE_ERR", "AVE_ERR");
-        dis_timestamp_ = std::make_shared<pangolin::Var<std::string>>("ui.TIMESTAMP", "TIMESTAMP");
+        dis_force_ = std::make_shared<pangolin::Var<std::string>>("ui.Force(N)", "Force");
+        dis_M1_ = std::make_shared<pangolin::Var<std::string>>("ui.M1(N*m)", "M1");
+        dis_M2_ = std::make_shared<pangolin::Var<std::string>>("ui.M2(N*m)", "M2");
+        dis_M3_ = std::make_shared<pangolin::Var<std::string>>("ui.M3(N*m)", "M3");
+        dis_UAVx_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVx(m)", "UAVx");
+        dis_UAVy_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVy(m)", "UAVy");
+        dis_UAVz_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVz(m)", "UAVz");
+        dis_UAV_velx_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vx(m/s)", "UAV_vx");
+        dis_UAV_vely_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vy(m/s)", "UAV_vy");
+        dis_UAV_velz_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vz(m/s)", "UAV_vz");
+        dis_AVE_ERR_ = std::make_shared<pangolin::Var<std::string>>("ui.AVE_ERR(m)", "AVE_ERR");
+        dis_timestamp_ = std::make_shared<pangolin::Var<std::string>>("ui.TIMESTAMP(s)", "TIMESTAMP");
     }
 
     void Quadrotor::pQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot)
@@ -116,6 +116,23 @@ namespace QuadrotorSim_SO3
         glEnd();
     }
 
+    void Quadrotor::pLidarCloud(Features & features)
+    {
+        glColor3f(0.1, 0.2, 0.7);
+        glPointSize(5.0);
+        glBegin(GL_POINTS);
+
+        for(int idx = 0; idx < features.size(); idx++)
+        {
+            gtsam::Vector3 l_body_body(features[idx].x, features[idx].y, features[idx].z);
+            gtsam::Vector3 l_body_w = state_.rot.rotate(l_body_body) + state_.x;
+            glVertex3f(l_body_w.x(), l_body_w.y(), l_body_w.z());
+            
+        }
+
+        glEnd();
+    }
+
     void Quadrotor::pFrame(gtsam::Vector3 p, gtsam::Rot3 rot)
     {
         gtsam::Vector3 begin = p;
@@ -156,9 +173,10 @@ namespace QuadrotorSim_SO3
         }
     }
 
-    void Quadrotor::render_history_opt(std::vector<State> &trj, gtsam::Vector3 &err, boost::optional<Features&> features)
+    void Quadrotor::render_history_opt(std::vector<State> &trj, boost::optional<gtsam::Vector3&> err, boost::optional<Features&> features)
     {
-        err_file_ << err[0] << " " << err[1] << " " << err[2] << std::endl;
+        gtsam::Vector3 error = *err;
+        err_file_ << error[0] << " " << error[1] << " " << error[2] << std::endl;
 
         if (!pangolin::ShouldQuit())
         {
@@ -193,29 +211,16 @@ namespace QuadrotorSim_SO3
             {
                 errs_.erase(errs_.begin());
             }
-            errs_.push_back(err);
+            errs_.push_back(error);
 
-            glColor3f(0.1, 0.2, 0.7);
-            glPointSize(5.0);
-            glBegin(GL_POINTS);
-            if(features)
-            {
-                Features f = *features;
-                for(int idx = 0; idx < f.size(); idx++)
-                {
-                    gtsam::Vector3 l_body_body(f[idx].x, f[idx].y, f[idx].z);
-                    gtsam::Vector3 l_body_w = state_.rot.rotate(l_body_body) + state_.x;
-                    glVertex3f(l_body_w.x(), l_body_w.y(), l_body_w.z());
-                    
-                }
-            }
-            glEnd();
-            
+            Features f = *features;
+            pLidarCloud(f);
+
             render_panel();
 
             // Swap frames and Process Events
             pangolin::FinishFrame();
-            usleep(10000);
+            usleep(1000);
         }
     }
 

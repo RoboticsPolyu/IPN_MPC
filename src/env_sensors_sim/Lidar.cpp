@@ -15,7 +15,7 @@ namespace Sensors_Sim
                                      (iter->z - body_pose.z()) * (iter->z - body_pose.z()));
 
 
-            if (d_b_f < range_)
+            if (d_b_f <= range_ && d_b_f >= range_min_)
             {
                 Feature lidar_point;
 

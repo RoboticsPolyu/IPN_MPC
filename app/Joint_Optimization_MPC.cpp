@@ -51,9 +51,12 @@ int main(void)
 
     double MAP_X = quadrotor_config["MAP_X"].as<double>();
     double MAP_Y = quadrotor_config["MAP_Y"].as<double>();
+    double MAP_Z = quadrotor_config["MAP_Z"].as<double>();
     double MAP_CENTER_X = quadrotor_config["MAP_CENTER_X"].as<double>();
     double MAP_CENTER_Y = quadrotor_config["MAP_CENTER_Y"].as<double>();
+    double MAP_CENTER_Z = quadrotor_config["MAP_CENTER_Z"].as<double>();
     double LIDAR_RANGE = quadrotor_config["LIDAR_RANGE"].as<double>();
+    double LIDAR_RANGE_MIN = quadrotor_config["LIDAR_RANGE_MIN"].as<double>();
     double LANDMARKS_SIZE = quadrotor_config["LANDMARKS_SIZE"].as<uint32_t>();
 
     double dt = 0.001f, radius = RADIUS, linear_vel = LINEAR_VEL;
@@ -89,8 +92,8 @@ int main(void)
     std::normal_distribution<double> position_noise(POS_MEAS_MEAN, POS_MEAS_COV);
     
     Features landmarkk; 
-    Landmarks env(MAP_X, MAP_Y, MAP_CENTER_X, MAP_CENTER_Y, LANDMARKS_SIZE);
-    Lidar<Landmarks> lidar(LIDAR_RANGE);
+    Landmarks env(MAP_X, MAP_Y, MAP_Z, MAP_CENTER_X, MAP_CENTER_Y, MAP_CENTER_Z, LANDMARKS_SIZE);
+    Lidar<Landmarks> lidar(LIDAR_RANGE, LIDAR_RANGE_MIN);
     
     for(int traj_idx = 0; traj_idx < SIM_STEPS; traj_idx++)
     {
