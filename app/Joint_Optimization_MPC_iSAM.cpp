@@ -7,7 +7,7 @@ using namespace gtsam;
 using namespace QuadrotorSim_SO3;
 using namespace std;
 using namespace Trajectory;
-using namespace UAV_Factor;
+using namespace UAVFactor;
 
 using symbol_shorthand::S;
 using symbol_shorthand::U;

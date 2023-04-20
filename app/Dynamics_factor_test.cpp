@@ -15,7 +15,7 @@ using namespace gtsam;
 using namespace QuadrotorSim_SO3;
 using namespace std;
 using namespace Trajectory;
-using namespace UAV_Factor;
+using namespace UAVFactor;
 
 using symbol_shorthand::S;
 using symbol_shorthand::U;
@@ -102,11 +102,6 @@ int main(void)
             m_state.omega = circle_generator.omega(idx * dt);
             gtsam::Vector4 input = circle_generator.input(idx * dt);
             m_state.motor_rpm << input[0], input[1], input[2], input[3];
-
-            // quad_.setState(m_state);
-            // quad_.setInput(input[0] + 500, input[1]+500, input[2] + 500, input[3] + 500);
-            // quad_.step(0.02);
-            // m_state = quad_.getState();
 
             gtsam::Pose3 ref_pose(m_state.rot, m_state.x);
             std::cout << "init statex: " << m_state.x.transpose() << std::endl;

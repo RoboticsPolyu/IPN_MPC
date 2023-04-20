@@ -9,7 +9,7 @@
 
 using namespace gtsam_wrapper;
 
-namespace UAV_Factor
+namespace UAVFactor
 {
     typedef Eigen::Matrix<double, 12, 12> Mat12;
     typedef Eigen::Matrix<double, 12, 4> Matrix124;

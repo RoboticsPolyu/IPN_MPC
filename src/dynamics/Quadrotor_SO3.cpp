@@ -116,18 +116,17 @@ namespace QuadrotorSim_SO3
         glEnd();
     }
 
-    void Quadrotor::pLidarCloud(Features & features)
+    void Quadrotor::pLidarCloud(Features &features)
     {
         glColor3f(0.1, 0.2, 0.7);
         glPointSize(5.0);
         glBegin(GL_POINTS);
 
-        for(int idx = 0; idx < features.size(); idx++)
+        for (int idx = 0; idx < features.size(); idx++)
         {
             gtsam::Vector3 l_body_body(features[idx].x, features[idx].y, features[idx].z);
             gtsam::Vector3 l_body_w = state_.rot.rotate(l_body_body) + state_.x;
             glVertex3f(l_body_w.x(), l_body_w.y(), l_body_w.z());
-            
         }
 
         glEnd();
@@ -173,10 +172,10 @@ namespace QuadrotorSim_SO3
         }
     }
 
-    void Quadrotor::render_history_opt(std::vector<State> &trj, boost::optional<gtsam::Vector3&> err, boost::optional<Features&> features)
+    void Quadrotor::render_history_opt(std::vector<State> &trj, boost::optional<gtsam::Vector3 &> err, boost::optional<Features &> features)
     {
         gtsam::Vector3 error = *err;
-        err_file_ << error[0] << " " << error[1] << " " << error[2] << std::endl;
+        record_info_ << state_.x[0] << " " << state_.x[1] << " " << state_.x[2] << " " << error[0] << " " << error[1] << " " << error[2] << " " << state_.force_moment[0] << " " << state_.force_moment[1] << " " << state_.force_moment[2] << " " << state_.force_moment[3] << std::endl;
 
         if (!pangolin::ShouldQuit())
         {
@@ -281,8 +280,6 @@ namespace QuadrotorSim_SO3
         min_rpm_ = 1200;
         max_rpm_ = 35000;
 
-        
-
         state_.x = Eigen::Vector3d::Zero();     // position
         state_.v = Eigen::Vector3d::Zero();     // velocity
         state_.rot = gtsam::Rot3::identity();   // altitude
@@ -297,7 +294,7 @@ namespace QuadrotorSim_SO3
 
         display_setup();
 
-        err_file_.open("err_opt.txt");
+        record_info_.open("../data/record_info.txt");
 
         YAML::Node config = YAML::LoadFile("../config/quadrotor.yaml");
         AT_NOISE_MEAN = config["AT_NOISE_MEAN"].as<double>();
@@ -463,7 +460,7 @@ namespace QuadrotorSim_SO3
 
         for (int i = 0; i < 4; i++)
         {
-            
+
             x[18 + i] = state_.force_moment[i];
         }
 

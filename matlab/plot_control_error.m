@@ -1,20 +1,26 @@
 close all;
 clear all;
-[xep yep zep] = textread('err_opt_proba_010.txt','%f %f %f');
-[xe ye ze] = textread('err_opt_noproba.txt','%f %f %f ');
+[state_x state_y state_z xep yep zep force M1 M2 M3] = textread('../data/record_info.txt','%f %f %f %f %f %f %f %f %f %f');
 
 % grouth truth and estimated trajectory
-figure; plot(abs(xep(1:1:3000)), 'r');
-hold on; plot(abs(xe(1:1:3000)), 'g');
-legend('Probability', 'No Probability');
-title('x err');
+figure; plot((xep(1:1:end)), 'r');
+hold on; plot((yep(1:1:end)), 'g');
+hold on; plot((zep(1:1:end)), 'b');
+title('Trajectory control error');
 
-figure; plot(abs(yep(1:1:3000)), 'r');
-hold on; plot(abs(ye(1:1:3000)), 'g');
-legend('Probability', 'No Probability');
-title('y err');
+figure;
+plot(state_x, state_y, 'r');
+xlabel('x(m)');
+ylabel('y(m)');
+title('XY');
 
-figure; plot(abs(zep(1:1:3000)), 'r');
-hold on; plot(abs(ze(1:1:3000)), 'g');
-legend('Probability', 'No Probability');
-title('z err');
+figure;
+plot(state_x, state_z, 'g');
+title('XZ');
+
+figure;
+plot(force, 'b-');
+title('Control Force')
+
+
+

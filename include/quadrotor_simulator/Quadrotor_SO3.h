@@ -188,7 +188,7 @@ namespace QuadrotorSim_SO3
         const uint64_t HISTORY_TRJ_LENS = 1000;
 
         std::default_random_engine generator_;
-        std::ofstream err_file_;
+        std::ofstream record_info_;
 
         // force noise
         double AT_NOISE_MEAN = 0.0;

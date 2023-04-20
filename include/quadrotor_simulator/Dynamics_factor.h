@@ -9,7 +9,7 @@
 
 using namespace gtsam_wrapper;
 
-namespace UAV_Factor
+namespace UAVFactor
 {
 
 } 

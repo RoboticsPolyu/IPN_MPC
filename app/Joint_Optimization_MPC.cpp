@@ -14,7 +14,7 @@ using namespace QuadrotorSim_SO3;
 using namespace Sensors_Sim;
 using namespace std;
 using namespace Trajectory;
-using namespace UAV_Factor;
+using namespace UAVFactor;
 
 using symbol_shorthand::S;
 using symbol_shorthand::U;
@@ -101,9 +101,9 @@ int main(void)
 
         if(traj_idx == 0)
         {
-            predicted_state.x =  circle_generator.pos(t0);//  + gtsam::Vector3(0.05, 0, 0.10);
+            predicted_state.x =  circle_generator.pos(t0);
             predicted_state.rot = gtsam::Rot3::Expmap(circle_generator.theta(t0));
-            predicted_state.v = circle_generator.vel(t0);// gtsam::Vector3(0.05, 0, 0.10);
+            predicted_state.v = circle_generator.vel(t0);
             predicted_state.omega = circle_generator.omega(t0);
             predicted_state.force_moment = circle_generator.inputfm(t0);
         }

@@ -5,7 +5,7 @@
 #include <iostream>
 
 
-namespace UAV_Factor
+namespace UAVFactor
 {
     struct DynamicsParams
     {

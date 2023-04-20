@@ -8,7 +8,7 @@
 
 
 using namespace QuadrotorSim_SO3;
-using namespace UAV_Factor;
+using namespace UAVFactor;
 
 namespace Control
 {

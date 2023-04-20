@@ -5,7 +5,7 @@
 #include "gtsam_wrapper.h"
 #include "quadrotor_simulator/Dynamics_params.h"
 
-using namespace UAV_Factor;
+using namespace UAVFactor;
 
 namespace Trajectory
 {

@@ -1,6 +1,6 @@
 #include "quadrotor_simulator/Dynamics_control_factor.h"
 
-namespace UAV_Factor
+namespace UAVFactor
 {
    DynamicsFactor::DynamicsFactor(Key p_i, Key vel_i, Key omega_i, Key input_i,
                                   Key p_j, Key vel_j, Key omega_j, float dt, const SharedNoiseModel &model)
