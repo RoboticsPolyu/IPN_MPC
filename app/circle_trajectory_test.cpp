@@ -30,13 +30,13 @@ int main(void)
 
     auto dynamics_noise = noiseModel::Diagonal::Sigmas((Vector(12) << Vector3::Constant(0.05), Vector3::Constant(0.05), Vector3::Constant(0.01), Vector3::Constant(0.01)).finished());
 
-    DynamicsFactorfm dynamics_factor(X(0), V(0), S(0), U(0), X(1), V(1), S(1), 0.1f, dynamics_noise);
+    DynamicsFactorTm dynamics_factor(X(0), V(0), S(0), U(0), X(1), V(1), S(1), 0.1f, dynamics_noise);
 
     Quadrotor quad;
     Quadrotor::State state_0;
     Quadrotor::State state_1;
 
-    double t0 = 0.0;
+    double t0 = 1.0; 
     state_0.x = circle_generator.pos(t0);
     state_0.v = circle_generator.vel(t0);
     state_0.rot = Rot3::Expmap(circle_generator.theta(t0));

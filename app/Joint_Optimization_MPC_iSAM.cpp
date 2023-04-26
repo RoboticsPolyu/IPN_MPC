@@ -94,7 +94,7 @@ int main(void)
                     newValues.insert(S(idx), state_predicted.omega);
                 }
 
-                DynamicsFactorfm dynamics_factor(X(idx), V(idx), S(idx), U(idx), X(idx + 1), V(idx + 1), S(idx + 1), dt, dynamics_noise);
+                DynamicsFactorTm dynamics_factor(X(idx), V(idx), S(idx), U(idx), X(idx + 1), V(idx + 1), S(idx + 1), dt, dynamics_noise);
                 newFactors.add(dynamics_factor);
                 
                 gtsam::Pose3 pose_idx(gtsam::Rot3::Expmap(circle_generator.theta(t0 + (idx + 1) * dt)), circle_generator.pos(t0 + (idx + 1) * dt));
@@ -126,7 +126,7 @@ int main(void)
             /* Add new control target state and its constraints */
             int idx = cur_est_idx + opt_lens_traj - 1;
 
-            DynamicsFactorfm dynamics_factor(X(idx), V(idx), S(idx), U(idx), X(idx + 1), V(idx + 1), S(idx + 1), dt, dynamics_noise);
+            DynamicsFactorTm dynamics_factor(X(idx), V(idx), S(idx), U(idx), X(idx + 1), V(idx + 1), S(idx + 1), dt, dynamics_noise);
             newFactors.add(dynamics_factor);
             
             gtsam::Pose3 pose_idx(gtsam::Rot3::Expmap(circle_generator.theta(t0 + (idx + 1) * dt)), circle_generator.pos(t0 + (idx + 1) * dt));

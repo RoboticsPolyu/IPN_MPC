@@ -104,10 +104,6 @@ int main(void)
             m_state.motor_rpm << input[0], input[1], input[2], input[3];
 
             gtsam::Pose3 ref_pose(m_state.rot, m_state.x);
-            std::cout << "init statex: " << m_state.x.transpose() << std::endl;
-            std::cout << "init stater: " << Rot3::Logmap(m_state.rot).transpose() << std::endl;
-            std::cout << "init statev: " << m_state.v.transpose() << std::endl;
-            std::cout << "init stateomega: " << m_state.omega.transpose() << std::endl;
 
             graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx), ref_pose, vicon_noise));
             graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx), m_state.v, vel_noise));

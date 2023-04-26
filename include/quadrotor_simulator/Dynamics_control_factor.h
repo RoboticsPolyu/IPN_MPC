@@ -10,12 +10,7 @@
 using namespace gtsam_wrapper;
 
 namespace UAVFactor
-{
-    typedef Eigen::Matrix<double, 12, 12> Mat12;
-    typedef Eigen::Matrix<double, 12, 4> Matrix124;
-    typedef Eigen::Matrix<double, 12, 6> Matrix126;
-    typedef Eigen::Matrix<double, 12, 3> Matrix123;
-    
+{    
     typedef QuadrotorSim_SO3::Quadrotor::State UAV_State;
 
 
@@ -50,7 +45,6 @@ namespace UAVFactor
     };
 
     /* position velocity rotation angular_velocity control_input*/
-    
     class GTSAM_EXPORT DynamicsFactor : public NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector4,
                                                                  gtsam::Pose3, gtsam::Vector3, gtsam::Vector3>
     {
@@ -117,16 +111,16 @@ namespace UAVFactor
 
     /* position velocity rotation angular_velocity control_input:Force and Moment*/
     
-    class GTSAM_EXPORT DynamicsFactorfm : public NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector4,
+    class GTSAM_EXPORT DynamicsFactorTm : public NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector4,
                                                                  gtsam::Pose3, gtsam::Vector3, gtsam::Vector3>
     {
     public:
-        typedef boost::shared_ptr<DynamicsFactorfm> shared_ptr;
+        typedef boost::shared_ptr<DynamicsFactorTm> shared_ptr;
 
-        DynamicsFactorfm() {}
-        DynamicsFactorfm(Key p_i, Key vel_i, Key omega_i, Key input_i, Key p_j, Key vel_j, Key omega_j, float dt, const SharedNoiseModel &model);
+        DynamicsFactorTm() {}
+        DynamicsFactorTm(Key p_i, Key vel_i, Key omega_i, Key input_i, Key p_j, Key vel_j, Key omega_j, float dt, const SharedNoiseModel &model);
 
-        virtual ~DynamicsFactorfm()
+        virtual ~DynamicsFactorTm()
         {
         }
 
@@ -138,8 +132,40 @@ namespace UAVFactor
                              boost::optional<Matrix &> H7 = boost::none) const;
 
     private:
-        typedef DynamicsFactorfm This;
+        typedef DynamicsFactorTm This;
         typedef NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector4,
+                                gtsam::Pose3, gtsam::Vector3, gtsam::Vector3>
+            Base;
+
+        DynamicsParams dynamics_params_;
+        
+        float dt_;
+    };
+
+    /*Trust's x and y components are nozero*/
+    class GTSAM_EXPORT DynamicsFactorTm2 : public NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector6, 
+        gtsam::Pose3, gtsam::Vector3, gtsam::Vector3>
+    {
+    public:
+        typedef boost::shared_ptr<DynamicsFactorTm2> shared_ptr;
+
+        DynamicsFactorTm2() {}
+        DynamicsFactorTm2(Key p_i, Key vel_i, Key omega_i, Key tm_ij, Key p_j, Key vel_j, Key omega_j, float dt, const SharedNoiseModel &model);
+
+        virtual ~DynamicsFactorTm2()
+        {
+        }
+
+        Vector evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector3 &omega_i, const gtsam::Vector6 &trust_moments_ij,
+                             const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j,
+                             boost::optional<Matrix &> H1 = boost::none, boost::optional<Matrix &> H2 = boost::none,
+                             boost::optional<Matrix &> H3 = boost::none, boost::optional<Matrix &> H4 = boost::none,
+                             boost::optional<Matrix &> H5 = boost::none, boost::optional<Matrix &> H6 = boost::none,
+                             boost::optional<Matrix &> H7 = boost::none) const;
+
+    private:
+        typedef DynamicsFactorTm2 This;
+        typedef NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector6,
                                 gtsam::Pose3, gtsam::Vector3, gtsam::Vector3>
             Base;
 
