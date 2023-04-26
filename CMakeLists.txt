@@ -89,6 +89,8 @@ set_target_properties(wio_factor_lib PROPERTIES
     SOVERSION           ${wio_factor_soversion})
 
 add_library(quadrotor_dynamics 
+            src/calibration/Calibration_factor.cpp
+            src/calibration/Calibration_inertial.cpp
             src/calibration/Dynamics_calib.cpp
             src/control/SE3_controller.cpp
             src/dynamics/Dynamics_control_factor.cpp

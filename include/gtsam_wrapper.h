@@ -20,6 +20,11 @@ using namespace gtsam;
 
 namespace gtsam_wrapper
 {
+    typedef Eigen::Matrix<double, 12, 12> Mat12;
+    typedef Eigen::Matrix<double, 12, 4> Matrix124;
+    typedef Eigen::Matrix<double, 12, 6> Matrix126;
+    typedef Eigen::Matrix<double, 12, 3> Matrix123;
+
     /** A convenient base class for creating your own NoiseModelFactor with 7
     * variables.  To derive from this class, implement evaluateError(). */
     template <class VALUE1, class VALUE2, class VALUE3, class VALUE4, class VALUE5, class VALUE6, class VALUE7>
@@ -226,7 +231,7 @@ namespace gtsam_wrapper
         typedef VALUE6 X6;
         typedef VALUE7 X7;
         typedef VALUE8 X8;
-        typedef VALUE7 X9;
+        typedef VALUE9 X9;
 
 
     protected:
@@ -269,7 +274,7 @@ namespace gtsam_wrapper
         inline Key key9() const { return keys_[8]; }
 
         /** 
-         * Calls the 10-key specific version of evaluateError, which is pure virtual
+         * Calls the 9-key specific version of evaluateError, which is pure virtual
          * so must be implemented in the derived class. 
          */
         virtual Vector unwhitenedError(const Values &x, boost::optional<std::vector<Matrix> &> H = boost::none) const
@@ -291,12 +296,12 @@ namespace gtsam_wrapper
         }
 
         /**
-         *  Override this method to finish implementing a 8-way factor.
+         *  Override this method to finish implementing a 9-way factor.
          *  If any of the optional Matrix reference arguments are specified, it should compute
          *  both the function evaluation and its derivative(s) in X1 (and/or X2, X3).
          */
         virtual Vector
-        evaluateError(const X1 &, const X2 &, const X3 &, const X4 &, const X5 &, const X6 &, const X7 &, const X8 &,  const X9 &,
+        evaluateError(const X1 &, const X2 &, const X3 &, const X4 &, const X5 &, const X6 &, const X7 &, const X8 &, const X9 &,
                       boost::optional<Matrix &> H1 = boost::none,
                       boost::optional<Matrix &> H2 = boost::none,
                       boost::optional<Matrix &> H3 = boost::none,
