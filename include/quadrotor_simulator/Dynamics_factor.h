@@ -16,9 +16,10 @@ namespace UAVFactor
 
     struct Rotor
     {
-        double thrust_coef;
-        double moment_ratio;
+        double         thrust_coef;
+        double         moment_ratio;
         gtsam::Vector3 axis;
+        gtsam::Rot3    rot_z;
         gtsam::Vector3 position;
     };
 
@@ -48,10 +49,12 @@ namespace UAVFactor
         
 
         EffectivenessMatrix getEffectivenessMatrix();
+        
+        int computeEffectivenessMatrix(const Geometry &geometry, EffectivenessMatrix &effectiveness, 
+                                    ActuatorEnabled &actuatorEnabled, boost::optional<gtsam::Matrix &> Jacobian);
 
     private:
-        int computeEffectivenessMatrix(const Geometry &geometry,
-                                       EffectivenessMatrix &effectiveness, ActuatorEnabled &actuatorEnabled);
+        
 
         Geometry _geometry;
         ActuatorEnabled _actuatorEnabled;

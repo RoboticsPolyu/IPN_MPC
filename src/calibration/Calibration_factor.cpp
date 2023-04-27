@@ -142,19 +142,22 @@ namespace UAVFactor
 
         if (H8)
         {
-            Matrix123 J_e_inert_moments;
-            J_e_inert_moments.setZero();
+            Matrix123 J_e_inertia_moments;
+            J_e_inertia_moments.setZero();
             double Ix = inertia_moments.x();
             double Iy = inertia_moments.y();
             double Iz = inertia_moments.z();
             gtsam::Matrix3 Jac_jb, Jac_Jinv;
-            Jac_jb << 1/Ix/Ix* omega_i.y()* omega_i.z(), - omega_i.y()* omega_i.z(), omega_i.y()* omega_i.z(),
-                      omega_i.x()* omega_i.z(), 1/Iy/Iy* omega_i.y()* omega_i.z(), - omega_i.y()* omega_i.z(),
-                      - omega_i.y()* omega_i.y(), omega_i.y()* omega_i.y(), 1/Iz/Iz* omega_i.y()* omega_i.y();
+            Jac_jb << 1/Ix/Ix* omega_i.y()* omega_i.z(), - omega_i.y()* omega_i.z(),          omega_i.y()* omega_i.z(),
+                      omega_i.x()* omega_i.z(),          1/Iy/Iy* omega_i.y()* omega_i.z(), - omega_i.y()* omega_i.z(),
+                      - omega_i.y()* omega_i.y(),        omega_i.y()* omega_i.y(), 1/Iz/Iz*   omega_i.y()* omega_i.y();
             
-            Jac_Jinv << 1/Ix/Ix* trust_moments_ij(3) , 0, 0, 0, 1/Iy/Iy* trust_moments_ij(4), 0, 0, 0, 1/Iz/Iz* trust_moments_ij(5);
-            J_e_inert_moments.block(9, 0, 3, 3) = Jac_Jinv + Jac_jb;
-            *H8 = J_e_inert_moments;
+            Jac_Jinv << 1/Ix/Ix* trust_moments_ij(3) , 0, 0, 
+                        0, 1/Iy/Iy* trust_moments_ij(4), 0, 
+                        0, 0, 1/Iz/Iz* trust_moments_ij(5);
+            J_e_inertia_moments.block(9, 0, 3, 3) = Jac_Jinv + Jac_jb;
+
+            *H8 = J_e_inertia_moments;
         }
 
         if (H9)
@@ -172,4 +175,256 @@ namespace UAVFactor
 
         return err;
    };
+
+
+    Vector AllocationCalibFactor::evaluateError(const gtsam::Vector3& trust, const gtsam::Vector3 & moments, 
+        const gtsam::Vector3& rotor_pos, const gtsam::Rot3& rotor_axis, const double &ct, const double &km, const double &esc_factor,
+        boost::optional<Matrix &> H1, boost::optional<Matrix &> H2, boost::optional<Matrix &> H3, boost::optional<Matrix &> H4,
+        boost::optional<Matrix &> H5, boost::optional<Matrix &> H6, boost::optional<Matrix &> H7) const
+    {
+        gtsam::Vector6 err;
+        gtsam::Vector6 trust_moments;
+        trust_moments.head(3) = trust;
+        trust_moments.tail(3) = moments;
+
+        gtsam::Vector4 real_trust_4_rotors;
+        gtsam::Matrix3 J_axis;
+
+        gtsam::Vector3 axis       = rotor_axis.rotate(gtsam::Vector3(0, 0, 1), J_axis);
+        gtsam::Vector3 _thrust    = ct * axis;
+        
+        gtsam::Matrix3 rk1, rk2, rk3, rk4;
+        rk1 << 1, 0, 0, 0, -1, 0, 0, 0, 1;
+        gtsam::Vector3 _moment_1 = rk1 * ct * rotor_pos.cross(axis) - ct * km * axis; // moments of 1rd, 2rd rotor
+        
+        rk2 << -1, 0, 0, 0, 1, 0, 0, 0, 1;
+        gtsam::Vector3 _moment_2 = rk2 * ct * rotor_pos.cross(axis) + ct * km * axis; // moments of 3rd, 4rd rotor
+
+        rk3 << 1, 0, 0, 0, 1, 0, 0, 0, 1;
+        gtsam::Vector3 _moment_3 = rk3 * ct * rotor_pos.cross(axis) + ct * km * axis; // moments of 3rd, 4rd rotor
+        
+        rk4 << -1, 0, 0, 0, -1, 0, 0, 0, 1;
+        gtsam::Vector3 _moment_4 = rk4 * ct * rotor_pos.cross(axis) + ct * km * axis; // moments of 3rd, 4rd rotor
+
+        gtsam::Matrix3 J_trust_axis = ct* gtsam::Matrix3::Identity();
+        gtsam::Matrix3 J_m1_axis   = rk1 * ct * gtsam::skewSymmetric(rotor_pos) - ct * km * gtsam::Matrix3::Identity();
+        gtsam::Matrix3 J_m2_axis   = rk2 * ct * gtsam::skewSymmetric(rotor_pos) - ct * km * gtsam::Matrix3::Identity();
+        gtsam::Matrix3 J_m3_axis   = rk3 * ct * gtsam::skewSymmetric(rotor_pos) + ct * km * gtsam::Matrix3::Identity();
+        gtsam::Matrix3 J_m4_axis   = rk4 * ct * gtsam::skewSymmetric(rotor_pos) + ct * km * gtsam::Matrix3::Identity();
+
+        gtsam::Matrix64 effectiveness_matrix; 
+        effectiveness_matrix.setZero();
+
+        for(uint i = 0; i < 4; i++)
+        {
+            double rel_pwm = (actuators_(i) - PWM_MIN_) / (PWM_MAX_ - PWM_MIN_);
+            real_trust_4_rotors(i) = esc_factor* rel_pwm * rel_pwm + (1 - esc_factor)* rel_pwm;
+            effectiveness_matrix.block(0, i, 3, 1) = _thrust;
+        }
+
+        effectiveness_matrix.block(3, 0, 3, 1) = _moment_1;
+        effectiveness_matrix.block(3, 1, 3, 1) = _moment_2;
+        effectiveness_matrix.block(3, 2, 3, 1) = _moment_3;
+        effectiveness_matrix.block(3, 3, 3, 1) = _moment_4;
+
+        err =  effectiveness_matrix * real_trust_4_rotors - trust_moments;
+
+        if(H1)
+        {
+            gtsam::Matrix63 J_trust;
+            J_trust.setZero();
+            J_trust.block(0, 0, 3, 3) = gtsam::Matrix3::Identity();
+            *H1 = J_trust;
+        }
+        if(H2)
+        {
+            gtsam::Matrix63 J_mb;
+            J_mb.setZero();
+            J_mb.block(3, 0, 3, 3) = gtsam::Matrix3::Identity();
+            *H1 = J_mb;
+        }
+        
+        if(H3)
+        {
+
+        }
+        if(H4)
+        {
+
+        }
+        if(H5)
+        {
+
+        }
+        if(H6)
+        {
+
+        }
+        if(H7)
+        {
+
+        }
+
+        return err;
+    }
+
+    Vector AllocationCalibFactor2::evaluateError(const gtsam::Vector3& trust, const gtsam::Vector3 & moments, 
+        const gtsam::Vector3& rotor_pos, const double &ct, const double &km, const double &esc_factor,
+        boost::optional<Matrix &> H1, boost::optional<Matrix &> H2, boost::optional<Matrix &> H3, 
+        boost::optional<Matrix &> H4, boost::optional<Matrix &> H5, boost::optional<Matrix &> H6) const
+    {
+        gtsam::Vector6 err;
+        gtsam::Vector6 trust_moments;
+        trust_moments.head(3) = trust;
+        trust_moments.tail(3) = moments;
+
+        gtsam::Vector4 real_trust_4_rotors;
+        gtsam::Matrix3 J_axis;
+
+        gtsam::Vector3 axis       = gtsam::Vector3(0, 0, 1);
+        gtsam::Vector3 _thrust    = ct * axis;
+        
+        gtsam::Matrix3 rk1, rk2, rk3, rk4;
+        rk1 = gtsam::Vector3(1, -1, 1).asDiagonal();
+        gtsam::Vector3 _moment_1 = rk1 * ct * rotor_pos.cross(axis) - ct * km * axis; // moments of 1rd, 2rd rotor
+        
+        rk2 = gtsam::Vector3(-1, 1, 1).asDiagonal();
+        gtsam::Vector3 _moment_2 = rk2 * ct * rotor_pos.cross(axis) - ct * km * axis; // moments of 3rd, 4rd rotor
+
+        rk3 = gtsam::Vector3(1, 1, 1).asDiagonal();
+        gtsam::Vector3 _moment_3 = rk3 * ct * rotor_pos.cross(axis) + ct * km * axis; // moments of 3rd, 4rd rotor
+        
+        rk4 = gtsam::Vector3(-1, -1, 1).asDiagonal();
+        gtsam::Vector3 _moment_4 = rk4 * ct * rotor_pos.cross(axis) + ct * km * axis; // moments of 3rd, 4rd rotor
+
+        gtsam::Matrix31 J_trust_ct = axis;
+
+        gtsam::Matrix3  J_m1_rp    = - rk1 * ct * gtsam::skewSymmetric(axis);
+        gtsam::Matrix3  J_m2_rp    = - rk2 * ct * gtsam::skewSymmetric(axis);
+        gtsam::Matrix3  J_m3_rp    = - rk3 * ct * gtsam::skewSymmetric(axis);
+        gtsam::Matrix3  J_m4_rp    = - rk4 * ct * gtsam::skewSymmetric(axis);
+
+        gtsam::Matrix31 J_m1_ct    =   rk1 * rotor_pos.cross(axis) - km * axis;
+        gtsam::Matrix31 J_m2_ct    =   rk2 * rotor_pos.cross(axis) - km * axis;
+        gtsam::Matrix31 J_m3_ct    =   rk3 * rotor_pos.cross(axis) + km * axis;
+        gtsam::Matrix31 J_m4_ct    =   rk4 * rotor_pos.cross(axis) + km * axis;
+
+        gtsam::Matrix31 J_m1_km    = - ct * axis;
+        gtsam::Matrix31 J_m2_km    = - ct * axis;
+        gtsam::Matrix31 J_m3_km    =   ct * axis;
+        gtsam::Matrix31 J_m4_km    =   ct * axis;
+
+        gtsam::Matrix64 effectiveness_matrix; 
+        effectiveness_matrix.setZero();
+        gtsam::Matrix41 J_trust_esc;
+
+        for(uint i = 0; i < 4; i++)
+        {
+            double rel_pwm = (actuators_(i) - PWM_MIN_) / (PWM_MAX_ - PWM_MIN_);
+            real_trust_4_rotors(i) = esc_factor* rel_pwm * rel_pwm + (1 - esc_factor)* rel_pwm;
+            J_trust_esc(i) = rel_pwm * rel_pwm - rel_pwm;
+            effectiveness_matrix.block(0, i, 3, 1) = _thrust;
+        }
+
+        effectiveness_matrix.block(3, 0, 3, 1) = _moment_1;
+        effectiveness_matrix.block(3, 1, 3, 1) = _moment_2;
+        effectiveness_matrix.block(3, 2, 3, 1) = _moment_3;
+        effectiveness_matrix.block(3, 3, 3, 1) = _moment_4;
+
+        err =  effectiveness_matrix * real_trust_4_rotors - trust_moments;
+
+        if(H1)
+        {
+            gtsam::Matrix63 J_trust;
+            J_trust.setZero();
+            J_trust.block(0, 0, 3, 3) = gtsam::Matrix3::Identity();
+            *H1 = J_trust;
+        }
+        if(H2)
+        {
+            gtsam::Matrix63 J_mb;
+            J_mb.setZero();
+            J_mb.block(3, 0, 3, 3) = gtsam::Matrix3::Identity();
+            *H2 = J_mb;
+        }
+        
+        if(H3)
+        {
+            gtsam::Matrix63 J_rotorpos;
+            J_rotorpos.setZero();
+            gtsam::Matrix63 J_tm_rotor1;
+            J_tm_rotor1.setZero();
+            J_tm_rotor1.block(3, 0, 3, 3) = J_m1_rp;
+            gtsam::Matrix63 J_tm_rotor2;
+            J_tm_rotor2.setZero();
+            J_tm_rotor2.block(3, 0, 3, 3) = J_m2_rp;
+            gtsam::Matrix63 J_tm_rotor3;
+            J_tm_rotor3.setZero();
+            J_tm_rotor3.block(3, 0, 3, 3) = J_m3_rp;
+            gtsam::Matrix63 J_tm_rotor4;
+            J_tm_rotor4.setZero();
+            J_tm_rotor4.block(3, 0, 3, 3) = J_m4_rp;
+
+            J_rotorpos = J_tm_rotor1 * real_trust_4_rotors(0) + J_tm_rotor2 * real_trust_4_rotors(1) + 
+            J_tm_rotor3 * real_trust_4_rotors(2) + J_tm_rotor4 * real_trust_4_rotors(3);
+
+            *H3 = J_rotorpos;
+        }
+        if(H4)
+        {
+            gtsam::Matrix61 J_ct;
+            J_ct.setZero();
+            gtsam::Matrix61 J_tm_ct1;
+            J_tm_ct1.setZero();
+            J_tm_ct1.block(0, 0, 3, 1) = J_trust_ct;
+            J_tm_ct1.block(3, 0, 3, 1) = J_m1_ct;
+            gtsam::Matrix61 J_tm_ct2;
+            J_tm_ct2.setZero();
+            J_tm_ct2.block(0, 0, 3, 1) = J_trust_ct;
+            J_tm_ct2.block(3, 0, 3, 1) = J_m2_ct;
+            gtsam::Matrix61 J_tm_ct3;
+            J_tm_ct3.setZero();
+            J_tm_ct3.block(0, 0, 3, 1) = J_trust_ct;
+            J_tm_ct3.block(3, 0, 3, 1) = J_m3_ct;
+            gtsam::Matrix61 J_tm_ct4;
+            J_tm_ct4.setZero();
+            J_tm_ct4.block(0, 0, 3, 1) = J_trust_ct;
+            J_tm_ct4.block(3, 0, 3, 1) = J_m4_ct;
+
+            J_ct = J_tm_ct1 * real_trust_4_rotors(0) + J_tm_ct2 * real_trust_4_rotors(1) + 
+                                    J_tm_ct3 * real_trust_4_rotors(2) + J_tm_ct4 * real_trust_4_rotors(3);
+            *H4 = J_ct;
+
+        }
+        if(H5)
+        {
+            gtsam::Matrix61 J_km;
+            J_km.setZero();
+            gtsam::Matrix61 J_tm_km1;
+            J_tm_km1.setZero();
+            J_tm_km1.block(3, 0, 3, 3) = J_m1_km;
+            gtsam::Matrix61 J_tm_km2;
+            J_tm_km2.setZero();
+            J_tm_km2.block(3, 0, 3, 3) = J_m2_km;
+            gtsam::Matrix61 J_tm_km3;
+            J_tm_km3.setZero();
+            J_tm_km3.block(3, 0, 3, 3) = J_m3_km;
+            gtsam::Matrix61 J_tm_km4;
+            J_tm_km4.setZero();
+            J_tm_km4.block(3, 0, 3, 3) = J_m4_km;
+
+            J_km = J_tm_km1 * real_trust_4_rotors(0) + J_tm_km2 * real_trust_4_rotors(1) + J_tm_km3 * real_trust_4_rotors(2) + J_tm_km4 * real_trust_4_rotors(3);
+            *H5 = J_km;
+
+        }
+        if(H6)
+        {
+            gtsam::Matrix61 J_esc_factor;
+            J_esc_factor.setZero();
+            J_esc_factor = effectiveness_matrix* J_trust_esc;
+            *H6 = J_esc_factor;
+        }
+
+        return err;
+    }
 }

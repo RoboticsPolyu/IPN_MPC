@@ -2,7 +2,8 @@
 
 namespace UAVFactor
 {
-    int ActuatorEffectivenessRotors::computeEffectivenessMatrix(const Geometry &geometry, EffectivenessMatrix &effectiveness, ActuatorEnabled &actuatorEnabled)
+    int ActuatorEffectivenessRotors::computeEffectivenessMatrix(const Geometry &geometry, EffectivenessMatrix &effectiveness, 
+        ActuatorEnabled &actuatorEnabled, boost::optional<gtsam::Matrix &> Jacobian)
     {
         int num_actuators = 0;
 
