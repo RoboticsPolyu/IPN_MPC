@@ -70,7 +70,7 @@ int main(void)
         std::cout << " state_theta1: [ " << circle_generator.theta(t0 + dt * i)[0] << " ," << circle_generator.theta(t0 + dt * i)[1] << " ," << circle_generator.theta(t0 + dt * i)[2] << " ]" << std::endl;
         std::cout << " state_omega1: [ " << circle_generator.omega(t0 + dt * i)[0] << " ," << circle_generator.omega(t0 + dt * i)[1] << " ," << circle_generator.omega(t0 + dt * i)[2] << " ]" << std::endl;
 
-        quad.render_history_trj();
+        quad.renderHistoryTrj();
         std::cout << "***********************************************************************" << std::endl;
     }
 
@@ -93,7 +93,7 @@ int main(void)
 
     while (true)
     {
-        quad.render_history_trj();
+        quad.renderHistoryTrj();
     }
 
     return 0;

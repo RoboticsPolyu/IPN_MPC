@@ -100,7 +100,7 @@ namespace UAVFactor
     }
 
 
-    Vector AllocationFactor::evaluateError(const double& trust, const gtsam::Vector3 &moments, const gtsam::Vector4 &actuator_outputs,
+    Vector AllocationFactor::evaluateError(const double& thrust, const gtsam::Vector3 &moments, const gtsam::Vector4 &actuator_outputs,
                                            boost::optional<Matrix &> H1, boost::optional<Matrix &> H2,
                                            boost::optional<Matrix &> H3) const
     {

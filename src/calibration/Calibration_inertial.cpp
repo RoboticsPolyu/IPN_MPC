@@ -1,4 +1,4 @@
-#include "calibration/Calibratio_Inertial.h"
+#include "calibration/Calibration_Inertial.h"
 
 namespace UAVFactor
 {

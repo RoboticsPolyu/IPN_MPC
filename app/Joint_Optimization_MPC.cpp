@@ -134,7 +134,7 @@ int main(void)
             gtsam::Vector4 init_input = circle_generator.inputfm(t0 + idx * dt);
             if(idx != 0)
             {
-                BetForceMoment bet_FM_factor(U(idx - 1), U(idx), input_jerk);
+                BetForceMoments bet_FM_factor(U(idx - 1), U(idx), input_jerk);
                 graph.add(bet_FM_factor);
             }
             initial_value.insert(U(idx), init_input);
@@ -242,12 +242,14 @@ int main(void)
         gtsam::Vector3 tar_position = circle_generator.pos(t0 + 1 * dt);
         gtsam::Vector3 err = predicted_state.x - tar_position;
 
-        quadrotor.render_history_opt(opt_trj, err, landmarkk);
+        gtsam::Vector4 actuator_outputs = quadrotor.CumputeRotorsVel();
+        
+        quadrotor.renderHistoryOpt(opt_trj, err, landmarkk);
     }
 
     while (true)
     {
-        quadrotor.render_history_trj();
+        quadrotor.renderHistoryTrj();
     }
 
     return 0;

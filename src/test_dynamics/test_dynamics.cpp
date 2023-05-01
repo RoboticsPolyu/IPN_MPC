@@ -52,24 +52,24 @@ int main(int argc, char **argv)
     {
         if(i % 100)
         {   
-            quad.render_history_trj();
+            quad.renderHistoryTrj();
         }
         
         state = quad.getState();
-        // thrust = m * g + KP * (z_des - state.x(2)) + KD * (0 - state.v(2));
-        // rpm = std::sqrt(thrust / (4 * kf));
-        // if (i < 3000)
-        //     quad.setExternalForce(Eigen::Vector3d(0, 0, -KP * z_des));
-        // else
-        //     quad.setExternalForce(Eigen::Vector3d(0, 0, 0));
+        thrust = m * g + KP * (z_des - state.x(2)) + KD * (0 - state.v(2));
+        rpm = std::sqrt(thrust / (4 * kf));
+        if (i < 3000)
+            quad.setExternalForce(Eigen::Vector3d(0, 0, -KP * z_des));
+        else
+            quad.setExternalForce(Eigen::Vector3d(0, 0, 0));
+            
         if(i < 3000)
         {
             quad.setInput(rpm, rpm, rpm, rpm);
         }
         else if(i >= 3000 & i < 3500)
         {
-            quad.setInput(rpm* sqrt(1+ 0.005), rpm* sqrt(1+ 0.005), rpm* sqrt(1+ 0.01), rpm); //rotx
-            // quad.setInput(rpm, rpm, rpm* sqrt(1+ 0.01), rpm);
+            quad.setInput(rpm, rpm, rpm* sqrt(1+ 0.01), rpm);
         }
         else
         {

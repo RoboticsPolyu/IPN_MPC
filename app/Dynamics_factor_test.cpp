@@ -156,7 +156,7 @@ int main(void)
         state_.x = i_pose.translation();
         state_.rot = i_pose.rotation();
         quad_.setState(state_);
-        quad_.render_history_trj();
+        quad_.renderHistoryTrj();
 
         state_.x = ref_pose.translation();
         state_.rot = ref_pose.rotation();
@@ -196,11 +196,11 @@ int main(void)
     gtsam::Vector3 err;
     err.Zero();
 
-    quad_.render_history_opt(opt_trj, err);
+    quad_.renderHistoryOpt(opt_trj, err);
 
     while (true)
     {
-        quad_.render_history_trj();
+        quad_.renderHistoryTrj();
     }
 
     return 0;

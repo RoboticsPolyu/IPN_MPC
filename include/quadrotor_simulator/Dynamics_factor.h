@@ -3,7 +3,6 @@
 
 #include "Dynamics_params.h"
 #include "gtsam_wrapper.h"
-#include "Quadrotor_SO3.h"
 
 #include <vector>
 
@@ -61,7 +60,7 @@ namespace UAVFactor
     };
 
 
-    // Allocation Control Factor <trust, moments, actuators_output>
+    // Allocation Control Factor <thrust, moments, actuators_output>
     class GTSAM_EXPORT AllocationFactor : public NoiseModelFactor3<double, gtsam::Vector3, gtsam::Vector4>
     {
     public:
@@ -69,9 +68,9 @@ namespace UAVFactor
 
         AllocationFactor() {}
 
-        AllocationFactor(Key trust_key, Key moments_key, Key actuators_key,
+        AllocationFactor(Key thrust_key, Key moments_key, Key actuators_key,
                          ActuatorEffectivenessRotors &actuatorEffectivenessRotors, const SharedNoiseModel &model)
-                         : Base(model, trust_key, moments_key, actuators_key),
+                         : Base(model, thrust_key, moments_key, actuators_key),
                          actuatorEffectivenessRotors_(actuatorEffectivenessRotors)
                          {};
 
@@ -79,7 +78,7 @@ namespace UAVFactor
         {
         }
 
-        Vector evaluateError(const double& trust, const gtsam::Vector3 & moments, const gtsam::Vector4 & actuator_outputs,
+        Vector evaluateError(const double& thrust, const gtsam::Vector3 & moments, const gtsam::Vector4 & actuator_outputs,
                              boost::optional<Matrix &> H1 = boost::none, boost::optional<Matrix &> H2 = boost::none,
                              boost::optional<Matrix &> H3 = boost::none) const;
 

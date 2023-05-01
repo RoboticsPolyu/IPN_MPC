@@ -2,6 +2,7 @@
 #define __QUADROTOR_SIMULATOR_QUADROTOR_SO3_H__
 
 #include "color.h"
+#include "Dynamics_factor.h"
 #include "env_sensors_sim/Common.h"
 #include "gtsam_wrapper.h"
 
@@ -22,49 +23,56 @@
 #include <pangolin/handler/handler.h>
 #include <vector>
 
-using namespace std;
+
 using namespace boost::numeric::odeint;
+using namespace std;
+using namespace UAVFactor;
+
 
 namespace QuadrotorSim_SO3
 {
     class Quadrotor
     {
     public:
-        typedef boost::array<double, 22> stateType;
+        using stringUI = std::shared_ptr<pangolin::Var<std::string> >;
+        using stateType = boost::array<double, 22>;
+
         struct State
         {
-            int64_t id;
-            double timestamp;
+            int64_t         id;
+            double          timestamp;
             Eigen::Vector3d x;
             Eigen::Vector3d v;
-            gtsam::Rot3 rot;
+            gtsam::Rot3     rot;
             Eigen::Vector3d omega;
-            Eigen::Array4d motor_rpm;
+            Eigen::Array4d  motor_rpm;
             Eigen::Vector4d force_moment;
             
             EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
         };
         
-        /********************************* Display *********************************/
-        void display_setup();
+        // Display
+
+        void displaySetup();
         
-        void render_history_trj();
+        void renderHistoryTrj();
         
-        void render_history_opt(std::vector<State> & trj, boost::optional<gtsam::Vector3&> err = boost::none, boost::optional<Features&> features = boost::none);
+        void renderHistoryOpt(std::vector<State> & trj, boost::optional<gtsam::Vector3&> err = boost::none, boost::optional<Features&> features = boost::none);
 
-        void pQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot);
+        void drawQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot);
 
-        void pCircle(gtsam::Vector3 color, float r, gtsam::Vector3 p, gtsam::Rot3 rot);
+        void drawCircle(gtsam::Vector3 color, float r, gtsam::Vector3 p, gtsam::Rot3 rot);
 
-        void pLine(gtsam::Vector3 color, gtsam::Vector3 begin, gtsam::Vector3 end);
+        void drawLine(gtsam::Vector3 color, gtsam::Vector3 begin, gtsam::Vector3 end);
 
-        void pFrame(gtsam::Vector3 p, gtsam::Rot3 rot);
+        void drawFrame(gtsam::Vector3 p, gtsam::Rot3 rot);
         
-        void pLidarCloud(Features & features);
+        void drawLidarCloud(Features & features);
         
-        void render_panel();
+        void renderPanel();
 
-       /********************************** Dynamics **********************************/
+       // Dynamics related function
+
         Quadrotor();
 
         const Quadrotor::State &getState(void) const;
@@ -109,36 +117,31 @@ namespace QuadrotorSim_SO3
         double getMinRPM(void) const;
         void setMinRPM(double min_rpm);
 
-        // -T1 + T2 - T3 + T4
-        // -T1 + T2 + T3 - T4
-        // -T1 - T2 + T3 + T4
-        // Inputs are desired RPM for the motors
-        // Rotor numbering is:
-        //   *1*    Front
-        // 3     4
-        //    2
         // with 1 and 2 clockwise and 3 and 4 counter-clockwise (looking from top)
         void setInput(double u1, double u2, double u3, double u4);
-        
         void setInput(gtsam::Vector4 force_moment);
-
         // Runs the actual dynamics simulation with a time step of dt
         void step(double dt);
+        void stepAddNoise(double dt);
 
-        void step_noise(double dt);
-        
+        // ODE intergration based state propagation
         void operator()(const Quadrotor::stateType &x , Quadrotor::stateType &dxdt , const double t);
-
         void stepODE(double dt, gtsam::Vector4 fm);
         void stepODE2(double dt, gtsam::Vector4 fm);
-
-        void printCurState();
-
-        void step_fm(double dt, gtsam::Vector4 fm);
+        void stepTMDeprecated(double dt, gtsam::Vector4 fm);
+        // Compute every rotor's rotation vel RPM
+        Eigen::Vector4d CumputeRotorsVel();
 
         Eigen::Vector3d getAcc() const;
 
     private:
+        void printCurState();
+
+        // Compute Control Allocation's effectiveness matrix
+        Eigen::Matrix4d ComputeEffectivenessMatrix();
+
+        // Control Allocation's effectiveness matrix
+        Eigen::Matrix4d effectiveness_;
 
         double g_; // gravity
         double mass_;
@@ -150,6 +153,8 @@ namespace QuadrotorSim_SO3
         double motor_time_constant_; // unit: sec
         double max_rpm_;
         double min_rpm_;
+        double esc_factor_;
+        
         Eigen::Vector3d drag_force_p_;
 
         Quadrotor::State state_, last_state_;
@@ -157,28 +162,29 @@ namespace QuadrotorSim_SO3
 
         Eigen::Vector3d acc_;
 
-        Eigen::Array4d input_;
+        Eigen::Array4d  input_;
         Eigen::Vector3d external_force_;
         Eigen::Vector3d external_moment_;
-        gtsam::Vector4 force_moment_;
+        gtsam::Vector4  force_moment_;
 
         pangolin::View d_cam;
         std::shared_ptr<pangolin::OpenGlRenderState> s_cam;
-        std::shared_ptr<pangolin::Var<std::string> > dis_force_;
-        std::shared_ptr<pangolin::Var<std::string> > dis_M1_;
-        std::shared_ptr<pangolin::Var<std::string> > dis_M2_;
-        std::shared_ptr<pangolin::Var<std::string> > dis_M3_;
-        std::shared_ptr<pangolin::Var<std::string> > dis_UAVx_;
-        std::shared_ptr<pangolin::Var<std::string> > dis_UAVy_;
-        std::shared_ptr<pangolin::Var<std::string> > dis_UAVz_;
-        std::shared_ptr<pangolin::Var<std::string> > dis_UAV_velx_;
-        std::shared_ptr<pangolin::Var<std::string> > dis_UAV_vely_;
-        std::shared_ptr<pangolin::Var<std::string> > dis_UAV_velz_;
-        std::shared_ptr<pangolin::Var<std::string> > dis_UAVRx_;
-        std::shared_ptr<pangolin::Var<std::string> > dis_UAVRy_;
-        std::shared_ptr<pangolin::Var<std::string> > dis_UAVRz_;
-        std::shared_ptr<pangolin::Var<std::string> > dis_AVE_ERR_;
-        std::shared_ptr<pangolin::Var<std::string> > dis_timestamp_;
+        stringUI dis_force_;
+        stringUI dis_M1_;
+        stringUI dis_M2_;
+        stringUI dis_M3_;
+        stringUI dis_Quad_x_;
+        stringUI dis_Quad_y_;
+        stringUI dis_Quad_z_;
+        stringUI dis_Quad_velx_;
+        stringUI dis_Quad_vely_;
+        stringUI dis_Quad_velz_;
+        stringUI dis_Quad_Rx_;
+        stringUI dis_Quad_Ry_;
+        stringUI dis_Quad_Rz_;
+        stringUI dis_AVE_ERR_;
+        stringUI dis_timestamp_;
+        stringUI dis_rotor_[4];
 
         std::vector<gtsam::Vector3> errs_;
         const uint64_t ERRS_LENS = 1;
@@ -195,6 +201,8 @@ namespace QuadrotorSim_SO3
         double AT_NOISE_COV  = 0.0;
         double ANGULAR_SPEED_MEAN = 0.0;
         double ANGULAR_SPEED_COV = 0.0;
+
+        Geometry geometry_;
     };
 }
 #endif

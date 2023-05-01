@@ -220,7 +220,7 @@ int main(void)
 
         gtsam::Vector3 err;
         err.Zero();
-        quad_.render_history_opt(opt_trj, err);
+        quad_.renderHistoryOpt(opt_trj, err);
         state_predicted = quad_.getState();
 
         FactorIndices marginalFactorsIndices;
@@ -254,7 +254,7 @@ int main(void)
 
     while (true)
     {
-        quad_.render_history_trj();
+        quad_.renderHistoryTrj();
     }
 
     return 0;
