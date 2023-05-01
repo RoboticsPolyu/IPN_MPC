@@ -24,33 +24,32 @@ namespace QuadrotorSim_SO3
         // Cq/Ct for 8 inch props from UIUC prop db ~ 0.07
         km_ = 0.07 * (3 * prop_radius_) * kf_; // z-moment k-gain
 
-        arm_length_ = 0.26;
+        arm_length_          = 0.26;
         motor_time_constant_ = 1.0 / 30;
-        min_rpm_    = 1200;
-        max_rpm_    = 35000;
-        esc_factor_ = 0.7;
+        min_rpm_             = 1200;
+        max_rpm_             = 35000;
+        esc_factor_          = 0.7;
 
-        state_.x = Eigen::Vector3d::Zero();     // position
-        state_.v = Eigen::Vector3d::Zero();     // velocity
-        state_.rot = gtsam::Rot3::identity();   // altitude
-        state_.omega = Eigen::Vector3d::Zero(); // angular velocity
+        state_.x         = Eigen::Vector3d::Zero();     // position
+        state_.v         = Eigen::Vector3d::Zero();     // velocity
+        state_.rot       = gtsam::Rot3::identity();   // altitude
+        state_.omega     = Eigen::Vector3d::Zero(); // angular velocity
         state_.motor_rpm = Eigen::Array4d::Zero();
 
-        last_state_ = state_;
+        last_state_      = state_;
+        input_           = Eigen::Array4d::Zero();
 
         external_force_.setZero();
-
-        input_ = Eigen::Array4d::Zero();
 
         displaySetup();
 
         record_info_.open("../data/record_info.txt");
 
         YAML::Node config = YAML::LoadFile("../config/quadrotor.yaml");
-        AT_NOISE_MEAN = config["AT_NOISE_MEAN"].as<double>();
-        AT_NOISE_COV = config["AT_NOISE_COV"].as<double>();
-        ANGULAR_SPEED_MEAN = config["ANGULAR_SPEED_MEAN"].as<double>();
-        ANGULAR_SPEED_COV = config["ANGULAR_SPEED_COV"].as<double>();
+        AT_NOISE_MEAN       = config["AT_NOISE_MEAN"].as<double>();
+        AT_NOISE_COV        = config["AT_NOISE_COV"].as<double>();
+        ANGULAR_SPEED_MEAN  = config["ANGULAR_SPEED_MEAN"].as<double>();
+        ANGULAR_SPEED_COV   = config["ANGULAR_SPEED_COV"].as<double>();
         double DRAG_FORCE_X = config["DRAG_FORCE_X"].as<double>();
         double DRAG_FORCE_Y = config["DRAG_FORCE_Y"].as<double>();
         double DRAG_FORCE_Z = config["DRAG_FORCE_Z"].as<double>();

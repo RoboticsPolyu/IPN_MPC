@@ -129,3 +129,6 @@ target_link_libraries(Joint_Optimization_MPC gtsam quadrotor_dynamics ${Pangolin
 
 add_executable(Joint_Optimization_MPC_iSAM app/Joint_Optimization_MPC_iSAM.cpp)
 target_link_libraries(Joint_Optimization_MPC_iSAM gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+
+add_executable(Aerial_vehicle_calibration app/Aerial_vehicle_calibration.cpp)
+target_link_libraries(Aerial_vehicle_calibration gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
