@@ -24,7 +24,7 @@ using symbol_shorthand::X;
 
 int main(void)
 {
-    double dt = 0.001, radius = 1.0, linear_vel = 1.0, acc = 0.01;
+    double dt = 0.001, radius = 1.0, linear_vel = 3.0, acc = 0.01;
     circle_generator circle_generator(radius, linear_vel, dt);
     // cir_conacc_generator circle_generator(radius, linear_vel, acc, dt);
 
@@ -35,7 +35,8 @@ int main(void)
     Quadrotor quad;
     Quadrotor::State state_0;
     Quadrotor::State state_1;
-
+    
+    dt = 0.01;
     double t0 = 1.0; 
     state_0.x = circle_generator.pos(t0);
     state_0.v = circle_generator.vel(t0);
@@ -45,11 +46,9 @@ int main(void)
 
     quad.setState(state_0);
 
-    dt = 0.01;
-
-    for (int i = 0; i < 3000; i++)
+    for (int i = 0; i < 30000; i++)
     {
-        gtsam::Vector4 input = circle_generator.inputfm(t0 + dt * (i + 1));
+        gtsam::Vector4 input = circle_generator.inputfm(t0 + dt * (i + 1)); // circle_generator.inputfm(t0 + dt * (i + 1));
 
         quad.stepODE(dt, input);
 

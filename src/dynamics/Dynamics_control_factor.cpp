@@ -163,6 +163,7 @@ namespace UAVFactor
       return err;
    };
 
+
    DynamicsFactorTm::DynamicsFactorTm(Key p_i, Key vel_i, Key omega_i, Key input_i,
                                   Key p_j, Key vel_j, Key omega_j, float dt, const SharedNoiseModel &model)
        : Base(model, p_i, vel_i, omega_i, input_i, p_j, vel_j, omega_j),
@@ -180,17 +181,25 @@ namespace UAVFactor
       Matrix36 jac_r_posei, jac_r_posej;
 
       const Point3 p_w_i = pos_i.translation(jac_t_posei);
-      const Rot3 r_w_bi = pos_i.rotation(jac_r_posei);
+      const Rot3 r_w_bi  = pos_i.rotation(jac_r_posei);
       const Point3 p_w_j = pos_j.translation(jac_t_posej);
-      const Rot3 r_w_bj = pos_j.rotation(jac_r_posej);
+      const Rot3 r_w_bj  = pos_j.rotation(jac_r_posej);
 
       // force and moment
 
       // position rotation velocity error
       gtsam::Vector3 p_err = p_w_j - (p_w_i + vel_i * dt_);
+      // std::cout << "p_1:" << p_w_i << std::endl;
+      // std::cout << "p_2:" << p_w_j << std::endl;
+      // std::cout << "v_1:" << vel_i << std::endl;
+      // std::cout << "p_error:" << p_err << std::endl;
+
       gtsam::Matrix33 J_rerr_rbj, J_rbi;
       gtsam::Vector3 rot_err = Rot3::Logmap(r_w_bj.between(r_w_bi.compose(Rot3::Expmap(omega_i * dt_), J_rbi), J_rerr_rbj));
       gtsam::Vector3 vel_err = vel_j - (vel_i + (-gtsam::Vector3(0, 0, dynamics_params_.g) + r_w_bi.rotate(gtsam::Vector3(0, 0, input_i[0] / dynamics_params_.mass))) * dt_);
+      
+      // std::cout << "v_error:" << vel_err << std::endl;
+      // std::cout << "a_sum:" << -gtsam::Vector3(0, 0, dynamics_params_.g) + r_w_bi.rotate(gtsam::Vector3(0, 0, input_i[0] / dynamics_params_.mass)) << std::endl;
 
       // std::cout << "Dynmaics Factor p_err: \n" << p_err << std::endl;
       // std::cout << "Dynmaics Factor r_err: \n" << rot_err << std::endl;
@@ -255,7 +264,7 @@ namespace UAVFactor
              c * omega_i[1], c * omega_i[0], 0;
 
          Matrix33 Jac_r_omega = SO3::ExpmapDerivative(omega_i * dt_) * dt_;
-         Matrix33 Jac_omega_omega = -d_omega * dt_;
+         Matrix33 Jac_omega_omega = - d_omega * dt_;
          J_e_omage.block(3, 0, 3, 3) = Jac_r_omega;
          J_e_omage.block(9, 0, 3, 3) = Jac_omega_omega;
 

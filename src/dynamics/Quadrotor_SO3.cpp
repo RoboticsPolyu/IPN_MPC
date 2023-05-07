@@ -79,7 +79,7 @@ namespace QuadrotorSim_SO3
         }
 
         Eigen::Vector3d drag_force = -state_.rot.matrix() * Eigen::Matrix3d(drag_force_p_.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
-        Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) + state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ +
+        Eigen::Vector3d v_dot = - Eigen::Vector3d(0, 0, g_) + state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ +
                                 external_force_ / mass_ + drag_force;
 
         Eigen::Vector3d p_dot = state_.v;
@@ -134,7 +134,10 @@ namespace QuadrotorSim_SO3
 
         Eigen::Vector3d vnorm;
 
-        double thrust = x[18]; // cur force
+        std::normal_distribution<double> aT_noise(AT_NOISE_MEAN, AT_NOISE_COV);
+        double at_noise = aT_noise(generator_);
+
+        double thrust = x[18] + at_noise; // cur force
 
         Eigen::Vector3d moment(x[19], x[20], x[21]); // cur moment
 
@@ -144,12 +147,13 @@ namespace QuadrotorSim_SO3
             vnorm.normalize();
         }
 
-        Eigen::Vector3d drag_force = -cur_state.rot.matrix() * Eigen::Matrix3d(drag_force_p_.asDiagonal()) * cur_state.rot.matrix().transpose() * cur_state.v;
+        Eigen::Vector3d drag_force = - cur_state.rot.matrix() * Eigen::Matrix3d(drag_force_p_.asDiagonal()) * cur_state.rot.matrix().transpose() * cur_state.v;
         
         Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) + cur_state.rot.rotate(gtsam::Vector3(0, 0, thrust / mass_)) +
                                 external_force_ / mass_ + drag_force;
+        // std::cout << "v_dot i stepODE opertor: " << v_dot << std::endl;
 
-        Eigen::Vector3d p_dot = cur_state.v;
+        Eigen::Vector3d p_dot  = cur_state.v;
 
         Eigen::Matrix3d r_dot = cur_state.rot.matrix() * gtsam::skewSymmetric(cur_state.omega);
 
@@ -168,7 +172,7 @@ namespace QuadrotorSim_SO3
 
         for (int i = 0; i < 4; i++)
         {
-            dxdt[18 + i] = (force_moment_[i] - state_.force_moment[i]) / 0.01;
+            dxdt[18 + i] = (force_moment_[i] - state_.force_moment[i]) / 0.01f;
         }
 
         for (int i = 0; i < 22; ++i)
@@ -195,10 +199,9 @@ namespace QuadrotorSim_SO3
             x[15 + i] = state_.omega(i);
         }
 
-        std::normal_distribution<double> aT_noise(AT_NOISE_MEAN, AT_NOISE_COV);
-        double at_noise = aT_noise(generator_);
 
-        state_.force_moment[0] = state_.force_moment[0] + at_noise;
+
+        state_.force_moment[0] = state_.force_moment[0];
 
         for (int i = 0; i < 4; i++)
         {
@@ -240,7 +243,7 @@ namespace QuadrotorSim_SO3
         // gtsam::Vector3 pos_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(x_noise(generator_), x_noise(generator_), x_noise(generator_));
         // gtsam::Vector3 vel_noise = dt* gtsam::Vector3(v_noise(generator_), v_noise(generator_), v_noise(generator_));
         // gtsam::Vector3 rot_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(r_noise(generator_), r_noise(generator_), r_noise(generator_));
-        gtsam::Vector3 ome_noise = dt * dt * gtsam::Vector3(o_noise(generator_), o_noise(generator_), o_noise(generator_));
+        gtsam::Vector3 ome_noise = gtsam::Vector3(o_noise(generator_), o_noise(generator_), o_noise(generator_));
 
         state_.x = state_.x;
         state_.v = state_.v;
@@ -830,10 +833,21 @@ namespace QuadrotorSim_SO3
         }
     }
 
-    void Quadrotor::renderHistoryOpt(std::vector<State> &trj, boost::optional<gtsam::Vector3 &> err, boost::optional<Features &> features)
+    void Quadrotor::renderHistoryOpt(std::vector<State> &trj, boost::optional<gtsam::Vector3 &> err, boost::optional<Features &> features, boost::optional<gtsam::Vector3&> vicon_measurement, boost::optional<gtsam::Vector3 &> rot_err)
     {
         gtsam::Vector3 error = *err;
-        record_info_ << state_.x[0] << " " << state_.x[1] << " " << state_.x[2] << " " << error[0] << " " << error[1] << " " << error[2] << " " << state_.force_moment[0] << " " << state_.force_moment[1] << " " << state_.force_moment[2] << " " << state_.force_moment[3] << std::endl;
+        
+        if(rot_err)
+        {
+            gtsam::Vector3 rot_error = *rot_err;
+            record_info_ << state_.x[0] << " " << state_.x[1] << " " << state_.x[2] << " " << error[0] << " " << error[1] << " " << error[2] << " " << state_.force_moment[0] << " " 
+            << state_.force_moment[1] << " " << state_.force_moment[2] << " " << state_.force_moment[3] << " " << 
+            rot_error[0] << " " << rot_error[1] << " " << rot_error[2] << std::endl;
+        }
+        else
+        {
+            record_info_ << state_.x[0] << " " << state_.x[1] << " " << state_.x[2] << " " << error[0] << " " << error[1] << " " << error[2] << " " << state_.force_moment[0] << " " << state_.force_moment[1] << " " << state_.force_moment[2] << " " << state_.force_moment[3] << std::endl;
+        }
 
         if (!pangolin::ShouldQuit())
         {
@@ -872,6 +886,27 @@ namespace QuadrotorSim_SO3
 
             Features f = *features;
             drawLidarCloud(f);
+
+            if(vicon_measurement)
+            {
+                glColor3f(0.6, 0.2, 0.5);
+                glPointSize(10.0);
+                glBegin(GL_POINTS);
+                glVertex3f(vicon_measurement->x(), vicon_measurement->y(), vicon_measurement->z());
+                glEnd();
+                
+            }
+            
+            for(uint i = 0; i < 314; i++)
+            {
+                glColor3f(0.3, 0.1, 0.8);
+                glPointSize(2.0);
+                glBegin(GL_POINTS);
+
+                glVertex3f(1.5*sin(float(i)/ 314.0f * 6.28), 1.5*cos(float(i)/ 314.0f * 6.28), 1);
+                
+                glEnd();
+            }
 
             renderPanel();
 
