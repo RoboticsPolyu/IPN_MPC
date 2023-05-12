@@ -10,25 +10,37 @@ hold on; plot(i, (yep(1:1:end)), 'g');
 hold on; plot(i, (zep(1:1:end)), 'b');
 legend('x-axis', 'y-axis','z-axis');
 
-%title('Trajectory control error');
+title('Trajectory control error');
 
 figure;
 plot(state_x, state_y, 'r');
 xlabel('x(m)');
 ylabel('y(m)');
-%title('XY');
+title('XY');
 
 figure;
 plot(state_x, state_z, 'g');
-%title('XZ');
+title('XZ');
 
 figure;
 plot(force, 'b-');
-%title('Control Force')
+title('Control Force')
 
-figure;
+for i = 1:size(Rx)
+    if Rx(i) < -3
+        Rx(i) = Rx(i) + 6.28;
+    end
+    if Ry(i) < -3
+        Ry(i) = Ry(i) + 6.28;
+   end
+   if Rz(i) < -3
+        Rz(i) = Rz(i) + 6.28;
+    end
+end
+    figure;
 plot((Rx(1:1:end)), 'r');
 hold on; plot((Ry(1:1:end)), 'g');
 hold on; plot((Rz(1:1:end)), 'b');
+title('Rotation')
 
 

@@ -60,7 +60,8 @@ namespace QuadrotorSim_SO3
         void renderHistoryOpt(std::vector<State> & trj, boost::optional<gtsam::Vector3&> err = boost::none, 
             boost::optional<Features&> features = boost::none,
             boost::optional<gtsam::Vector3&> vicon_measurement = boost::none,
-            boost::optional<gtsam::Vector3 &> rot_err = boost::none);
+            boost::optional<gtsam::Vector3 &> rot_err = boost::none,
+            boost::optional<std::vector<State> &> state_trj = boost::none);
 
         void drawQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot);
 

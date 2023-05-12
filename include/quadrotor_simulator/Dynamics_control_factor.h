@@ -162,6 +162,36 @@ namespace UAVFactor
             Base;
     };
 
+    class GTSAM_EXPORT ControlLimitFactor : public NoiseModelFactor1<gtsam::Vector4>
+    {
+    public:
+        typedef boost::shared_ptr<ControlLimitFactor> shared_ptr;
+
+        ControlLimitFactor() {}
+        ControlLimitFactor(Key input, const SharedNoiseModel &model, double low, double high, double thr, double alpha)
+            : Base(model, input)
+            , high_(high)
+            , low_(low)
+            , thr_(thr)
+            , alpha_(alpha){};
+
+        virtual ~ControlLimitFactor()
+        {
+        }
+
+        Vector evaluateError(const gtsam::Vector4 &input, boost::optional<Matrix &> H1 = boost::none) const;
+
+    private:
+        typedef ControlLimitFactor This;
+        typedef NoiseModelFactor1<gtsam::Vector4>
+            Base;
+
+        double high_;
+        double low_;
+        double thr_;
+        double alpha_;
+    };
+
 }
 
 #endif // __DYNAMICS_PLANNING_FACTOR_H__

@@ -480,4 +480,36 @@ namespace UAVFactor
 
       return err;
    }
+
+   Vector ControlLimitFactor::evaluateError(const gtsam::Vector4 &input, boost::optional<Matrix &> H1) const
+   {
+      gtsam::Vector4 error;
+      gtsam::Matrix4 jac;
+      jac.setZero();
+
+      for(uint i = 0; i < 4; i++)
+      {
+         if(input[i] >= low_ + thr_ && input[i] <= high_ - thr_)
+         {
+            error(i) = 0;
+            jac(i,i) = 1;
+         }
+         else if(input[i] < low_ + thr_)
+         {
+            error(i) = alpha_ * (low_ + thr_ - input[i]);
+            jac(i,i) = - alpha_;
+         }
+         else
+         {
+            error(i) = alpha_ * (input[i] - high_ + thr_);
+            jac(i,i) = alpha_;
+         }
+      }
+      if(H1)
+      {
+         *H1 = jac;
+      }
+      return error;
+   }
+
 }

@@ -124,11 +124,15 @@ target_link_libraries(simple_circle_motion_test gtsam quadrotor_dynamics ${Pango
 add_executable(Dynamics_factor_test app/Dynamics_factor_test.cpp)
 target_link_libraries(Dynamics_factor_test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})
 
-add_executable(Joint_Optimization_MPC app/Joint_Optimization_MPC.cpp)
-target_link_libraries(Joint_Optimization_MPC gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+add_executable(Joint_Estimation_Control app/Joint_Estimation_Control.cpp)
+target_link_libraries(Joint_Estimation_Control gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
-add_executable(Joint_Optimization_MPC_iSAM app/Joint_Optimization_MPC_iSAM.cpp)
-target_link_libraries(Joint_Optimization_MPC_iSAM gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+add_executable(Joint_Estimation_Control_iSAM app/Joint_Estimation_Control_iSAM.cpp)
+target_link_libraries(Joint_Estimation_Control_iSAM gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
 add_executable(Aerial_vehicle_calibration app/Aerial_vehicle_calibration.cpp)
 target_link_libraries(Aerial_vehicle_calibration gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+
+
+add_executable(SW_Joint_Estimation_Control app/SW_Joint_Estimation_Control.cpp)
+target_link_libraries(SW_Joint_Estimation_Control gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})

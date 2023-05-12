@@ -829,11 +829,12 @@ namespace QuadrotorSim_SO3
 
             // Swap frames and Process Events
             pangolin::FinishFrame();
-            usleep(10000); // 10ms
+            usleep(100); // 0.1ms
         }
     }
 
-    void Quadrotor::renderHistoryOpt(std::vector<State> &trj, boost::optional<gtsam::Vector3 &> err, boost::optional<Features &> features, boost::optional<gtsam::Vector3&> vicon_measurement, boost::optional<gtsam::Vector3 &> rot_err)
+    void Quadrotor::renderHistoryOpt(std::vector<State> &trj, boost::optional<gtsam::Vector3 &> err, boost::optional<Features &> features, 
+        boost::optional<gtsam::Vector3&> vicon_measurement, boost::optional<gtsam::Vector3 &> rot_err, boost::optional<std::vector<State> &> state_trj)
     {
         gtsam::Vector3 error = *err;
         
@@ -872,6 +873,17 @@ namespace QuadrotorSim_SO3
             for (int i = 0; i < trj.size() - 1; i++)
             {
                 drawLine(gtsam::Vector3(1.0, 0, 0), trj[i].x, trj[i + 1].x);
+            }
+
+            glLineWidth(2);
+            if(state_trj)
+            {
+                int i;
+                for (i = 0; i < (*state_trj).size() - 1; i++)
+                {
+                    drawLine(gtsam::Vector3(0.4f, 0.2f, 0.6f), (*state_trj)[i].x, (*state_trj)[i + 1].x);
+                }
+                drawLine(gtsam::Vector3(0.5f, 0.7f, 0.9f), (*state_trj)[i].x, trj[0].x);
             }
 
             drawQuadrotor(state_.x, state_.rot);
