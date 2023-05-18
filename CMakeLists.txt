@@ -133,6 +133,5 @@ target_link_libraries(Joint_Estimation_Control_iSAM gtsam quadrotor_dynamics ${P
 add_executable(Aerial_vehicle_calibration app/Aerial_vehicle_calibration.cpp)
 target_link_libraries(Aerial_vehicle_calibration gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
-
 add_executable(SW_Joint_Estimation_Control app/SW_Joint_Estimation_Control.cpp)
 target_link_libraries(SW_Joint_Estimation_Control gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})

@@ -168,10 +168,10 @@ int main(void)
 
         gtsam::Vector4 input_bak;
 
-        gtsam::Vector3 pos_noise = gtsam::Vector3(position_noise(meas_x_gen), position_noise(meas_y_gen), position_noise(meas_z_gen));
+        gtsam::Vector3 pos_noise     = gtsam::Vector3(position_noise(meas_x_gen), position_noise(meas_y_gen), position_noise(meas_z_gen));
         gtsam::Vector3 vel_noise_add = gtsam::Vector3(velocity_noise(meas_vx_gen), velocity_noise(meas_vy_gen), velocity_noise(meas_vz_gen));
         
-        vicon_measurement = predicted_state.x + pos_noise;
+        vicon_measurement      = predicted_state.x + pos_noise;
         gtsam::Vector3 vel_add = predicted_state.v + vel_noise_add;
         
         // vicon_measurement = predicted_state.x;

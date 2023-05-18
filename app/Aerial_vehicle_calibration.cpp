@@ -1,6 +1,6 @@
 #include "calibration/Dynamics_calib.h"
-#include "quadrotor_simulator/Dynamics_params.h"
 #include "color.h"
+#include "quadrotor_simulator/Dynamics_params.h"
 
 #include <yaml-cpp/yaml.h>
 

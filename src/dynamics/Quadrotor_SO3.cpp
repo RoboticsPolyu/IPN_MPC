@@ -249,6 +249,7 @@ namespace QuadrotorSim_SO3
         state_.v = state_.v;
         state_.omega = state_.omega + ome_noise;
 
+        std::cout << "state_.omega: " << state_.omega.transpose() << " , ome_noise: " << ome_noise.transpose() << std::endl;
         printCurState();
     }
 

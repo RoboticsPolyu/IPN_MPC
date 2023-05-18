@@ -67,6 +67,8 @@ int main(void)
     double LINEAR_VEL            = quadrotor_config["LINEAR_VEL"].as<double>();
     double POS_MEAS_COV          = quadrotor_config["POS_MEAS_COV"].as<double>();
     double VEL_MEAS_COV          = quadrotor_config["VEL_MEAS_COV"].as<double>();
+    double ROT_MEAS_COV          = quadrotor_config["ROT_MEAS_COV"].as<double>();
+    double OME_MEAS_COV          = quadrotor_config["OME_MEAS_COV"].as<double>();
     double POS_MEAS_MEAN         = quadrotor_config["POS_MEAS_MEAN"].as<double>();
     bool   TEST_RECOVERY         = quadrotor_config["TEST_RECOVERY"].as<bool>();
 
@@ -98,22 +100,22 @@ int main(void)
     gtsam::LevenbergMarquardtParams parameters;
     parameters.absoluteErrorTol = 1e-8;
     parameters.relativeErrorTol = 1e-8;
-    parameters.maxIterations = 500;
-    parameters.verbosity = gtsam::NonlinearOptimizerParams::ERROR;
-    parameters.verbosityLM = gtsam::LevenbergMarquardtParams::SUMMARY;
+    parameters.maxIterations    = 500;
+    parameters.verbosity        = gtsam::NonlinearOptimizerParams::ERROR;
+    parameters.verbosityLM      = gtsam::LevenbergMarquardtParams::SUMMARY;
     
     auto input_jerk  = noiseModel::Diagonal::Sigmas(Vector4(INPUT_JERK_T, INPUT_JERK_M, INPUT_JERK_M, INPUT_JERK_M));
     auto input_noise = noiseModel::Diagonal::Sigmas(Vector4(PRIOR_U_F_COV, PRIOR_U_M1_COV, PRIOR_U_M2_COV, PRIOR_U_M3_COV));
 
-    auto dynamics_noise = noiseModel::Diagonal::Sigmas((Vector(12) << Vector3::Constant(DYNAMIC_P_COV), Vector3::Constant(0.0005), 
-        Vector3::Constant(0.0005), Vector3::Constant(0.0005)).finished());
+    auto dynamics_noise = noiseModel::Diagonal::Sigmas((Vector(12) << Vector3::Constant(DYNAMIC_P_COV), Vector3::Constant(0.001), 
+        Vector3::Constant(0.001), Vector3::Constant(0.001)).finished());
     
     // Initial state noise
-    auto vicon_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.001), Vector3::Constant(PRI_VICON_COV)).finished());
+    auto vicon_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(ROT_MEAS_COV), Vector3::Constant(PRI_VICON_COV)).finished());
     auto vel_noise   = noiseModel::Diagonal::Sigmas(Vector3(PRI_VICON_VEL_COV, PRI_VICON_VEL_COV, PRI_VICON_VEL_COV));
-    auto omega_noise = noiseModel::Diagonal::Sigmas(Vector3(0.001, 0.001, 0.001));
+    auto omega_noise = noiseModel::Diagonal::Sigmas(Vector3(OME_MEAS_COV, OME_MEAS_COV, OME_MEAS_COV));
 
-    auto ref_predict_vel_noise = noiseModel::Diagonal::Sigmas(Vector3(CONTROL_V_COV, CONTROL_V_COV, CONTROL_V_COV));
+    auto ref_predict_vel_noise   = noiseModel::Diagonal::Sigmas(Vector3(CONTROL_V_COV, CONTROL_V_COV, CONTROL_V_COV));
     auto ref_predict_omega_noise = noiseModel::Diagonal::Sigmas(Vector3(CONTROL_O_COV, CONTROL_O_COV, CONTROL_O_COV));
 
     dt = 0.01f; // Model predictive control duration
@@ -142,7 +144,7 @@ int main(void)
 
         if(traj_idx == 0)
         {
-            predicted_state.x            =  circle_generator.pos(t0);
+            predicted_state.x            = circle_generator.pos(t0);
             predicted_state.rot          = gtsam::Rot3::Expmap(circle_generator.theta(t0));
             predicted_state.v            = circle_generator.vel(t0);
             predicted_state.omega        = circle_generator.omega(t0);
@@ -206,10 +208,10 @@ int main(void)
 
             if (idx == 0)
             {                
-                gtsam::Vector3 pos_noise = gtsam::Vector3(position_noise(meas_x_gen), position_noise(meas_y_gen), position_noise(meas_z_gen));
+                gtsam::Vector3 pos_noise     = gtsam::Vector3(position_noise(meas_x_gen), position_noise(meas_y_gen), position_noise(meas_z_gen));
                 gtsam::Vector3 vel_noise_add = gtsam::Vector3(velocity_noise(meas_vx_gen), velocity_noise(meas_vy_gen), velocity_noise(meas_vz_gen));
                 
-                vicon_measurement = predicted_state.x + pos_noise;
+                vicon_measurement      = predicted_state.x + pos_noise;
                 gtsam::Vector3 vel_add = predicted_state.v + vel_noise_add;
 
                 graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx), gtsam::Pose3(predicted_state.rot, vicon_measurement), vicon_noise));

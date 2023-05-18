@@ -1,22 +1,3 @@
-# PRI_VICON_COV: 0.05
-
-# PRIOR_U_F_COV: 10.0
-# PRIOR_U_M1_COV: 0.1
-# PRIOR_U_M2_COV: 0.1
-# PRIOR_U_M3_COV: 0.1
-
-# CONTROL_P_COV: 0.03
-# CONTROL_P_FINAL_COV: 0.005
-# CONTROL_R_COV: 0.01
-
-# DYNAMIC_P_COV: 0.001
-
-# OPT_LENS_TRAJ: 20
-
-# SIM_STEPS: 30000
-# PRI_VICON_COV:     0.000001
-# PRI_VICON_VEL_COV: 0.000025
-
 PRIOR_U_F_COV:  5.0
 PRIOR_U_M1_COV: 0.1
 PRIOR_U_M2_COV: 0.1
@@ -48,8 +29,12 @@ PRIOR_U_M3_COV: 0.1
 # INPUT_JERK_M: 0.05
 
 
-PRI_VICON_COV:     0.001
-PRI_VICON_VEL_COV: 0.001
+
+# method + vel + case_id
+LOG_NAME: JECM_TEST
+
+PRI_VICON_COV:         0.20
+PRI_VICON_VEL_COV:     0.05
 
 CONTROL_P_COV_X:       0.03
 CONTROL_P_FINAL_COV_X: 0.005
@@ -58,7 +43,8 @@ CONTROL_P_FINAL_COV_Y: 0.005
 CONTROL_P_COV_Z:       0.03
 CONTROL_P_FINAL_COV_Z: 0.005
 
-CONTROL_R_COV: 1.2
+CONTROL_R_COV: 10000
+# if R_COV is 0.3 (JERK_T = 1, JERK_M = 0.1), the z will converge. WHY???
 
 CONTROL_V_COV: 3000
 CONTROL_O_COV: 3000
@@ -69,14 +55,50 @@ OPT_LENS_TRAJ: 20
 
 SIM_STEPS: 100000
 
-INPUT_JERK_T: 1
-INPUT_JERK_M: 0.1
+INPUT_JERK_T: 2
+INPUT_JERK_M: 0.5
 
 WINDOW_SIZE: 10
 
 
-# method + vel + case_id
-LOG_NAME: MPC_onlyGNSS_5_N3_
+
+
+# # method + vel + case_id
+# LOG_NAME: JECM_R1.2
+
+# PRI_VICON_COV:     0.20
+# PRI_VICON_VEL_COV: 0.05
+
+# CONTROL_P_COV_X:       0.03
+# CONTROL_P_FINAL_COV_X: 0.005
+# CONTROL_P_COV_Y:       0.03
+# CONTROL_P_FINAL_COV_Y: 0.005
+# CONTROL_P_COV_Z:       0.01
+# CONTROL_P_FINAL_COV_Z: 0.005
+
+# CONTROL_R_COV: 1.2
+# # if R_COV is 0.3 (JERK_T = 1, JERK_M = 0.1), the z will converge. WHY???
+
+# CONTROL_V_COV: 3000
+# CONTROL_O_COV: 3000
+
+# DYNAMIC_P_COV: 0.001
+
+# OPT_LENS_TRAJ: 20
+
+# SIM_STEPS: 100000
+
+# INPUT_JERK_T: 4
+# INPUT_JERK_M: 1
+
+# WINDOW_SIZE: 10
+
+
+
+
+
+# # method + vel + case_id
+# LOG_NAME: SW_JECM_Rev_onlyGNSS_5_N2_
 
 # PRI_VICON_COV:     0.20
 # PRI_VICON_VEL_COV: 0.05
@@ -105,8 +127,12 @@ LOG_NAME: MPC_onlyGNSS_5_N3_
 # WINDOW_SIZE: 10
 
 
+
+
+
+
 # # method + vel + case_id
-# LOG_NAME: SW_JECM_Rev_onlyGNSS_5_N2_
+# LOG_NAME: JECM_onlyGNSS_5_N2_
 
 # PRI_VICON_COV:     0.20
 # PRI_VICON_VEL_COV: 0.04
@@ -132,9 +158,12 @@ LOG_NAME: MPC_onlyGNSS_5_N3_
 # INPUT_JERK_T: 0.1
 # INPUT_JERK_M: 0.05
 
-# # method + vel + case_id
-# LOG_NAME: JECM_onlyGNSS_5_N2_
 
+
+
+
+# # method + vel + case_id
+# LOG_NAME: JECM_Rev_onlyGNSS_5_1_
 
 # PRI_VICON_COV:     0.04
 # PRI_VICON_VEL_COV: 0.05
@@ -160,10 +189,11 @@ LOG_NAME: MPC_onlyGNSS_5_N3_
 # INPUT_JERK_T: 4.0
 # INPUT_JERK_M: 1
 
+
+
+
 # # method + vel + case_id
-# LOG_NAME: JECM_Rev_onlyGNSS_5_1_
-
-
+# LOG_NAME: MPC_NoNoise_Rev_onlyGNSS_5_1_
 
 # PRI_VICON_COV:     0.001
 # PRI_VICON_VEL_COV: 0.001
@@ -189,11 +219,11 @@ LOG_NAME: MPC_onlyGNSS_5_N3_
 # INPUT_JERK_T: 0.1
 # INPUT_JERK_M: 0.05
 
+
+
+
 # # method + vel + case_id
-# LOG_NAME: MPC_NoNoise_Rev_onlyGNSS_5_1_
-
-
-
+# LOG_NAME: MPC_onlyGNSS_5_1_
 # PRI_VICON_COV:     0.001
 # PRI_VICON_VEL_COV: 0.001
 
@@ -217,9 +247,6 @@ LOG_NAME: MPC_onlyGNSS_5_N3_
 
 # INPUT_JERK_T: 0.1
 # INPUT_JERK_M: 0.05
-
-# # method + vel + case_id
-# LOG_NAME: MPC_onlyGNSS_5_1_
 
 
 

@@ -255,16 +255,16 @@ namespace UAVFactor
       {
          Matrix123 J_e_omage;
          J_e_omage.setZero();
-         double a = -1.0 / dynamics_params_.Ixx * (dynamics_params_.Izz - dynamics_params_.Iyy);
-         double b = -1.0 / dynamics_params_.Iyy * (dynamics_params_.Ixx - dynamics_params_.Izz);
-         double c = -1.0 / dynamics_params_.Izz * (dynamics_params_.Iyy - dynamics_params_.Ixx);
+         double a = 1.0f / dynamics_params_.Ixx * (dynamics_params_.Izz - dynamics_params_.Iyy);
+         double b = 1.0f / dynamics_params_.Iyy * (dynamics_params_.Ixx - dynamics_params_.Izz);
+         double c = 1.0f / dynamics_params_.Izz * (dynamics_params_.Iyy - dynamics_params_.Ixx);
          Matrix3 d_omega;
-         d_omega << 0, a * omega_i[2], a * omega_i[1],
-             b * omega_i[2], 0, b * omega_i[0],
-             c * omega_i[1], c * omega_i[0], 0;
+         d_omega << 0,              a * omega_i[2], a * omega_i[1],
+                    b * omega_i[2], 0,              b * omega_i[0],
+                    c * omega_i[1], c * omega_i[0], 0;
 
          Matrix33 Jac_r_omega = SO3::ExpmapDerivative(omega_i * dt_) * dt_;
-         Matrix33 Jac_omega_omega = - d_omega * dt_;
+         Matrix33 Jac_omega_omega = d_omega * dt_;
          J_e_omage.block(3, 0, 3, 3) = Jac_r_omega;
          J_e_omage.block(9, 0, 3, 3) = Jac_omega_omega;
 
@@ -277,7 +277,7 @@ namespace UAVFactor
          J_e_input.setZero();
          Matrix124 _B;
          _B.setZero();
-         _B.block(6, 0, 3, 1) = r_w_bi.matrix() * gtsam::Vector3(0, 0, 1.0 / dynamics_params_.mass) * dt_;
+         _B.block(6, 0, 3, 1) = r_w_bi.matrix() * gtsam::Vector3(0, 0, 1.0f / dynamics_params_.mass) * dt_;
          _B.block(9, 1, 3, 3) = J_inv * dt_;
 
          J_e_input = -_B;
@@ -339,9 +339,9 @@ namespace UAVFactor
       Matrix36 jac_r_posei, jac_r_posej;
 
       const Point3 p_w_i = pos_i.translation(jac_t_posei);
-      const Rot3 r_w_bi = pos_i.rotation(jac_r_posei);
+      const Rot3 r_w_bi  = pos_i.rotation(jac_r_posei);
       const Point3 p_w_j = pos_j.translation(jac_t_posej);
-      const Rot3 r_w_bj = pos_j.rotation(jac_r_posej);
+      const Rot3 r_w_bj  = pos_j.rotation(jac_r_posej);
 
       // position rotation velocity error
       gtsam::Vector3 p_err = p_w_j - (p_w_i + vel_i * dt_);
@@ -352,11 +352,11 @@ namespace UAVFactor
       // omage error
       gtsam::Matrix3 J, J_inv;
       J << dynamics_params_.Ixx, 0, 0,
-          0, dynamics_params_.Iyy, 0,
-          0, 0, dynamics_params_.Izz;
+           0, dynamics_params_.Iyy, 0,
+           0, 0, dynamics_params_.Izz;
       J_inv << 1.0 / dynamics_params_.Ixx, 0, 0,
-          0, 1.0 / dynamics_params_.Iyy, 0,
-          0, 0, 1.0 / dynamics_params_.Izz;
+               0, 1.0 / dynamics_params_.Iyy, 0,
+               0, 0, 1.0 / dynamics_params_.Izz;
       gtsam::Vector3 omega_err = omega_j - omega_i - J_inv * (thrust_moments_ij.tail(3) - skewSymmetric(omega_i) * J * omega_i) * dt_;
 
       if (H1)
