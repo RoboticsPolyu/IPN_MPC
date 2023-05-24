@@ -31,9 +31,9 @@ namespace UAVFactor
           dynamics_params_.k_m, dynamics_params_.k_m, -dynamics_params_.k_m, -dynamics_params_.k_m;
 
       K2 << 2.0 * input_i[0], 0, 0, 0,
-          0, 2.0 * input_i[1], 0, 0,
-          0, 0, 2.0 * input_i[2], 0,
-          0, 0, 0, 2.0 * input_i[3];
+            0, 2.0 * input_i[1], 0, 0,
+            0, 0, 2.0 * input_i[2], 0,
+            0, 0, 0, 2.0 * input_i[3];
 
       gtsam::Vector4 input2(input_i[0] * input_i[0], input_i[1] * input_i[1], input_i[2] * input_i[2], input_i[3] * input_i[3]);
       gtsam::Vector4 T_mb = K1 * input2;
@@ -259,9 +259,9 @@ namespace UAVFactor
          double b = 1.0f / dynamics_params_.Iyy * (dynamics_params_.Ixx - dynamics_params_.Izz);
          double c = 1.0f / dynamics_params_.Izz * (dynamics_params_.Iyy - dynamics_params_.Ixx);
          Matrix3 d_omega;
-         d_omega << 0,              a * omega_i[2], a * omega_i[1],
-                    b * omega_i[2], 0,              b * omega_i[0],
-                    c * omega_i[1], c * omega_i[0], 0;
+         d_omega << -1,              a * omega_i[2], a * omega_i[1],
+                    b * omega_i[2], -1,              b * omega_i[0],
+                    c * omega_i[1], c * omega_i[0], -1;
 
          Matrix33 Jac_r_omega = SO3::ExpmapDerivative(omega_i * dt_) * dt_;
          Matrix33 Jac_omega_omega = d_omega * dt_;

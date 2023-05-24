@@ -50,16 +50,20 @@ title('Moments');
 time = [1:1:size(xep)]* 0.01;
 
 figure; 
-%xlim([0 20])
-
-plot(time, (xep(1:1:end)) + 0.02, 'r');
+plot(time, (xep(1:1:end)), 'r');
 hold on; plot(time, (yep(1:1:end)), 'g');
 hold on; plot(time, (zep(1:1:end)), 'b');
-ylim([-0.10 0.10]);
-set(gca,'FontName','Times New Roman','FontSize',11,'LineWid',1);
+%xlim([0 15]);
+%ylim([-0.06 0.06]);
+set(gca,'FontName','Times New Roman','FontSize',11,'LineWid',2);
 legend('x-axis', 'y-axis','z-axis');
 xlabel('Time (s)');
 ylabel('Error (m)')
 title('Trajectory control error');
 
-
+disp('------------------------------- X RMS -------------------------------'); 
+disp(rms(xep));
+disp('------------------------------- X RMS -------------------------------'); 
+disp(rms(yep));
+disp('------------------------------- X RMS -------------------------------'); 
+disp(rms(zep));
