@@ -62,8 +62,8 @@ ylabel('Error (m)')
 title('Trajectory control error');
 
 disp('------------------------------- X RMS -------------------------------'); 
-disp(rms(xep));
+disp(rms(xep(1600:1:end)));
 disp('------------------------------- X RMS -------------------------------'); 
-disp(rms(yep));
+disp(rms(yep(1600:1:end)));
 disp('------------------------------- X RMS -------------------------------'); 
-disp(rms(zep));
+disp(rms(zep(1600:1:end)));
