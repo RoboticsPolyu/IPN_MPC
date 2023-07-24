@@ -135,6 +135,7 @@ namespace QuadrotorSim_SO3
         void stepTMDeprecated(double dt, gtsam::Vector4 fm);
         // Compute every rotor's rotation vel RPM
         Eigen::Vector4d CumputeRotorsVel();
+        Eigen::Vector4d InvCumputeRotorsVel(Eigen::Vector4d rotor_speed);
 
         Eigen::Vector3d getAcc() const;
 

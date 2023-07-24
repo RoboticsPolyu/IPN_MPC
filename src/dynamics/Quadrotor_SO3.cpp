@@ -150,7 +150,7 @@ namespace QuadrotorSim_SO3
         Eigen::Vector3d drag_force = - cur_state.rot.matrix() * Eigen::Matrix3d(drag_force_p_.asDiagonal()) * cur_state.rot.matrix().transpose() * cur_state.v;
         
         Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) + cur_state.rot.rotate(gtsam::Vector3(0, 0, thrust / mass_)) +
-                                external_force_ / mass_ + drag_force;
+                                external_force_ / mass_ + drag_force / mass_;
         // std::cout << "v_dot i stepODE opertor: " << v_dot << std::endl;
 
         Eigen::Vector3d p_dot  = cur_state.v;
@@ -199,8 +199,7 @@ namespace QuadrotorSim_SO3
             x[15 + i] = state_.omega(i);
         }
 
-
-
+        // float sin_force = 0.1* sin()
         state_.force_moment[0] = state_.force_moment[0];
 
         for (int i = 0; i < 4; i++)
@@ -332,6 +331,24 @@ namespace QuadrotorSim_SO3
         input_ = actuator_output;
         
         return actuator_output;
+    }
+
+    Eigen::Vector4d Quadrotor::InvCumputeRotorsVel(Eigen::Vector4d rotor_speed)
+    {
+        effectiveness_ = ComputeEffectivenessMatrix();
+        Eigen::Vector4d identity = Eigen::Vector4d::Identity();
+
+        Eigen::Vector4d actuator_output;
+        double a = esc_factor_;
+        double b = 1 - esc_factor_;    
+
+        Eigen::Vector4d thrust_moments;
+        actuator_output = esc_factor_* rotor_speed.cwiseAbs2() + (1- esc_factor_)* rotor_speed;
+
+        thrust_moments = effectiveness_* actuator_output;
+        return thrust_moments;
+
+        // esc_factor* Actuator_Ouput^2 + (1 - esc_factor)* Actuator_Output - rotor_thrust = 0
     }
 
     void Quadrotor::printCurState()
@@ -671,11 +688,11 @@ namespace QuadrotorSim_SO3
         axis_dist_ = 0.30;
         propeller_dist_ = 0.10;
 
-        pangolin::CreateWindowAndBind("Model Predictive Control based on FGO", 1280, 960);
+        pangolin::CreateWindowAndBind("Model Predictive Control based on FGO", 1600, 1600);
 
         // Define Camera Render Object (for view / scene browsing)
         s_cam = std::make_shared<pangolin::OpenGlRenderState>(
-            pangolin::ProjectionMatrix(1280, 960, 840, 840, 640, 480, 0.1, 1000),
+            pangolin::ProjectionMatrix(1600, 1600, 800, 800, 800, 800, 0.1, 1000),
             pangolin::ModelViewLookAt(0, 0.5, 1, 0, 0, 0, 0.0, -1.0, 0.0));
 
         // Choose a sensible left UI Panel width based on the width of 20
@@ -689,22 +706,22 @@ namespace QuadrotorSim_SO3
         pangolin::CreatePanel("ui")
             .SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(UI_WIDTH));
 
-        dis_force_ = std::make_shared<pangolin::Var<std::string>>("ui.Force(N)", "Force");
-        dis_M1_ = std::make_shared<pangolin::Var<std::string>>("ui.M1(N*m)", "M1");
-        dis_M2_ = std::make_shared<pangolin::Var<std::string>>("ui.M2(N*m)", "M2");
-        dis_M3_ = std::make_shared<pangolin::Var<std::string>>("ui.M3(N*m)", "M3");
-        dis_Quad_x_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVx(m)", "UAVx");
-        dis_Quad_y_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVy(m)", "UAVy");
-        dis_Quad_z_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVz(m)", "UAVz");
+        dis_force_     = std::make_shared<pangolin::Var<std::string>>("ui.Force(N)", "Force");
+        dis_M1_        = std::make_shared<pangolin::Var<std::string>>("ui.M1(N*m)", "M1");
+        dis_M2_        = std::make_shared<pangolin::Var<std::string>>("ui.M2(N*m)", "M2");
+        dis_M3_        = std::make_shared<pangolin::Var<std::string>>("ui.M3(N*m)", "M3");
+        dis_Quad_x_    = std::make_shared<pangolin::Var<std::string>>("ui.UAVx(m)", "UAVx");
+        dis_Quad_y_    = std::make_shared<pangolin::Var<std::string>>("ui.UAVy(m)", "UAVy");
+        dis_Quad_z_    = std::make_shared<pangolin::Var<std::string>>("ui.UAVz(m)", "UAVz");
         dis_Quad_velx_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vx(m/s)", "UAV_vx");
         dis_Quad_vely_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vy(m/s)", "UAV_vy");
         dis_Quad_velz_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vz(m/s)", "UAV_vz");
-        dis_AVE_ERR_ = std::make_shared<pangolin::Var<std::string>>("ui.AVE_ERR(m)", "AVE_ERR");
+        dis_AVE_ERR_   = std::make_shared<pangolin::Var<std::string>>("ui.AVE_ERR(m)", "AVE_ERR");
         dis_timestamp_ = std::make_shared<pangolin::Var<std::string>>("ui.TIMESTAMP(s)", "TIMESTAMP");
-        dis_rotor_[0] = std::make_shared<pangolin::Var<std::string>>("ui.ROTOR1(RPM)", "ROTOR1");
-        dis_rotor_[1] = std::make_shared<pangolin::Var<std::string>>("ui.ROTOR2(RPM)", "ROTOR2");
-        dis_rotor_[2] = std::make_shared<pangolin::Var<std::string>>("ui.ROTOR3(RPM)", "ROTOR3");
-        dis_rotor_[3] = std::make_shared<pangolin::Var<std::string>>("ui.ROTOR4(RPM)", "ROTOR4");
+        dis_rotor_[0]  = std::make_shared<pangolin::Var<std::string>>("ui.ROTOR1(RPM)", "ROTOR1");
+        dis_rotor_[1]  = std::make_shared<pangolin::Var<std::string>>("ui.ROTOR2(RPM)", "ROTOR2");
+        dis_rotor_[2]  = std::make_shared<pangolin::Var<std::string>>("ui.ROTOR3(RPM)", "ROTOR3");
+        dis_rotor_[3]  = std::make_shared<pangolin::Var<std::string>>("ui.ROTOR4(RPM)", "ROTOR4");
     }
 
     void Quadrotor::drawQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot)

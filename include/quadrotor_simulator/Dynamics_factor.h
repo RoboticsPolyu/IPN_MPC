@@ -33,9 +33,9 @@ namespace UAVFactor
         bool three_dimensional_thrust_disabled = false;
     };
 
+    using ActuatorEnabled     = Eigen::Matrix<bool, NUM_ACTUATORS, 1>;
     using EffectivenessMatrix = Eigen::Matrix<float, NUM_AXES, NUM_ACTUATORS>;
-    using ActuatorEnabled = Eigen::Matrix<bool, NUM_ACTUATORS, 1>;
-
+    
     class ActuatorEffectivenessRotors
     {
     public:

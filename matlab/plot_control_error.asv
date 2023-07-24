@@ -1,5 +1,5 @@
-close;
-clear;
+close all;
+clear all;
 [state_x state_y state_z xep yep zep force M1 M2 M3 Rx Ry Rz] = textread('../data/record_info.txt','%f %f %f %f %f %f %f %f %f %f %f %f %f');
 
 % grouth truth and estimated trajectory
@@ -7,7 +7,6 @@ clear;
 
 figure;
 plot(state_x, state_y, 'r');
-grid on;
 set(gca,'FontName','Times New Roman','FontSize',11,'LineWid',1);
 xlabel('x(m)');
 ylabel('y(m)');
@@ -15,13 +14,11 @@ title('XY');
 
 figure;
 plot(state_x, state_z, 'g');
-grid on;
 set(gca,'FontName','Times New Roman','FontSize',11,'LineWid',1);
 title('XZ');
 
 figure;
 plot(force, 'b-');
-grid on;
 set(gca,'FontName','Times New Roman','FontSize',11,'LineWid',1);
 xlabel('Time (s)');
 ylabel(' Force (N)')
@@ -43,18 +40,15 @@ figure;
 plot(check2PI(Rx(1:1:end)), 'r');
 hold on; plot(check2PI(Ry(1:1:end)), 'g');
 hold on; plot(check2PI(Rz(1:1:end)), 'b');
-grid on;
 set(gca,'FontName','Times New Roman','FontSize',11,'LineWid',1);
 title('Rotation')
 
 figure;
 plot3(state_x, state_y, state_z, 'b');
-grid on;
 set(gca,'FontName','Times New Roman','FontSize',11,'LineWid',1);
 
 figure;
-plot(M1, 'r'); hold on; plot(M2, 'g'); hold on; plot(M3, 'b');
-grid on;
+plot(M1, 'b');
 set(gca,'FontName','Times New Roman','FontSize',11,'LineWid',1);
 title('Moments');
 
@@ -66,7 +60,6 @@ plot(time, (xep(1:1:end)), 'r');
 hold on; plot(time, (yep(1:1:end)), 'g');
 hold on; plot(time, (zep(1:1:end)), 'b');
 %xlim([0 15]);
-grid on;
 %ylim([-0.06 0.06]);
 set(gca,'FontName','Times New Roman','FontSize',11,'LineWid',1);
 legend('x-axis', 'y-axis','z-axis');
@@ -74,10 +67,9 @@ xlabel('Time (s)');
 ylabel('Error (m)')
 title('Trajectory control error');
 
-length = size(xep);
 disp('------------------------------- X RMS -------------------------------'); 
-disp(rms(xep(1:1:length)));
+disp(rms(xep(1:1:end)));
 disp('------------------------------- Y RMS -------------------------------'); 
-disp(rms(yep(1:1:length)));
+disp(rms(yep(1:1:end)));
 disp('------------------------------- Z RMS -------------------------------'); 
-disp(rms(zep(1:1:length)));
+disp(rms(zep(1:1:end)));

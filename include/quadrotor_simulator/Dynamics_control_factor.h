@@ -1,6 +1,7 @@
 #ifndef __DYNAMICS_PLANNING_FACTOR_H__
 #define __DYNAMICS_PLANNING_FACTOR_H__
 
+#include "Dynamics_factor.h"
 #include "Dynamics_params.h"
 #include "gtsam_wrapper.h"
 #include "Quadrotor_SO3.h"
@@ -12,6 +13,7 @@ using namespace gtsam_wrapper;
 namespace UAVFactor
 {    
     using UAV_State = QuadrotorSim_SO3::Quadrotor::State;
+
 
     class Dynamics
     {
@@ -41,6 +43,7 @@ namespace UAVFactor
         std::vector<gtsam::Vector4> input_refs_;
         DynamicsParams dynamics_params_;
     };
+
 
     /* position velocity rotation angular_velocity control_input */
     class GTSAM_EXPORT DynamicsFactor : public NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector4,
@@ -74,8 +77,8 @@ namespace UAVFactor
         float dt_;
     };
 
+
     /* position velocity rotation angular_velocity control_input:Force and Moment */
-    
     class GTSAM_EXPORT DynamicsFactorTm : public NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector4,
                                                                  gtsam::Pose3, gtsam::Vector3, gtsam::Vector3>
     {
@@ -106,7 +109,8 @@ namespace UAVFactor
         
         float dt_;
     };
- 
+
+
     /*thrust's x and y components are nozero */
     class GTSAM_EXPORT DynamicsFactorFullTM : public NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector6, 
         gtsam::Pose3, gtsam::Vector3, gtsam::Vector3>
@@ -139,6 +143,7 @@ namespace UAVFactor
         float dt_;
     };
 
+
     /* Force and Moments Between factor */
     class GTSAM_EXPORT BetForceMoments : public NoiseModelFactor2<gtsam::Vector4, gtsam::Vector4>
     {
@@ -161,6 +166,7 @@ namespace UAVFactor
         typedef NoiseModelFactor2<gtsam::Vector4, gtsam::Vector4>
             Base;
     };
+
 
     class GTSAM_EXPORT ControlLimitFactor : public NoiseModelFactor1<gtsam::Vector4>
     {

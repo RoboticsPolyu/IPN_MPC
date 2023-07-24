@@ -1,7 +1,7 @@
 AT_NOISE_MEAN:      0.0
-AT_NOISE_COV:       1
+AT_NOISE_COV:       0.2
 ANGULAR_SPEED_MEAN: 0.0
-ANGULAR_SPEED_COV:  0.02 #0.005
+ANGULAR_SPEED_COV:  0.002 #0.005
 
 RADIUS:     1.5
 LINEAR_VEL: 5.0
@@ -16,10 +16,13 @@ ROT_MEAS_COV:   0.001
 OME_MEAS_COV:   0.001 # 0.059 deg/s
 
 # Drag force 
-DRAG_FORCE_X:   0.0
-DRAG_FORCE_Y:   0.0
-DRAG_FORCE_Z:   0.0
+DRAG_FORCE_X:   0.
+DRAG_FORCE_Y:   0.
+DRAG_FORCE_Z:   0.
 
+# DRAG_FORCE_X:   0.2
+# DRAG_FORCE_Y:   0.2
+# DRAG_FORCE_Z:   0.2
 # Environment Simulation
 MAP_X:           5.0
 MAP_Y:           5.0
@@ -33,7 +36,7 @@ LANDMARKS_SIZE:  1000
 LIDAR_RANGE:     0.60
 LIDAR_RANGE_MIN: 0.10
 
-TEST_RECOVERY:   true
+TEST_RECOVERY:   false
 MOVE_X:          0.00
 MOVE_Y:          0.30
 MOVE_Z:         -0.40
