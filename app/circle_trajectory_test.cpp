@@ -50,6 +50,9 @@ int main(void)
     {
         gtsam::Vector4 input = circle_generator.inputfm(t0 + dt * (i + 1)); // circle_generator.inputfm(t0 + dt * (i + 1));
 
+        gtsam::Vector4 input_ = circle_generator.input(t0 + dt * (i + 1));
+
+        
         quad.stepODE(dt, input);
 
         if (i == 9)

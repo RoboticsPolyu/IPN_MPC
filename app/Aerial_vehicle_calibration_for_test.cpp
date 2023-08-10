@@ -72,19 +72,23 @@ int main(void)
     parameters.verbosity        = gtsam::NonlinearOptimizerParams::ERROR;
     parameters.verbosityLM      = gtsam::LevenbergMarquardtParams::SUMMARY;
     
-    auto dynamics_noise         = noiseModel::Diagonal::Sigmas((Vector(12) << Vector3::Constant(0.01*0.01*0.5*0.2), Vector3::Constant(0.00001), 
-                                                                              Vector3::Constant(0.01* 0.2), Vector3::Constant(0.001)).finished());
-    // auto thrust_torque_noise    = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.01), Vector3::Constant(1e-6)).finished());
-    auto thrust_torque_noise    = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.1), Vector3::Constant(1e-6)).finished());
-    auto vicon_noise            = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.001), Vector3::Constant(0.001)).finished());
+    gtsam::Vector3 trust_err(0.01, 0.01, 0.01);
+    gtsam::Vector3 moments_err(1e-6, 1e-6, 1e-6);
+
+    gtsam::Vector3 trust_err2(0.01, 0.01, 0.01);
+    gtsam::Vector3 moments_err2(1e-6, 1e-5, 1e-6);
+
+    auto dynamics_noise      = noiseModel::Diagonal::Sigmas((Vector(12) << trust_err * 0.5f * dt * dt, Vector3::Constant(0.0001), 
+                                                                        trust_err * dt, moments_err * dt).finished());
+
+    auto thrust_torque_noise = noiseModel::Diagonal::Sigmas((Vector(6) << trust_err2, moments_err2).finished());
+    auto vicon_noise         = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.001), Vector3::Constant(0.001)).finished());
 
 
-    auto im_noise               = noiseModel::Diagonal::Sigmas(Vector3(0.00001, 0.00001, 0.00001));
-    auto rp_noise               = noiseModel::Diagonal::Sigmas(Vector3(0.0001, 0.0001, 0.0001));
-
-    auto gr_noise               = noiseModel::Diagonal::Sigmas(Vector3(0.0001, 0.0001, 0.0001));
-
-    auto km_noise               = noiseModel::Diagonal::Sigmas(Vector1(0.00001));
+    auto im_noise            = noiseModel::Diagonal::Sigmas(Vector3(0.00001, 0.00001, 0.00001));
+    auto rp_noise            = noiseModel::Diagonal::Sigmas(Vector3(0.0001, 0.0001, 0.0001));
+    auto gr_noise            = noiseModel::Diagonal::Sigmas(Vector3(0.0001, 0.0001, 0.0001));
+    auto km_noise            = noiseModel::Diagonal::Sigmas(Vector1(0.00001));
 
     std::ofstream JEC_log;
     std::string file_name = "../data/calib_";
@@ -97,7 +101,7 @@ int main(void)
     dyn_factor_graph.empty();
     
     // Load dataset
-    uint32_t DATASET_LENS = 10000;
+    uint32_t DATASET_LENS = 2000;
 
     std::vector<State>   Interp_states;
     std::vector<State>   Uav_states;
@@ -122,7 +126,7 @@ int main(void)
         gtsam::Rot3 rx_pi  = gtsam::Rot3::Rx(M_PI);
         gtsam::Rot3 rz_pi4 = gtsam::Rot3::Rz(M_PI/4.0);
 
-        // _state.pose       = gtsam::Pose3(rx_pi, gtsam::Vector3(0,0,0))* _state.pose* gtsam::Pose3(rx_pi, gtsam::Vector3(0,0,0));// * gtsam::Pose3(rz_pi4, gtsam::Vector3(0,0,0));
+        _state.pose       = gtsam::Pose3(rx_pi, gtsam::Vector3(0,0,0))* _state.pose* gtsam::Pose3(rx_pi, gtsam::Vector3(0,0,0));// * gtsam::Pose3(rz_pi4, gtsam::Vector3(0,0,0));
         Uav_states.push_back(_state);
     }
 
@@ -134,6 +138,13 @@ int main(void)
         Uav_pwms.push_back(_uav_pwm);
     }
 
+    // while (actuator_black_file >> pwm_t >> pwm1 >> pwm2 >> pwm3 >> pwm4)
+    // {
+    //     Uav_pwm _uav_pwm;
+    //     _uav_pwm.timestamp      = pwm_t;
+    //     _uav_pwm.actuator_output = gtsam::Vector4(pwm1, pwm2, pwm3, pwm4);
+    //     Uav_pwms.push_back(_uav_pwm);
+    // }
 
     State _interp_state;
 
@@ -165,10 +176,6 @@ int main(void)
         }
     }
 
-    // std::cout << "after interp \n";
-
-    // std::vector<gtsam::Vector4> interp_actuator_outputs;
-    // std::vector<gtsam::Pose3>   interp_poses;
 
     for(uint32_t idx = 100; idx < DATASET_LENS; idx++)
     {   
@@ -176,13 +183,6 @@ int main(void)
         gtsam::Vector3 omega;
 
         dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx), Interp_states.at(idx).pose, vicon_noise));
-        // vel = (Interp_states.at(idx+1).pose.translation() - Interp_states.at(idx-1).pose.translation()) / dt/2;
-        // omega = gtsam::Rot3::Logmap(gtsam::Rot3(Interp_states.at(idx+1).pose.rotation().inverse()* Interp_states.at(idx-1).pose.rotation())) / dt/2;
-        // omega = gtsam::Rot3::Logmap(Interp_states.at(idx+1).pose.rotation().between(Interp_states.at(idx-1).pose.rotation())) / 2 / dt;
-
-
-        // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx), Interp_states.at(idx).vel,   vel_noise));
-        // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), Interp_states.at(idx).omega, omega_noise));
 
 
         // std::cout << idx << " " << std::setprecision(19) << Interp_states.at(idx).timestamp << " " << std::setprecision(5) << vel.transpose() << " " << omega.transpose() << "\n";
@@ -193,32 +193,20 @@ int main(void)
 
         if( idx == DATASET_LENS-1)
         {
-            // vel = (Interp_states.at(idx+2).pose.translation() - Interp_states.at(idx).pose.translation()) / dt/2;
-            // omega = gtsam::Rot3::Logmap(gtsam::Rot3(Interp_states.at(idx+2).pose.rotation().inverse()* Interp_states.at(idx).pose.rotation())) / dt/2;
-
             dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx+1), Interp_states.at(idx+1).pose,  vicon_noise));
-            // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx+1), Interp_states.at(idx+1).vel,   vel_noise));
-            // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx+1), Interp_states.at(idx+1).omega, omega_noise));
 
             initial_value_dyn.insert(X(idx+1), Interp_states.at(idx+1).pose);
             initial_value_dyn.insert(V(idx+1), Interp_states.at(idx+1).vel);
             initial_value_dyn.insert(S(idx+1), Interp_states.at(idx+1).omega);
         }
         
-        // std::cout << "before add dyn factor \n";
         // pose, velocity, angular speed, thrust_moments, pose, velocity, angular speed, inertial of moments, rot of g
-        DynamcisCaliFactorthrustMoments dynamicsCalibFactor(X(idx), V(idx), S(idx), T(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), dt, quad_params.mass, dynamics_noise);
-
-        // DynamcisCaliFactorthrustMoments8 dynamicsCalibFactor(X(idx), V(idx), S(idx), T(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), dt, quad_params.mass, dynamics_noise);
-
-        // std::cout << "after estab dyn factor \n";
+        DynamcisCaliFactor_TM dynamicsCalibFactor(X(idx), V(idx), S(idx), T(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), dt, quad_params.mass, dynamics_noise);
 
         dyn_factor_graph.add(dynamicsCalibFactor);
 
-        // std::cout << "before add act factor \n";
 
-        // thrust and moments, position of rotor, kf, km, esc_factor (0 << esc_factor <= 1)
-        // if esc_factor is approaching 1, the observability of esc_factor will decrease. 
+        // thrust and moments, position of rotor, kf, km
         AllocationCalibFactor3 allocation_factor(T(idx), P(0), K(0), M(0), Interp_states.at(idx).actuator_output, thrust_torque_noise);
         dyn_factor_graph.add(allocation_factor);
 
@@ -231,8 +219,7 @@ int main(void)
     initial_value_dyn.insert(K(0), quad_params.k_f);
     initial_value_dyn.insert(M(0), quad_params.k_m);
     
-    // gtsam::Vector3 rotor_p(-0., 0.115f, 0);
-    gtsam::Vector3 rotor_p(-quad_params.arm_length/ std::sqrt(2), -quad_params.arm_length/ std::sqrt(2), 0);
+    gtsam::Vector3 rotor_p(quad_params.arm_length/ std::sqrt(2), quad_params.arm_length/ std::sqrt(2), 0);
     
     initial_value_dyn.insert(P(0), rotor_p);
     dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(J(0), gtsam::Vector3(quad_params.Ixx, quad_params.Iyy, quad_params.Izz), im_noise));
@@ -263,7 +250,7 @@ int main(void)
         gtsam::Vector6 tt_err = allo_for_err.evaluateError(t_t, p, kf, mf);
         // JEC_log << idx << " " << t_t(0) << " " << t_t(1) << " " << t_t(2) << " " << t_t(3) << " " << t_t(4) << " " << t_t(5) << " " << tt_err(0) << " " << tt_err(1) << " " << tt_err(2) << " " << tt_err(3) << " " << tt_err(4) << " " << tt_err(5) << " \n";
 
-        DynamcisCaliFactorthrustMoments dyn_err(X(idx), V(idx), S(idx), T(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), dt, quad_params.mass, dynamics_noise);
+        DynamcisCaliFactor_TM dyn_err(X(idx), V(idx), S(idx), T(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), dt, quad_params.mass, dynamics_noise);
         gtsam::Vector12 dyn_e = dyn_err.evaluateError(Interp_states.at(idx).pose, Interp_states.at(idx).vel, Interp_states.at(idx).omega, t_t, Interp_states.at(idx+1).pose, Interp_states.at(idx+1).vel, Interp_states.at(idx+1).omega, IM, rot);
 
         JEC_log << idx << " " << t_t(0) << " " << t_t(1) << " " << t_t(2) << " " << t_t(3) << " " << t_t(4) << " " << t_t(5) << " " << tt_err(0) << " " << tt_err(1) << " " << tt_err(2) << " " << tt_err(3) << " " << tt_err(4) << " " << tt_err(5) << " " << 

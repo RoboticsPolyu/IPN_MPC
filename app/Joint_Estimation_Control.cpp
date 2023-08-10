@@ -61,31 +61,31 @@ int main(void)
     uint16_t WINDOW_SIZE         = FGO_config["WINDOW_SIZE"].as<uint16_t>();
 
     
-    YAML::Node quadrotor_config  = YAML::LoadFile("../config/quadrotor.yaml"); 
+    YAML::Node quad_config  = YAML::LoadFile("../config/quadrotor.yaml"); 
 
-    double RADIUS                = quadrotor_config["RADIUS"].as<double>();
-    double LINEAR_VEL            = quadrotor_config["LINEAR_VEL"].as<double>();
-    double POS_MEAS_COV          = quadrotor_config["POS_MEAS_COV"].as<double>();
-    double VEL_MEAS_COV          = quadrotor_config["VEL_MEAS_COV"].as<double>();
-    double ROT_MEAS_COV          = quadrotor_config["ROT_MEAS_COV"].as<double>();
-    double OME_MEAS_COV          = quadrotor_config["OME_MEAS_COV"].as<double>();
-    double POS_MEAS_MEAN         = quadrotor_config["POS_MEAS_MEAN"].as<double>();
-    bool   TEST_RECOVERY         = quadrotor_config["TEST_RECOVERY"].as<bool>();
+    double RADIUS                = quad_config["RADIUS"].as<double>();
+    double LINEAR_VEL            = quad_config["LINEAR_VEL"].as<double>();
+    double POS_MEAS_COV          = quad_config["POS_MEAS_COV"].as<double>();
+    double VEL_MEAS_COV          = quad_config["VEL_MEAS_COV"].as<double>();
+    double ROT_MEAS_COV          = quad_config["ROT_MEAS_COV"].as<double>();
+    double OME_MEAS_COV          = quad_config["OME_MEAS_COV"].as<double>();
+    double POS_MEAS_MEAN         = quad_config["POS_MEAS_MEAN"].as<double>();
+    bool   TEST_RECOVERY         = quad_config["TEST_RECOVERY"].as<bool>();
 
-    double MAP_X                 = quadrotor_config["MAP_X"].as<double>();
-    double MAP_Y                 = quadrotor_config["MAP_Y"].as<double>();
-    double MAP_Z                 = quadrotor_config["MAP_Z"].as<double>();
+    double MAP_X                 = quad_config["MAP_X"].as<double>();
+    double MAP_Y                 = quad_config["MAP_Y"].as<double>();
+    double MAP_Z                 = quad_config["MAP_Z"].as<double>();
 
-    double MAP_CENTER_X          = quadrotor_config["MAP_CENTER_X"].as<double>();
-    double MAP_CENTER_Y          = quadrotor_config["MAP_CENTER_Y"].as<double>();
-    double MAP_CENTER_Z          = quadrotor_config["MAP_CENTER_Z"].as<double>();
-    double LIDAR_RANGE           = quadrotor_config["LIDAR_RANGE"].as<double>();
-    double LIDAR_RANGE_MIN       = quadrotor_config["LIDAR_RANGE_MIN"].as<double>();
-    double LANDMARKS_SIZE        = quadrotor_config["LANDMARKS_SIZE"].as<uint32_t>();
+    double MAP_CENTER_X          = quad_config["MAP_CENTER_X"].as<double>();
+    double MAP_CENTER_Y          = quad_config["MAP_CENTER_Y"].as<double>();
+    double MAP_CENTER_Z          = quad_config["MAP_CENTER_Z"].as<double>();
+    double LIDAR_RANGE           = quad_config["LIDAR_RANGE"].as<double>();
+    double LIDAR_RANGE_MIN       = quad_config["LIDAR_RANGE_MIN"].as<double>();
+    double LANDMARKS_SIZE        = quad_config["LANDMARKS_SIZE"].as<uint32_t>();
     
-    double MOVE_X                = quadrotor_config["MOVE_X"].as<double>();
-    double MOVE_Y                = quadrotor_config["MOVE_Y"].as<double>();
-    double MOVE_Z                = quadrotor_config["MOVE_Z"].as<double>();
+    double MOVE_X                = quad_config["MOVE_X"].as<double>();
+    double MOVE_Y                = quad_config["MOVE_Y"].as<double>();
+    double MOVE_Z                = quad_config["MOVE_Z"].as<double>();
 
 
     std::ofstream JEC_log;
@@ -138,6 +138,13 @@ int main(void)
     std::normal_distribution<double> rot_noise(0, ROT_MEAS_COV);
     std::normal_distribution<double> velocity_noise(0, VEL_MEAS_COV);
     
+    std::ofstream state_log;
+    file_name = "../data/simulated_state.txt";
+    state_log.open(file_name);
+
+    std::ofstream pwm_log;
+    file_name = "../data/simulated_state.txt";
+    pwm_log.open(file_name);
 
     Features landmarkk; 
     Landmarks env(MAP_X, MAP_Y, MAP_Z, MAP_CENTER_X, MAP_CENTER_Y, MAP_CENTER_Z, LANDMARKS_SIZE);
@@ -182,7 +189,7 @@ int main(void)
             
             gtsam::Vector3 vel_idx = circle_generator.vel(t0 + (idx + 1) * dt);
             gtsam::Vector3 omega_idx = circle_generator.omega(t0 + (idx + 1) * dt);
-
+            
             initial_value.insert(X(idx + 1), pose_idx);
             initial_value.insert(V(idx + 1), vel_idx);
             initial_value.insert(S(idx + 1), omega_idx);
@@ -201,8 +208,8 @@ int main(void)
                 gtsam::Vector3 final_position_ref(CONTROL_P_FINAL_COV_X, CONTROL_P_FINAL_COV_Y, CONTROL_P_FINAL_COV_Z);
                 auto ref_predict_pose_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(CONTROL_R_COV), final_position_ref).finished());   
                 graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
-                // graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
-                graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
+                graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
+                // graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
                 // auto correction_noise = noiseModel::Isotropic::Sigma(3, CONTROL_P_FINAL_COV_X);
                 // gtsam::GPSFactor gps_factor(X(idx+1),
                 //            Point3(pose_idx.translation()[0],   // N,
@@ -216,8 +223,8 @@ int main(void)
                 gtsam::Vector3 _position_ref(CONTROL_P_COV_X, CONTROL_P_COV_Y, CONTROL_P_COV_Z);
                 auto ref_predict_pose_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(CONTROL_R_COV), _position_ref).finished());
                 graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
-                // graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
-                graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
+                graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
+                // graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
                 // auto correction_noise = noiseModel::Isotropic::Sigma(3, CONTROL_P_COV_X);
                 // gtsam::GPSFactor gps_factor(X(idx + 1),
                 //            Point3(pose_idx.translation()[0],   // N,
@@ -238,7 +245,6 @@ int main(void)
                 gtsam::Vector3 rot_add = gtsam::Rot3::Logmap(predicted_state.rot) + rot_noise_add;
 
                 graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx), gtsam::Pose3(gtsam::Rot3::Expmap(rot_add), vicon_measurement), vicon_noise));
-
                 graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx), vel_add, vel_noise));
                 graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), predicted_state.omega, omega_noise));
 
@@ -264,41 +270,41 @@ int main(void)
 
         for (uint32_t ikey = 0; ikey < OPT_LENS_TRAJ; ikey++)
         {
-                std::cout << red << "--------------------------------- TRAJECTORY CONTROL OPTIMIZATION: "  << ikey << " ----------------------------------" << def << std::endl;
-                i_pose = result.at<Pose3>(X(ikey));
-                std::cout << green << "OPT Translation: "
-                        << i_pose.translation() << std::endl;
-                gtsam::Pose3 ref_pose(gtsam::Rot3::Expmap(circle_generator.theta(t0 + ikey * dt)), circle_generator.pos(t0 + ikey * dt));
-                std::cout << "REF Translation: "
-                        << ref_pose.translation() << std::endl;
+                // std::cout << red << "--------------------------------- TRAJECTORY CONTROL OPTIMIZATION: "  << ikey << " ----------------------------------" << def << std::endl;
+                // i_pose = result.at<Pose3>(X(ikey));
+                // std::cout << green << "OPT Translation: "
+                //         << i_pose.translation() << std::endl;
+                // gtsam::Pose3 ref_pose(gtsam::Rot3::Expmap(circle_generator.theta(t0 + ikey * dt)), circle_generator.pos(t0 + ikey * dt));
+                // std::cout << "REF Translation: "
+                //         << ref_pose.translation() << std::endl;
 
-                std::cout << "OPT    Rotation: "
-                        << Rot3::Logmap(i_pose.rotation()).transpose() << std::endl;
-                std::cout << "REF    Rotation: "
-                        << Rot3::Logmap(ref_pose.rotation()).transpose() << std::endl;
+                // std::cout << "OPT    Rotation: "
+                //         << Rot3::Logmap(i_pose.rotation()).transpose() << std::endl;
+                // std::cout << "REF    Rotation: "
+                //         << Rot3::Logmap(ref_pose.rotation()).transpose() << std::endl;
 
-                vel = result.at<Vector3>(V(ikey));
-                std::cout << "OPT         VEL: "
-                        << vel.transpose() << std::endl;
-                gtsam::Vector3 ref_vel = circle_generator.vel(t0 + ikey * dt); //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
-                std::cout << "REF         VEL: "
-                        << ref_vel.transpose() << std::endl;
+                // vel = result.at<Vector3>(V(ikey));
+                // std::cout << "OPT         VEL: "
+                //         << vel.transpose() << std::endl;
+                // gtsam::Vector3 ref_vel = circle_generator.vel(t0 + ikey * dt); //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
+                // std::cout << "REF         VEL: "
+                //         << ref_vel.transpose() << std::endl;
 
-                omega = result.at<Vector3>(S(ikey));
-                std::cout << "OPT       OMEGA: "
-                        << omega.transpose() << std::endl;
-                gtsam::Vector3 ref_omega = circle_generator.omega(t0 + ikey * dt); //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
-                std::cout << "REF       OMEGA: "
-                        << ref_omega.transpose() << std::endl;
+                // omega = result.at<Vector3>(S(ikey));
+                // std::cout << "OPT       OMEGA: "
+                //         << omega.transpose() << std::endl;
+                // gtsam::Vector3 ref_omega = circle_generator.omega(t0 + ikey * dt); //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
+                // std::cout << "REF       OMEGA: "
+                //         << ref_omega.transpose() << std::endl;
 
-                if(ikey != OPT_LENS_TRAJ - 1)
-                {
-                        input = result.at<gtsam::Vector4>(U(ikey));
-                        std::cout << "OPT      INPUT: "
-                                << input.transpose() << std::endl;
-                        std::cout << "REF      INPUT: "
-                                << circle_generator.inputfm(t0 + ikey * dt).transpose() << std::endl;
-                }
+                // if(ikey != OPT_LENS_TRAJ - 1)
+                // {
+                //         input = result.at<gtsam::Vector4>(U(ikey));
+                //         std::cout << "OPT      INPUT: "
+                //                 << input.transpose() << std::endl;
+                //         std::cout << "REF      INPUT: "
+                //                 << circle_generator.inputfm(t0 + ikey * dt).transpose() << std::endl;
+                // }
                 Quadrotor::State m_state;
                 m_state.x = i_pose.translation();
                 opt_trj.push_back(m_state);
@@ -312,12 +318,12 @@ int main(void)
         std::cout << "planned input: " << input << std::endl;
         gtsam::Vector4 actuator_outputs = quadrotor.CumputeRotorsVel();
 
-        float Tc   = 0.05f;
-        float T    = 0.01f;
-        float        a1, a2;
-        double fc  = 1/ (2* M_PI* Tc);
-        a1         = 1.0 / (1+ 2* M_PI* fc* T);
-        a2         = 2* M_PI* fc* T/ (1+ 2* M_PI* fc* T);
+        float  Tc = 0.001f;
+        float  T  = 0.01f;
+        float  a1, a2;
+        double fc = 1/ (2* M_PI* Tc);
+        a1        = 1.0 / (1+ 2* M_PI* fc* T);
+        a2        = 2* M_PI* fc* T/ (1+ 2* M_PI* fc* T);
         
         if(traj_idx != 0)
         {
@@ -332,8 +338,9 @@ int main(void)
         predicted_state.timestamp = t0 + dt;
         quadrotor.setState(predicted_state);
         
-        // input = result.at<gtsam::Vector4>(U(1));
-        quadrotor.stepODE(dt, result.at<gtsam::Vector4>(U(0)));
+        input = result.at<gtsam::Vector4>(U(1));
+        // quadrotor.stepODE(dt, result.at<gtsam::Vector4>(U(0)));
+        quadrotor.stepODE(dt, input); // for driver delay test
 
         std::cout << "input: " << input << std::endl;
 

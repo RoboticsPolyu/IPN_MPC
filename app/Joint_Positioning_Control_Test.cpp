@@ -62,31 +62,31 @@ int main(void)
     uint16_t WINDOW_SIZE         = FGO_config["WINDOW_SIZE"].as<uint16_t>();
 
     
-    YAML::Node quadrotor_config  = YAML::LoadFile("../config/quadrotor.yaml"); 
+    YAML::Node quad_config  = YAML::LoadFile("../config/quadrotor.yaml"); 
 
-    double RADIUS                = quadrotor_config["RADIUS"].as<double>();
-    double LINEAR_VEL            = quadrotor_config["LINEAR_VEL"].as<double>();
-    double POS_MEAS_COV          = quadrotor_config["POS_MEAS_COV"].as<double>();
-    double VEL_MEAS_COV          = quadrotor_config["VEL_MEAS_COV"].as<double>();
-    double ROT_MEAS_COV          = quadrotor_config["ROT_MEAS_COV"].as<double>();
-    double OME_MEAS_COV          = quadrotor_config["OME_MEAS_COV"].as<double>();
-    double POS_MEAS_MEAN         = quadrotor_config["POS_MEAS_MEAN"].as<double>();
-    bool   TEST_RECOVERY         = quadrotor_config["TEST_RECOVERY"].as<bool>();
+    double RADIUS                = quad_config["RADIUS"].as<double>();
+    double LINEAR_VEL            = quad_config["LINEAR_VEL"].as<double>();
+    double POS_MEAS_COV          = quad_config["POS_MEAS_COV"].as<double>();
+    double VEL_MEAS_COV          = quad_config["VEL_MEAS_COV"].as<double>();
+    double ROT_MEAS_COV          = quad_config["ROT_MEAS_COV"].as<double>();
+    double OME_MEAS_COV          = quad_config["OME_MEAS_COV"].as<double>();
+    double POS_MEAS_MEAN         = quad_config["POS_MEAS_MEAN"].as<double>();
+    bool   TEST_RECOVERY         = quad_config["TEST_RECOVERY"].as<bool>();
 
-    double MAP_X                 = quadrotor_config["MAP_X"].as<double>();
-    double MAP_Y                 = quadrotor_config["MAP_Y"].as<double>();
-    double MAP_Z                 = quadrotor_config["MAP_Z"].as<double>();
+    double MAP_X                 = quad_config["MAP_X"].as<double>();
+    double MAP_Y                 = quad_config["MAP_Y"].as<double>();
+    double MAP_Z                 = quad_config["MAP_Z"].as<double>();
 
-    double MAP_CENTER_X          = quadrotor_config["MAP_CENTER_X"].as<double>();
-    double MAP_CENTER_Y          = quadrotor_config["MAP_CENTER_Y"].as<double>();
-    double MAP_CENTER_Z          = quadrotor_config["MAP_CENTER_Z"].as<double>();
-    double LIDAR_RANGE           = quadrotor_config["LIDAR_RANGE"].as<double>();
-    double LIDAR_RANGE_MIN       = quadrotor_config["LIDAR_RANGE_MIN"].as<double>();
-    double LANDMARKS_SIZE        = quadrotor_config["LANDMARKS_SIZE"].as<uint32_t>();
+    double MAP_CENTER_X          = quad_config["MAP_CENTER_X"].as<double>();
+    double MAP_CENTER_Y          = quad_config["MAP_CENTER_Y"].as<double>();
+    double MAP_CENTER_Z          = quad_config["MAP_CENTER_Z"].as<double>();
+    double LIDAR_RANGE           = quad_config["LIDAR_RANGE"].as<double>();
+    double LIDAR_RANGE_MIN       = quad_config["LIDAR_RANGE_MIN"].as<double>();
+    double LANDMARKS_SIZE        = quad_config["LANDMARKS_SIZE"].as<uint32_t>();
     
-    double MOVE_X                = quadrotor_config["MOVE_X"].as<double>();
-    double MOVE_Y                = quadrotor_config["MOVE_Y"].as<double>();
-    double MOVE_Z                = quadrotor_config["MOVE_Z"].as<double>();
+    double MOVE_X                = quad_config["MOVE_X"].as<double>();
+    double MOVE_Y                = quad_config["MOVE_Y"].as<double>();
+    double MOVE_Z                = quad_config["MOVE_Z"].as<double>();
 
 
     std::ofstream JEC_log;

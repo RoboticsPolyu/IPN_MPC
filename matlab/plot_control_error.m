@@ -1,4 +1,4 @@
-close;
+close all;
 clear;
 [state_x state_y state_z xep yep zep force M1 M2 M3 Rx Ry Rz] = textread('../data/record_info.txt','%f %f %f %f %f %f %f %f %f %f %f %f %f');
 

@@ -24,9 +24,9 @@ using namespace gtsam;
 namespace gtsam_wrapper
 {
     typedef Eigen::Matrix<double, 12, 12> Mat12;
-    typedef Eigen::Matrix<double, 12, 4> Matrix124;
-    typedef Eigen::Matrix<double, 12, 6> Matrix126;
-    typedef Eigen::Matrix<double, 12, 3> Matrix123;
+    typedef Eigen::Matrix<double, 12, 4>  Matrix124;
+    typedef Eigen::Matrix<double, 12, 6>  Matrix126;
+    typedef Eigen::Matrix<double, 12, 3>  Matrix123;
 
     /** A convenient base class for creating your own NoiseModelFactor with 7
     * variables.  To derive from this class, implement evaluateError(). */
@@ -160,7 +160,7 @@ namespace gtsam_wrapper
          * @param j7 key of the seventh variable
          * @param j8 key of the eigth variable
          */
-        NoiseModelFactor8(const SharedNoiseModel &noiseModel, Key j1, Key j2, Key j3, Key j4, Key j5, Key j6, Key j7, Key j8) : Base(noiseModel, cref_list_of<7>(j1)(j2)(j3)(j4)(j5)(j6)(j7)(j8)) {}
+        NoiseModelFactor8(const SharedNoiseModel &noiseModel, Key j1, Key j2, Key j3, Key j4, Key j5, Key j6, Key j7, Key j8) : Base(noiseModel, cref_list_of<8>(j1)(j2)(j3)(j4)(j5)(j6)(j7)(j8)) {}
 
         virtual ~NoiseModelFactor8() {}
 
@@ -261,7 +261,7 @@ namespace gtsam_wrapper
          * @param j9 key of the seventh variable
          */
         NoiseModelFactor9(const SharedNoiseModel &noiseModel, Key j1, Key j2, Key j3, Key j4, Key j5, Key j6, Key j7, Key j8, Key j9) 
-            : Base(noiseModel, cref_list_of<7>(j1)(j2)(j3)(j4)(j5)(j6)(j7)(j8)(j9)) {}
+            : Base(noiseModel, cref_list_of<9>(j1)(j2)(j3)(j4)(j5)(j6)(j7)(j8)(j9)) {}
 
         virtual ~NoiseModelFactor9() {}
 
@@ -321,7 +321,7 @@ namespace gtsam_wrapper
         template <class ARCHIVE>
         void serialize(ARCHIVE &ar, const unsigned int /*version*/)
         {
-            ar &boost::serialization::make_nvp("NoiseModelFactor",
+            ar &boost::serialization::make_nvp("NoiseModelFactor9",
                                                boost::serialization::base_object<Base>(*this));
         }
     }; // \class NoiseModelFactor9

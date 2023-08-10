@@ -99,19 +99,27 @@ namespace Trajectory
 
         gtsam::Matrix4 K1;
 
+        double dx0 = 10;
+        double dx1 = 10;
+
         K1 << dynamics_params_.k_f, dynamics_params_.k_f, dynamics_params_.k_f, dynamics_params_.k_f,
-            0, 0, dynamics_params_.arm_length * dynamics_params_.k_f, -dynamics_params_.arm_length * dynamics_params_.k_f,
-            -dynamics_params_.arm_length * dynamics_params_.k_f, dynamics_params_.arm_length * dynamics_params_.k_f, 0, 0,
-            dynamics_params_.k_m, dynamics_params_.k_m, -dynamics_params_.k_m, -dynamics_params_.k_m;
+            - dx0 * dynamics_params_.k_f, - dx0 * dynamics_params_.k_f,   dx0 * dynamics_params_.k_f,   dx0 * dynamics_params_.k_f,
+            - dx1 * dynamics_params_.k_f,   dx1 * dynamics_params_.k_f,   dx0 * dynamics_params_.k_f, - dx0 * dynamics_params_.k_f,
+              dynamics_params_.k_m,       - dynamics_params_.k_m,         dynamics_params_.k_m,        - dynamics_params_.k_m;
+        
+    //     std::cout << "K1: " << K1 << std::endl; 
         gtsam::Vector4 input;
 
-        input = K1.inverse() * Tmb;
+         input = K1.inverse() * Tmb;
+    // std::cout << K1.inverse() << "\n";
+     std::cout << Tmb << " \n";
+
 
         input[0] = sqrt(input[0]);
         input[1] = sqrt(input[1]);
         input[2] = sqrt(input[2]);
         input[3] = sqrt(input[3]);
-
+// std::cout << input << " \n";
         return input;
     }
 
