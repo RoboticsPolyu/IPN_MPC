@@ -253,18 +253,20 @@ namespace UAVFactor
 
          // std::cout << "*H1: \n" << *H1 << std::endl;
       }
+      
       if (H2)
       {
          Matrix123 J_e_v;
          J_e_v.setZero();
-         Matrix33 Jac_perr_veli  = -Matrix33::Identity() * dt_;
-         Matrix33 Jac_verr_v     = -Matrix33::Identity();
-         J_e_v.block(0, 0, 3, 3) = Jac_perr_veli;
-         J_e_v.block(6, 0, 3, 3) = Jac_verr_v;
+         Matrix33 Jac_perr_veli  = - Matrix33::Identity() * dt_;
+         Matrix33 Jac_verr_v     = - Matrix33::Identity();
+         J_e_v.block(0, 0, 3, 3) =   Jac_perr_veli;
+         J_e_v.block(6, 0, 3, 3) =   Jac_verr_v;
          
          *H2 = J_e_v;
          // std::cout << "*H2: \n" << *H2 << std::endl;
       }
+
       if (H3)
       {
          Matrix123 J_e_omage;
@@ -286,6 +288,7 @@ namespace UAVFactor
          *H3 = J_e_omage;
          // std::cout << "*H3: \n" << *H3 << std::endl;
       }
+
       if (H4)
       {
          Matrix124 J_e_input;
@@ -301,6 +304,7 @@ namespace UAVFactor
          *H4 = J_e_input;
          // std::cout << "*H4: \n" << *H4 << std::endl;
       }
+
       if (H5)
       {
          Matrix126 J_e_posej;
@@ -319,6 +323,7 @@ namespace UAVFactor
          *H6 = J_e_vj;
          // std::cout << "*H6: \n" << *H6 << std::endl;
       }
+
       if (H7)
       {
          Matrix123 J_e_omagej;

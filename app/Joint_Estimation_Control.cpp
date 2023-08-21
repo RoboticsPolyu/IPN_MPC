@@ -270,41 +270,41 @@ int main(void)
 
         for (uint32_t ikey = 0; ikey < OPT_LENS_TRAJ; ikey++)
         {
-                // std::cout << red << "--------------------------------- TRAJECTORY CONTROL OPTIMIZATION: "  << ikey << " ----------------------------------" << def << std::endl;
-                // i_pose = result.at<Pose3>(X(ikey));
-                // std::cout << green << "OPT Translation: "
-                //         << i_pose.translation() << std::endl;
-                // gtsam::Pose3 ref_pose(gtsam::Rot3::Expmap(circle_generator.theta(t0 + ikey * dt)), circle_generator.pos(t0 + ikey * dt));
-                // std::cout << "REF Translation: "
-                //         << ref_pose.translation() << std::endl;
+                std::cout << red << "--------------------------------- TRAJECTORY CONTROL OPTIMIZATION: "  << ikey << " ----------------------------------" << def << std::endl;
+                i_pose = result.at<Pose3>(X(ikey));
+                std::cout << green << "OPT Translation: "
+                        << i_pose.translation() << std::endl;
+                gtsam::Pose3 ref_pose(gtsam::Rot3::Expmap(circle_generator.theta(t0 + ikey * dt)), circle_generator.pos(t0 + ikey * dt));
+                std::cout << "REF Translation: "
+                        << ref_pose.translation() << std::endl;
 
-                // std::cout << "OPT    Rotation: "
-                //         << Rot3::Logmap(i_pose.rotation()).transpose() << std::endl;
-                // std::cout << "REF    Rotation: "
-                //         << Rot3::Logmap(ref_pose.rotation()).transpose() << std::endl;
+                std::cout << "OPT    Rotation: "
+                        << Rot3::Logmap(i_pose.rotation()).transpose() << std::endl;
+                std::cout << "REF    Rotation: "
+                        << Rot3::Logmap(ref_pose.rotation()).transpose() << std::endl;
 
-                // vel = result.at<Vector3>(V(ikey));
-                // std::cout << "OPT         VEL: "
-                //         << vel.transpose() << std::endl;
-                // gtsam::Vector3 ref_vel = circle_generator.vel(t0 + ikey * dt); //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
-                // std::cout << "REF         VEL: "
-                //         << ref_vel.transpose() << std::endl;
+                vel = result.at<Vector3>(V(ikey));
+                std::cout << "OPT         VEL: "
+                        << vel.transpose() << std::endl;
+                gtsam::Vector3 ref_vel = circle_generator.vel(t0 + ikey * dt); //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
+                std::cout << "REF         VEL: "
+                        << ref_vel.transpose() << std::endl;
 
-                // omega = result.at<Vector3>(S(ikey));
-                // std::cout << "OPT       OMEGA: "
-                //         << omega.transpose() << std::endl;
-                // gtsam::Vector3 ref_omega = circle_generator.omega(t0 + ikey * dt); //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
-                // std::cout << "REF       OMEGA: "
-                //         << ref_omega.transpose() << std::endl;
+                omega = result.at<Vector3>(S(ikey));
+                std::cout << "OPT       OMEGA: "
+                        << omega.transpose() << std::endl;
+                gtsam::Vector3 ref_omega = circle_generator.omega(t0 + ikey * dt); //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
+                std::cout << "REF       OMEGA: "
+                        << ref_omega.transpose() << std::endl;
 
-                // if(ikey != OPT_LENS_TRAJ - 1)
-                // {
-                //         input = result.at<gtsam::Vector4>(U(ikey));
-                //         std::cout << "OPT      INPUT: "
-                //                 << input.transpose() << std::endl;
-                //         std::cout << "REF      INPUT: "
-                //                 << circle_generator.inputfm(t0 + ikey * dt).transpose() << std::endl;
-                // }
+                if(ikey != OPT_LENS_TRAJ - 1)
+                {
+                        input = result.at<gtsam::Vector4>(U(ikey));
+                        std::cout << "OPT      INPUT: "
+                                << input.transpose() << std::endl;
+                        std::cout << "REF      INPUT: "
+                                << circle_generator.inputfm(t0 + ikey * dt).transpose() << std::endl;
+                }
                 Quadrotor::State m_state;
                 m_state.x = i_pose.translation();
                 opt_trj.push_back(m_state);

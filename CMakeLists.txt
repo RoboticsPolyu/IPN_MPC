@@ -139,8 +139,8 @@ target_link_libraries(SW_Joint_Estimation_Control gtsam quadrotor_dynamics ${Pan
 add_executable(Joint_Positioning_Control_Test app/Joint_Positioning_Control_Test.cpp)
 target_link_libraries(Joint_Positioning_Control_Test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
-add_executable(Aerial_vehicle_calibration_for_test app/Aerial_vehicle_calibration_for_test.cpp)
-target_link_libraries(Aerial_vehicle_calibration_for_test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+add_executable(Aerial_vehicle_calibration_test app/Aerial_vehicle_calibration_test.cpp)
+target_link_libraries(Aerial_vehicle_calibration_test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
-add_executable(Aerial_vehicle_calibration_sim app/Aerial_vehicle_calibration_sim.cpp)
-target_link_libraries(Aerial_vehicle_calibration_sim gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+add_executable(Aerial_vehicle_calibration_usim app/Aerial_vehicle_calibration_usim.cpp)
+target_link_libraries(Aerial_vehicle_calibration_usim gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})

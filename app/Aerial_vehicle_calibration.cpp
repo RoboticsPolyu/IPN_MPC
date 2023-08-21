@@ -222,8 +222,8 @@ int main(void)
         AllocationCalibFactor3 allocation_factor(T(idx), P(0), K(0), M(0), Interp_states.at(idx).actuator_output, thrust_torque_noise);
         dyn_factor_graph.add(allocation_factor);
 
-        gtsam::Vector6 trust_m;
-        initial_value_dyn.insert(T(idx), trust_m);
+        gtsam::Vector6 thrust_m;
+        initial_value_dyn.insert(T(idx), thrust_m);
     }
 
     initial_value_dyn.insert(J(0), gtsam::Vector3(quad_params.Ixx, quad_params.Iyy, quad_params.Izz) );
@@ -259,7 +259,7 @@ int main(void)
         AllocationCalibFactor3 allo_for_err(T(idx), P(0), K(0), M(0), Interp_states.at(idx).actuator_output, thrust_torque_noise);
         gtsam::Vector6 t_t = result.at<gtsam::Vector6>(T(idx));
         
-        // std::cout << idx << " - trust torque: " << t_t.transpose() << "\n";
+        // std::cout << idx << " - thrust torque: " << t_t.transpose() << "\n";
         gtsam::Vector6 tt_err = allo_for_err.evaluateError(t_t, p, kf, mf);
         // JEC_log << idx << " " << t_t(0) << " " << t_t(1) << " " << t_t(2) << " " << t_t(3) << " " << t_t(4) << " " << t_t(5) << " " << tt_err(0) << " " << tt_err(1) << " " << tt_err(2) << " " << tt_err(3) << " " << tt_err(4) << " " << tt_err(5) << " \n";
 

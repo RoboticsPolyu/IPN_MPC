@@ -53,7 +53,7 @@ namespace QuadrotorSim_SO3
         double DRAG_FORCE_X = config["DRAG_FORCE_X"].as<double>();
         double DRAG_FORCE_Y = config["DRAG_FORCE_Y"].as<double>();
         double DRAG_FORCE_Z = config["DRAG_FORCE_Z"].as<double>();
-        drag_force_p_ = Eigen::Vector3d(DRAG_FORCE_X, DRAG_FORCE_Y, DRAG_FORCE_Z);
+        drag_force_params_ = Eigen::Vector3d(DRAG_FORCE_X, DRAG_FORCE_Y, DRAG_FORCE_Z);
     }
 
     void Quadrotor::step(double dt)
@@ -78,7 +78,7 @@ namespace QuadrotorSim_SO3
             vnorm.normalize();
         }
 
-        Eigen::Vector3d drag_force = -state_.rot.matrix() * Eigen::Matrix3d(drag_force_p_.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
+        Eigen::Vector3d drag_force = -state_.rot.matrix() * Eigen::Matrix3d(drag_force_params_.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
         Eigen::Vector3d v_dot = - Eigen::Vector3d(0, 0, g_) + state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ +
                                 external_force_ / mass_ + drag_force;
 
@@ -87,19 +87,12 @@ namespace QuadrotorSim_SO3
         // J* omega_dot = moments - J.cross(J* omega)
         Eigen::Vector3d omega_dot = J_.inverse() * (moments - state_.omega.cross(J_ * state_.omega) + external_moment_);
 
-        // noise
-        // std::default_random_engine generator;
-        // std::normal_distribution<double> x_noise(0.0, 0.05);
-        // std::normal_distribution<double> r_noise(0.0, 0.005);
-        // std::normal_distribution<double> v_noise(0.0, 0.005);
-        // std::normal_distribution<double> o_noise(0.0, 0.005);
 
         // Predict state
-        double dt22 = 0.5 * dt * dt;
-        predicted_state_.x = state_.x + p_dot * dt;                                                    // + dt* gtsam::Vector3(x_noise(generator), x_noise(generator), x_noise(generator));
-        predicted_state_.v = state_.v + v_dot * dt;                                                    // + dt* gtsam::Vector3(v_noise(generator), v_noise(generator), v_noise(generator));
-        predicted_state_.rot = state_.rot * gtsam::Rot3::Expmap(state_.omega * dt + omega_dot * dt22); // + dt* gtsam::Vector3(r_noise(generator), r_noise(generator), r_noise(generator)) );
-        predicted_state_.omega = state_.omega + omega_dot * dt;                                        // + dt* gtsam::Vector3(o_noise(generator), o_noise(generator), o_noise(generator));
+        predicted_state_.x = state_.x + p_dot * dt;                                                   
+        predicted_state_.v = state_.v + v_dot * dt;                                                    
+        predicted_state_.rot = state_.rot * gtsam::Rot3::Expmap(state_.omega * dt);
+        predicted_state_.omega = state_.omega + omega_dot * dt;                                        
         predicted_state_.motor_rpm = state_.motor_rpm;
 
         state_ = predicted_state_;
@@ -117,11 +110,11 @@ namespace QuadrotorSim_SO3
         Eigen::Matrix3d cur_rotm;
         for (int i = 0; i < 3; i++)
         {
-            cur_state.x(i) = x[0 + i];
-            cur_state.v(i) = x[3 + i];
-            cur_rotm(i, 0) = x[6 + i];
-            cur_rotm(i, 1) = x[9 + i];
-            cur_rotm(i, 2) = x[12 + i];
+            cur_state.x(i)     = x[0 + i];
+            cur_state.v(i)     = x[3 + i];
+            cur_rotm(i, 0)     = x[6 + i];
+            cur_rotm(i, 1)     = x[9 + i];
+            cur_rotm(i, 2)     = x[12 + i];
             cur_state.omega(i) = x[15 + i];
         }
 
@@ -134,8 +127,8 @@ namespace QuadrotorSim_SO3
 
         Eigen::Vector3d vnorm;
 
-        std::normal_distribution<double> aT_noise(AT_NOISE_MEAN, AT_NOISE_COV);
-        double at_noise = aT_noise(generator_);
+        std::normal_distribution<double> thrust_noise(AT_NOISE_MEAN, AT_NOISE_COV);
+        double at_noise = thrust_noise(generator_);
 
         double thrust = x[18] + at_noise; // cur force
 
@@ -147,11 +140,10 @@ namespace QuadrotorSim_SO3
             vnorm.normalize();
         }
 
-        Eigen::Vector3d drag_force = - cur_state.rot.matrix() * Eigen::Matrix3d(drag_force_p_.asDiagonal()) * cur_state.rot.matrix().transpose() * cur_state.v;
+        Eigen::Vector3d drag_force = - cur_state.rot.matrix() * Eigen::Matrix3d(drag_force_params_.asDiagonal()) * cur_state.rot.matrix().transpose() * cur_state.v;
         
         Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) + cur_state.rot.rotate(gtsam::Vector3(0, 0, thrust / mass_)) +
                                 external_force_ / mass_ + drag_force / mass_;
-        // std::cout << "v_dot i stepODE opertor: " << v_dot << std::endl;
 
         Eigen::Vector3d p_dot  = cur_state.v;
 
@@ -162,10 +154,10 @@ namespace QuadrotorSim_SO3
 
         for (int i = 0; i < 3; i++)
         {
-            dxdt[0 + i] = p_dot(i);
-            dxdt[3 + i] = v_dot(i);
-            dxdt[6 + i] = r_dot(i, 0);
-            dxdt[9 + i] = r_dot(i, 1);
+            dxdt[0 + i]  = p_dot(i);
+            dxdt[3 + i]  = v_dot(i);
+            dxdt[6 + i]  = r_dot(i, 0);
+            dxdt[9 + i]  = r_dot(i, 1);
             dxdt[12 + i] = r_dot(i, 2);
             dxdt[15 + i] = omega_dot(i);
         }
@@ -214,11 +206,11 @@ namespace QuadrotorSim_SO3
         Eigen::Matrix3d cur_rotm;
         for (int i = 0; i < 3; i++)
         {
-            state_.x(i) = x[0 + i];
-            state_.v(i) = x[3 + i];
-            cur_rotm(i, 0) = x[6 + i];
-            cur_rotm(i, 1) = x[9 + i];
-            cur_rotm(i, 2) = x[12 + i];
+            state_.x(i)     = x[0 + i];
+            state_.v(i)     = x[3 + i];
+            cur_rotm(i, 0)  = x[6 + i];
+            cur_rotm(i, 1)  = x[9 + i];
+            cur_rotm(i, 2)  = x[12 + i];
             state_.omega(i) = x[15 + i];
         }
 
@@ -237,12 +229,12 @@ namespace QuadrotorSim_SO3
         // std::normal_distribution<double> x_noise(0.0, 0.05);
         // std::normal_distribution<double> r_noise(0.0, 0.005);
         // std::normal_distribution<double> v_noise(0.0, 0.20);
-        std::normal_distribution<double> o_noise(ANGULAR_SPEED_MEAN, ANGULAR_SPEED_COV);
+        std::normal_distribution<double> angular_speed_noise(ANGULAR_SPEED_MEAN, ANGULAR_SPEED_COV);
 
         // gtsam::Vector3 pos_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(x_noise(generator_), x_noise(generator_), x_noise(generator_));
         // gtsam::Vector3 vel_noise = dt* gtsam::Vector3(v_noise(generator_), v_noise(generator_), v_noise(generator_));
         // gtsam::Vector3 rot_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(r_noise(generator_), r_noise(generator_), r_noise(generator_));
-        gtsam::Vector3 ome_noise = gtsam::Vector3(o_noise(generator_), o_noise(generator_), o_noise(generator_));
+        gtsam::Vector3 ome_noise = gtsam::Vector3(angular_speed_noise(generator_), angular_speed_noise(generator_), angular_speed_noise(generator_));
 
         state_.x = state_.x;
         state_.v = state_.v;
@@ -252,53 +244,6 @@ namespace QuadrotorSim_SO3
         printCurState();
     }
 
-    void Quadrotor::stepODE2(double dt, gtsam::Vector4 fm)
-    {
-        stateType x;
-        Eigen::Matrix3d r = state_.rot.matrix();
-        for (int i = 0; i < 3; i++)
-        {
-            x[0 + i] = state_.x(i);
-            x[3 + i] = state_.v(i);
-            x[6 + i] = r(i, 0);
-            x[9 + i] = r(i, 1);
-            x[12 + i] = r(i, 2);
-            x[15 + i] = state_.omega(i);
-        }
-
-        for (int i = 0; i < 4; i++)
-        {
-            x[18 + i] = state_.force_moment[i];
-        }
-
-        force_moment_ = fm; // control at future dt.
-        integrate(boost::ref(*this), x, 0.0, dt, dt / 10);
-
-        Eigen::Matrix3d cur_rotm;
-        for (int i = 0; i < 3; i++)
-        {
-            state_.x(i) = x[0 + i];
-            state_.v(i) = x[3 + i];
-            cur_rotm(i, 0) = x[6 + i];
-            cur_rotm(i, 1) = x[9 + i];
-            cur_rotm(i, 2) = x[12 + i];
-            state_.omega(i) = x[15 + i];
-        }
-
-        for (int i = 0; i < 4; i++)
-        {
-            state_.force_moment[i] = x[18 + i];
-        }
-
-        // Re-orthonormalize R (polar decomposition)
-        Eigen::LLT<Eigen::Matrix3d> llt(cur_rotm.transpose() * cur_rotm);
-        Eigen::Matrix3d P = llt.matrixL();
-        Eigen::Matrix3d R = cur_rotm * P.inverse();
-
-        state_.rot = gtsam::Rot3(R);
-
-        printCurState();
-    }
 
     Eigen::Matrix4d Quadrotor::ComputeEffectivenessMatrix()
     {
@@ -336,11 +281,8 @@ namespace QuadrotorSim_SO3
     Eigen::Vector4d Quadrotor::InvCumputeRotorsVel(Eigen::Vector4d rotor_speed)
     {
         effectiveness_ = ComputeEffectivenessMatrix();
-        Eigen::Vector4d identity = Eigen::Vector4d::Identity();
 
-        Eigen::Vector4d actuator_output;
-        double a = esc_factor_;
-        double b = 1 - esc_factor_;    
+        Eigen::Vector4d actuator_output; 
 
         Eigen::Vector4d thrust_moments;
         actuator_output = esc_factor_* rotor_speed.cwiseAbs2() + (1- esc_factor_)* rotor_speed;
@@ -369,121 +311,6 @@ namespace QuadrotorSim_SO3
         force_moment_ = force_moment;
     }
 
-    void Quadrotor::stepTMDeprecated(double dt, gtsam::Vector4 fm)
-    {
-        State predicted_state_;
-
-        Eigen::Vector3d vnorm;
-
-        double thrust = fm[0];
-
-        Eigen::Vector3d moments = fm.tail(3);
-
-        vnorm = state_.v;
-        if (vnorm.norm() != 0)
-        {
-            vnorm.normalize();
-        }
-
-        Eigen::Vector3d drag_force = -state_.rot.matrix() * Eigen::Matrix3d(drag_force_p_.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
-        Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) + state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ +
-                                external_force_ / mass_ + drag_force;
-
-        Eigen::Vector3d p_dot = state_.v;
-        // Eigen::Matrix3d r_dot = state_.rot.matrix() * gtsam::skewSymmetric(state_.omega);
-
-        // J* omega_dot = moments - J.cross(J* omega)
-        Eigen::Vector3d omega_dot = J_.inverse() * (moments - state_.omega.cross(J_ * state_.omega) + external_moment_);
-
-        // noise
-        std::normal_distribution<double> x_noise(0.0, 0.05);
-        std::normal_distribution<double> r_noise(0.0, 0.005);
-        std::normal_distribution<double> v_noise(0.0, 0.005);
-        std::normal_distribution<double> o_noise(0.0, 0.005);
-
-        gtsam::Vector3 pos_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(x_noise(generator_), x_noise(generator_), x_noise(generator_));
-        gtsam::Vector3 vel_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(v_noise(generator_), v_noise(generator_), v_noise(generator_));
-        gtsam::Vector3 rot_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(r_noise(generator_), r_noise(generator_), r_noise(generator_));
-        gtsam::Vector3 ome_noise = dt * gtsam::Vector3(o_noise(generator_), o_noise(generator_), o_noise(generator_));
-
-        predicted_state_.x = state_.x + p_dot * dt + pos_noise;
-        predicted_state_.v = state_.v + v_dot * dt + vel_noise;
-        predicted_state_.rot = state_.rot * gtsam::Rot3::Expmap(state_.omega * dt + rot_noise); // + omega_dot* dt22 +
-        predicted_state_.omega = state_.omega + omega_dot * dt;                                 // + ome_noise;
-        predicted_state_.motor_rpm = state_.motor_rpm;
-
-        // predicted_state_.x = state_.x + p_dot * dt;
-        // predicted_state_.v = state_.v + v_dot * dt;
-        // predicted_state_.rot = state_.rot * gtsam::Rot3::Expmap(state_.omega * dt); // + omega_dot* dt22 +
-        // predicted_state_.omega = state_.omega + omega_dot * dt;// + ome_noise;
-        // predicted_state_.motor_rpm = state_.motor_rpm;
-
-        state_ = predicted_state_;
-        // Don't go below zero, simulate floor
-        if (state_.x(2) < 0.0 && state_.v(2) < 0)
-        {
-            state_.x(2) = 0;
-            state_.v(2) = 0;
-        }
-    }
-
-    void Quadrotor::stepAddNoise(double dt)
-    {
-        State predicted_state_;
-
-        Eigen::Vector3d vnorm;
-        Eigen::Array4d motor_rpm_sq;
-
-        motor_rpm_sq = state_.motor_rpm.array().square();
-
-        double thrust = kf_ * motor_rpm_sq.sum();
-
-        Eigen::Vector3d moments;
-        moments(0) = kf_ * (motor_rpm_sq(2) - motor_rpm_sq(3)) * arm_length_;
-        moments(1) = kf_ * (motor_rpm_sq(1) - motor_rpm_sq(0)) * arm_length_;
-        moments(2) = km_ * (motor_rpm_sq(0) + motor_rpm_sq(1) - motor_rpm_sq(2) - motor_rpm_sq(3));
-
-        vnorm = state_.v;
-        if (vnorm.norm() != 0)
-        {
-            vnorm.normalize();
-        }
-
-        Eigen::Vector3d drag_force = -state_.rot.matrix() * Eigen::Matrix3d(drag_force_p_.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
-        Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) + state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ +
-                                external_force_ / mass_ + drag_force;
-
-        Eigen::Vector3d p_dot = state_.v;
-
-        // J* omega_dot = moments - J.cross(J* omega)
-        Eigen::Vector3d omega_dot = J_.inverse() * (moments - state_.omega.cross(J_ * state_.omega) + external_moment_);
-
-        // noise
-        std::normal_distribution<double> x_noise(0.0, 0.05);
-        std::normal_distribution<double> r_noise(0.0, 0.005);
-        std::normal_distribution<double> v_noise(0.0, 0.005);
-        std::normal_distribution<double> o_noise(0.0, 0.005);
-
-        // Predict state
-        gtsam::Vector3 pos_noise = dt * gtsam::Vector3(x_noise(generator_), x_noise(generator_), x_noise(generator_));
-        gtsam::Vector3 vel_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(v_noise(generator_), v_noise(generator_), v_noise(generator_));
-        gtsam::Vector3 rot_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(r_noise(generator_), r_noise(generator_), r_noise(generator_));
-        gtsam::Vector3 ome_noise = dt * gtsam::Vector3(o_noise(generator_), o_noise(generator_), o_noise(generator_));
-
-        predicted_state_.x = state_.x + p_dot * dt + pos_noise;
-        predicted_state_.v = state_.v + v_dot * dt + vel_noise;
-        predicted_state_.rot = state_.rot * gtsam::Rot3::Expmap(state_.omega * dt + rot_noise); // + omega_dot* dt22 +
-        predicted_state_.omega = state_.omega + omega_dot * dt;                                 // + ome_noise;
-        predicted_state_.motor_rpm = state_.motor_rpm;
-
-        state_ = predicted_state_;
-        // Don't go below zero, simulate floor
-        if (state_.x(2) < 0.0 && state_.v(2) < 0)
-        {
-            state_.x(2) = 0;
-            state_.v(2) = 0;
-        }
-    }
 
     void Quadrotor::setInput(double u1, double u2, double u3, double u4)
     {

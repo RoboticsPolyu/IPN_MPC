@@ -51,8 +51,7 @@ namespace QuadrotorSim_SO3
             EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
         };
         
-        // Display
-
+        // User Interface
         void displaySetup();
         
         void renderHistoryTrj();
@@ -126,13 +125,11 @@ namespace QuadrotorSim_SO3
         void setInput(gtsam::Vector4 force_moment);
         // Runs the actual dynamics simulation with a time step of dt
         void step(double dt);
-        void stepAddNoise(double dt);
 
         // ODE intergration based state propagation
         void operator()(const Quadrotor::stateType &x , Quadrotor::stateType &dxdt , const double t);
         void stepODE(double dt, gtsam::Vector4 fm);
-        void stepODE2(double dt, gtsam::Vector4 fm);
-        void stepTMDeprecated(double dt, gtsam::Vector4 fm);
+
         // Compute every rotor's rotation vel RPM
         Eigen::Vector4d CumputeRotorsVel();
         Eigen::Vector4d InvCumputeRotorsVel(Eigen::Vector4d rotor_speed);
@@ -160,7 +157,7 @@ namespace QuadrotorSim_SO3
         double min_rpm_;
         double esc_factor_;
         
-        Eigen::Vector3d drag_force_p_;
+        Eigen::Vector3d drag_force_params_;
 
         Quadrotor::State state_, last_state_;
         std::vector<Quadrotor::State> trj_;

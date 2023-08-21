@@ -54,7 +54,49 @@ namespace UAVFactor
         
     };
 
-    
+    // Posei Veli Omega1 Posej Velj Omegaj inertia_moment, g_Rot, rotor_position, kf, km
+    class GTSAM_EXPORT DynamcisCaliFactor_RS : public NoiseModelFactor11<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector3, gtsam::Rot3, gtsam::Vector3, double, double> 
+    {        
+    public:
+        typedef boost::shared_ptr<DynamcisCaliFactor_RS> shared_ptr;
+
+        DynamcisCaliFactor_RS() {}
+        DynamcisCaliFactor_RS(Key p_i, Key vel_i, Key omega_i, Key p_j, Key vel_j, Key omega_j, 
+            Key im_key, Key rwg_key, Key p_key, Key kf_key, Key km_key, gtsam::Vector4 actuator_outputs, 
+            float dt, float mass, const SharedNoiseModel &model);
+
+        virtual ~DynamcisCaliFactor_RS()
+        {
+        }
+
+        /*Compute error and Jacobian: pos_i wTbody_i, bodyTmass*/
+        Vector evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector3 &omega_i, 
+                             const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j, 
+                             const gtsam::Vector3 &inertia_moment, const gtsam::Rot3 &rwg, 
+                             const gtsam::Vector3 &rotor_pos, const double &ct, const double &km,
+                             boost::optional<Matrix &> H1 = boost::none, boost::optional<Matrix &> H2 = boost::none,
+                             boost::optional<Matrix &> H3 = boost::none, boost::optional<Matrix &> H4 = boost::none,
+                             boost::optional<Matrix &> H5 = boost::none, boost::optional<Matrix &> H6 = boost::none,
+                             boost::optional<Matrix &> H7 = boost::none, boost::optional<Matrix &> H8 = boost::none,
+                             boost::optional<Matrix &> H9 = boost::none, boost::optional<Matrix &> H10 = boost::none,
+                             boost::optional<Matrix &> H11 = boost::none) const;
+
+    private: 
+        typedef DynamcisCaliFactor_RS This;
+        typedef NoiseModelFactor11<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3,
+            gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector3, gtsam::Rot3, gtsam::Vector3, double, double>
+            Base;
+        
+        float          dt_;
+        float          mass_;
+        gtsam::Vector4 actuator_outputs_;
+
+        gtsam::Vector3 gI_ = gtsam::Vector3(0, 0, 9.81); // gravity
+        
+    };
+
+
+
     class GTSAM_EXPORT DynamcisCaliFactor_TM : public NoiseModelFactor9<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, 
         gtsam::Vector6, gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector3, gtsam::Rot3>
     {        
