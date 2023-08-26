@@ -21,6 +21,8 @@ using symbol_shorthand::T; // thrust and moments
 using symbol_shorthand::U; // actuator_input
 using symbol_shorthand::V; // velocity
 using symbol_shorthand::X; // pose
+using symbol_shorthand::D; // bTm
+
 
 typedef struct State
 {
@@ -196,7 +198,7 @@ int main(void)
         }
         
         // pose, velocity, angular speed, pose, velocity, angular speed, inertial of moments, rot of g, position of rotot, kf, km        
-        DynamcisCaliFactor_RS dynamicsCalibFactor(X(idx), V(idx), S(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), P(0), K(0), M(0), Interp_states.at(idx).actuator_output, dt, quad_params.mass, dynamics_noise);
+        DynamcisCaliFactor_RS dynamicsCalibFactor(X(idx), V(idx), S(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), P(0), K(0), M(0), D(0), Interp_states.at(idx).actuator_output, dt, quad_params.mass, dynamics_noise);
         dyn_factor_graph.add(dynamicsCalibFactor);
     }
 
@@ -204,11 +206,13 @@ int main(void)
     initial_value_dyn.insert(R(0), gtsam::Rot3::Ry(-3.0/180.0*M_PI)* gtsam::Rot3::Rx(5.0/180.0*M_PI));
     initial_value_dyn.insert(K(0), quad_params.k_f);
     initial_value_dyn.insert(M(0), quad_params.k_m);
-    
+    initial_value_dyn.insert(D(0), gtsam::Pose3::identity());
+
     gtsam::Vector3 rotor_p(quad_params.arm_length/ std::sqrt(2), quad_params.arm_length/ std::sqrt(2), 0);
     
     initial_value_dyn.insert(P(0), rotor_p);
     dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(J(0), gtsam::Vector3(quad_params.Ixx, quad_params.Iyy, quad_params.Izz), im_noise));
+
     // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Rot3>(R(0), gtsam::Rot3::identity(), gr_noise));
 
     // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(P(0), rotor_p, rp_noise)); 
@@ -225,12 +229,12 @@ int main(void)
     gtsam::Vector3   p = result.at<gtsam::Vector3>(P(0));
     double          kf = result.at<double>(K(0));
     double          mf = result.at<double>(M(0)); 
-    
+    gtsam::Pose3   bTm = result.at<gtsam::Pose3>(D(0)); 
     
     for(uint32_t idx = 100; idx < DATASET_LENS; idx++)
     {
-        DynamcisCaliFactor_RS dyn_err(X(idx), V(idx), S(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), P(0), K(0), M(0), Interp_states.at(idx).actuator_output, dt, quad_params.mass, dynamics_noise);
-        gtsam::Vector12 dyn_e = dyn_err.evaluateError(Interp_states.at(idx).pose, Interp_states.at(idx).vel, Interp_states.at(idx).omega, Interp_states.at(idx+1).pose, Interp_states.at(idx+1).vel, Interp_states.at(idx+1).omega, IM, rot, p, kf, mf);
+        DynamcisCaliFactor_RS dyn_err(X(idx), V(idx), S(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), P(0), K(0), M(0), D(0), Interp_states.at(idx).actuator_output, dt, quad_params.mass, dynamics_noise);
+        gtsam::Vector12 dyn_e = dyn_err.evaluateError(Interp_states.at(idx).pose, Interp_states.at(idx).vel, Interp_states.at(idx).omega, Interp_states.at(idx+1).pose, Interp_states.at(idx+1).vel, Interp_states.at(idx+1).omega, IM, rot, p, kf, mf, bTm);
 
         // JEC_log << idx << " " << t_t(0) << " " << t_t(1) << " " << t_t(2) << " " << t_t(3) << " " << t_t(4) << " " << t_t(5) << " " << tt_err(0) << " " << tt_err(1) << " " << tt_err(2) << " " << tt_err(3) << " " << tt_err(4) << " " << tt_err(5) << " " << 
         // dyn_e(0) << " " << dyn_e(1) << " " << dyn_e(2) << " " << dyn_e(3) << " " << dyn_e(4) << " " << dyn_e(5) << " " << dyn_e(6) << " " << dyn_e(7) << " " << dyn_e(8) << " " << dyn_e(9) << " " << dyn_e(10) << " " << dyn_e(11) << " \n";

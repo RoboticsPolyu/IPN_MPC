@@ -25,8 +25,8 @@ using symbol_shorthand::X;
 int main(void)
 {
     double dt = 0.001, radius = 1.0, linear_vel = 3.0, acc = 0.01;
-    circle_generator circle_generator(radius, linear_vel, dt);
-    // cir_conacc_generator circle_generator(radius, linear_vel, acc, dt);
+    // circle_generator circle_generator(radius, linear_vel, dt);
+    cir_conacc_generator circle_generator(radius, linear_vel, acc, dt);
 
     auto dynamics_noise = noiseModel::Diagonal::Sigmas((Vector(12) << Vector3::Constant(0.05), Vector3::Constant(0.05), Vector3::Constant(0.01), Vector3::Constant(0.01)).finished());
 
@@ -34,17 +34,19 @@ int main(void)
 
     Quadrotor quad;
     Quadrotor::State state_0;
-    Quadrotor::State state_1;
+    Quadrotor::State state_1, predicted_state;
     
     dt = 0.01;
     double t0 = 1.0; 
-    state_0.x = circle_generator.pos(t0);
-    state_0.v = circle_generator.vel(t0);
-    state_0.rot = Rot3::Expmap(circle_generator.theta(t0));
-    state_0.omega = circle_generator.omega(t0);
-    state_0.force_moment = circle_generator.inputfm(t0);
+    // state_0.x = circle_generator.pos(t0);
+    // state_0.v = circle_generator.vel(t0);
+    // state_0.rot = Rot3::Expmap(circle_generator.theta(t0));
+    // state_0.omega = circle_generator.omega(t0);
+    // state_0.force_moment = circle_generator.inputfm(t0);
 
     quad.setState(state_0);
+
+    gtsam::Vector4 last_input;
 
     for (int i = 0; i < 30000; i++)
     {
@@ -52,8 +54,21 @@ int main(void)
 
         gtsam::Vector4 input_ = circle_generator.input(t0 + dt * (i + 1));
 
-        
+        int b = 18700, a = 18500;
+        gtsam::Vector4 rand_actuator;
+        rand_actuator << (rand() % (b-a))+ a, (rand() % (b-a))+ a, (rand() % (b-a))+ a, (rand() % (b-a))+ a;
+
+        input = quad.InvCumputeRotorsVel(rand_actuator);
+
+        if(i == 0)
+        {
+            last_input = input;
+        }
+
+        std::cout << "Thrust moments: " << input.transpose() << std::endl;
         quad.stepODE(dt, input);
+
+        last_input = input;
 
         if (i == 9)
         {

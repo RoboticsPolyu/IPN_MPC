@@ -10,25 +10,23 @@ namespace QuadrotorSim_SO3
 
     Quadrotor::Quadrotor(void)
     {
-        g_ = 9.81;
-        mass_ = 0.98; // 0.5;
-        double Ixx = 2.64e-3, Iyy = 2.64e-3, Izz = 4.96e-3;
-        prop_radius_ = 0.062;
+        YAML::Node quad_config = YAML::LoadFile("../config/quadrotor.yaml");  
+        g_    = quad_config["g"].as<double>();
+        mass_ = quad_config["mass"].as<double>();
+        kf_   = quad_config["k_f"].as<double>(); //  xy-moment k-gain
+        km_   = quad_config["k_m"].as<double>(); // z-moment k-gain
 
-        /*Force moment*/
+        double Ixx = quad_config["Ixx"].as<double>();
+        double Iyy = quad_config["Iyy"].as<double>();
+        double Izz = quad_config["Izz"].as<double>();
         J_ = Eigen::Vector3d(Ixx, Iyy, Izz).asDiagonal();
 
-        kf_ = 8.98132e-9; //  xy-moment k-gain
-        // km_ = 2.5e-9; // from Nate
-        // km = (Cq/Ct)*Dia*kf
-        // Cq/Ct for 8 inch props from UIUC prop db ~ 0.07
-        km_ = 0.07 * (3 * prop_radius_) * kf_; // z-moment k-gain
-
+        prop_radius_         = 0.062;
         arm_length_          = 0.26;
         motor_time_constant_ = 1.0 / 30;
         min_rpm_             = 1200;
         max_rpm_             = 35000;
-        esc_factor_          = 0.7;
+        esc_factor_          = 1;
 
         state_.x         = Eigen::Vector3d::Zero();     // position
         state_.v         = Eigen::Vector3d::Zero();     // velocity
@@ -40,20 +38,20 @@ namespace QuadrotorSim_SO3
         input_           = Eigen::Array4d::Zero();
 
         external_force_.setZero();
-
+        external_moment_.setZero();
         displaySetup();
 
         record_info_.open("../data/record_info.txt");
 
-        YAML::Node config = YAML::LoadFile("../config/quadrotor.yaml");
-        AT_NOISE_MEAN       = config["AT_NOISE_MEAN"].as<double>();
-        AT_NOISE_COV        = config["AT_NOISE_COV"].as<double>();
+        YAML::Node config   = YAML::LoadFile("../config/quadrotor.yaml");
+        THRUST_NOISE_MEAN   = config["THRUST_NOISE_MEAN"].as<double>();
+        THRUST_NOISE_COV    = config["THRUST_NOISE_COV"].as<double>();
         ANGULAR_SPEED_MEAN  = config["ANGULAR_SPEED_MEAN"].as<double>();
         ANGULAR_SPEED_COV   = config["ANGULAR_SPEED_COV"].as<double>();
         double DRAG_FORCE_X = config["DRAG_FORCE_X"].as<double>();
         double DRAG_FORCE_Y = config["DRAG_FORCE_Y"].as<double>();
         double DRAG_FORCE_Z = config["DRAG_FORCE_Z"].as<double>();
-        drag_force_params_ = Eigen::Vector3d(DRAG_FORCE_X, DRAG_FORCE_Y, DRAG_FORCE_Z);
+        drag_force_params_  = Eigen::Vector3d(DRAG_FORCE_X, DRAG_FORCE_Y, DRAG_FORCE_Z);
     }
 
     void Quadrotor::step(double dt)
@@ -89,10 +87,10 @@ namespace QuadrotorSim_SO3
 
 
         // Predict state
-        predicted_state_.x = state_.x + p_dot * dt;                                                   
-        predicted_state_.v = state_.v + v_dot * dt;                                                    
-        predicted_state_.rot = state_.rot * gtsam::Rot3::Expmap(state_.omega * dt);
-        predicted_state_.omega = state_.omega + omega_dot * dt;                                        
+        predicted_state_.x         = state_.x + p_dot * dt;                                                   
+        predicted_state_.v         = state_.v + v_dot * dt;                                                    
+        predicted_state_.rot       = state_.rot * gtsam::Rot3::Expmap(state_.omega * dt);
+        predicted_state_.omega     = state_.omega + omega_dot * dt;                                        
         predicted_state_.motor_rpm = state_.motor_rpm;
 
         state_ = predicted_state_;
@@ -127,7 +125,7 @@ namespace QuadrotorSim_SO3
 
         Eigen::Vector3d vnorm;
 
-        std::normal_distribution<double> thrust_noise(AT_NOISE_MEAN, AT_NOISE_COV);
+        std::normal_distribution<double> thrust_noise(THRUST_NOISE_MEAN, THRUST_NOISE_COV);
         double at_noise = thrust_noise(generator_);
 
         double thrust = x[18] + at_noise; // cur force
@@ -145,7 +143,7 @@ namespace QuadrotorSim_SO3
         Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) + cur_state.rot.rotate(gtsam::Vector3(0, 0, thrust / mass_)) +
                                 external_force_ / mass_ + drag_force / mass_;
 
-        Eigen::Vector3d p_dot  = cur_state.v;
+        Eigen::Vector3d p_dot = cur_state.v;
 
         Eigen::Matrix3d r_dot = cur_state.rot.matrix() * gtsam::skewSymmetric(cur_state.omega);
 
@@ -226,22 +224,14 @@ namespace QuadrotorSim_SO3
 
         state_.rot = gtsam::Rot3(R);
 
-        // std::normal_distribution<double> x_noise(0.0, 0.05);
-        // std::normal_distribution<double> r_noise(0.0, 0.005);
-        // std::normal_distribution<double> v_noise(0.0, 0.20);
         std::normal_distribution<double> angular_speed_noise(ANGULAR_SPEED_MEAN, ANGULAR_SPEED_COV);
-
-        // gtsam::Vector3 pos_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(x_noise(generator_), x_noise(generator_), x_noise(generator_));
-        // gtsam::Vector3 vel_noise = dt* gtsam::Vector3(v_noise(generator_), v_noise(generator_), v_noise(generator_));
-        // gtsam::Vector3 rot_noise = gtsam::Vector3::Zero(); // dt* gtsam::Vector3(r_noise(generator_), r_noise(generator_), r_noise(generator_));
-        gtsam::Vector3 ome_noise = gtsam::Vector3(angular_speed_noise(generator_), angular_speed_noise(generator_), angular_speed_noise(generator_));
+        gtsam::Vector3 ome_noise = gtsam::Vector3(angular_speed_noise(generator_), angular_speed_noise(generator_), 0.01* angular_speed_noise(generator_));
 
         state_.x = state_.x;
         state_.v = state_.v;
         state_.omega = state_.omega + ome_noise;
 
-        std::cout << "state_.omega: " << state_.omega.transpose() << " , ome_noise: " << ome_noise.transpose() << std::endl;
-        printCurState();
+        // printCurState();
     }
 
 
@@ -249,11 +239,18 @@ namespace QuadrotorSim_SO3
     {
         Eigen::Matrix4d effectivenessMatrix;
 
-        effectivenessMatrix << 
-            kf_, kf_, kf_, kf_,
-            0, 0, arm_length_ * kf_, - arm_length_ * kf_,
-            - arm_length_ * kf_, arm_length_ * kf_, 0, 0,
-            km_, km_, -km_, -km_;
+        // effectivenessMatrix << 
+        //     kf_, kf_, kf_, kf_,
+        //     0, 0, arm_length_ * kf_, - arm_length_ * kf_,
+        //     - arm_length_ * kf_, arm_length_ * kf_, 0, 0,
+        //     km_, km_, -km_, -km_;
+        double dx0 = 0.10f;
+        double dx1 = 0.10f;
+
+        effectivenessMatrix << kf_, kf_, kf_, kf_,
+              dx0 * kf_, - dx0 * kf_, - dx0 * kf_,   dx0 * kf_,
+            - dx1 * kf_, - dx1 * kf_,   dx0 * kf_,   dx0 * kf_,
+              km_ * kf_, - km_ * kf_,   km_ * kf_, - km_ * kf_;
 
         return effectivenessMatrix;
     }

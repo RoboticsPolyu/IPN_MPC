@@ -199,8 +199,8 @@ namespace QuadrotorSim_SO3
         std::ofstream record_info_;
 
         // force noise
-        double AT_NOISE_MEAN = 0.0;
-        double AT_NOISE_COV  = 0.0;
+        double THRUST_NOISE_MEAN = 0.0;
+        double THRUST_NOISE_COV  = 0.0;
         double ANGULAR_SPEED_MEAN = 0.0;
         double ANGULAR_SPEED_COV = 0.0;
 

@@ -176,7 +176,7 @@ namespace Trajectory
         gtsam::Vector3 vel = gtsam::Vector3(cos(angle) * angular_acc * t * radius_, -sin(angle) * angular_acc * t * radius_, 0);
         // std::cout << "Analytical vel: " << vel.transpose() << std::endl;
 
-        vel = (pos(t + dt_) - pos(t)) / dt_; // better than Analytical solution ???
+        // vel = (pos(t + dt_) - pos(t)) / dt_; // better than Analytical solution ???
         // std::cout << "Diff vel:     " << vel.transpose() << std::endl;
 
         return vel;
@@ -184,7 +184,7 @@ namespace Trajectory
 
     gtsam::Vector3 cir_conacc_generator::theta(double t)
     {
-        double yaw = -angle(t);
+        double yaw = - angle(t);
 
         gtsam::Vector3 force = thrust(t);
         gtsam::Vector3 zB = force / force.norm();
@@ -267,7 +267,7 @@ namespace Trajectory
         K1 << dynamics_params_.k_f, dynamics_params_.k_f, dynamics_params_.k_f, dynamics_params_.k_f,
               dx0 * dynamics_params_.k_f, - dx0 * dynamics_params_.k_f, - dx0 * dynamics_params_.k_f,   dx0 * dynamics_params_.k_f,
             - dx1 * dynamics_params_.k_f, - dx1 * dynamics_params_.k_f,   dx0 * dynamics_params_.k_f,   dx0 * dynamics_params_.k_f,
-              dynamics_params_.k_m,       - dynamics_params_.k_m,         dynamics_params_.k_m,        - dynamics_params_.k_m;
+              dynamics_params_.k_m * dynamics_params_.k_f, - dynamics_params_.k_m * dynamics_params_.k_f, dynamics_params_.k_m * dynamics_params_.k_f, - dynamics_params_.k_m * dynamics_params_.k_f;
               
         gtsam::Vector4 input;
 
