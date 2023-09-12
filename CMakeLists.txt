@@ -20,10 +20,13 @@ endif ()
 
 set(CMAKE_CXX_FLAGS "-std=c++14 -g -Wall")
 
-set(ENV{CC} "/usr/local/opt/llvm/bin/clang-8")
-set(ENV{CXX} "/usr/local/opt/llvm/bin/clang++")
-set(ENV{LDFLAGS} "-L/usr/local/opt/llvm/lib")
-set(ENV{CPPFLAGS} "-I/usr/local/opt/llvm/include")
+if(APPLE)
+    set(ENV{CC} "/usr/local/opt/llvm/bin/clang-8")
+    set(ENV{CXX} "/usr/local/opt/llvm/bin/clang++")
+    set(ENV{LDFLAGS} "-L/usr/local/opt/llvm/lib")
+    set(ENV{CPPFLAGS} "-I/usr/local/opt/llvm/include")
+endif()
+
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -Wno-reorder" CACHE STRING "" FORCE)
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -DNDEBUG -Wno-reorder -O2" CACHE STRING "" FORCE)
@@ -40,9 +43,9 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-# # glog
-# find_package(Glog REQUIRED)
-# include_directories(${GLOG_INCLUDE_DIRS})
+# glog
+find_package(Glog REQUIRED)
+include_directories(${GLOG_INCLUDE_DIRS})
 
 # tbb
 find_package(TBB COMPONENTS tbb tbbmalloc)
@@ -89,6 +92,7 @@ set_target_properties(wio_factor_lib PROPERTIES
     SOVERSION           ${wio_factor_soversion})
 
 add_library(quadrotor_dynamics 
+            include/gtsam_wrapper.h
             src/calibration/Calibration_factor.cpp
             src/calibration/Calibration_inertial.cpp
             src/calibration/Dynamics_calib.cpp
@@ -137,8 +141,11 @@ add_executable(Joint_Positioning_Control_Test app/Joint_Positioning_Control_Test
 target_link_libraries(Joint_Positioning_Control_Test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
 # CALIBRATION
-add_executable(Aerial_vehicle_calibration_test app/Aerial_vehicle_calibration_test.cpp)
-target_link_libraries(Aerial_vehicle_calibration_test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+add_executable(Aerial_vehicle_calibration_BLACK app/Aerial_vehicle_calibration_BLACK.cpp)
+target_link_libraries(Aerial_vehicle_calibration_BLACK gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
-add_executable(Aerial_vehicle_calibration_sim app/Aerial_vehicle_calibration_sim.cpp)
-target_link_libraries(Aerial_vehicle_calibration_sim gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+# add_executable(Aerial_vehicle_calibration_sim app/Aerial_vehicle_calibration_sim.cpp)
+# target_link_libraries(Aerial_vehicle_calibration_sim gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+
+add_executable(Aerial_vehicle_calibration_NBEM app/Aerial_vehicle_calibration_NBEM.cpp)
+target_link_libraries(Aerial_vehicle_calibration_NBEM quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})

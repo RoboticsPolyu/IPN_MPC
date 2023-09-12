@@ -156,7 +156,7 @@ int main(void)
             quadrotor.setState(predicted_state);
         }
         
-        if(traj_idx == 50 && TEST_RECOVERY)
+        if(traj_idx == 5000 && TEST_RECOVERY)
         {
             predicted_state.x[0] = predicted_state.x[0] + MOVE_X;
             predicted_state.x[1] = predicted_state.x[1] + MOVE_Y;

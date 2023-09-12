@@ -13,14 +13,14 @@ namespace UAVFactor
     /*Scheme 1 : unify Dynamcis modol and actuator model*/
     // Onestage Dynamics model calibration factor
     // Posei Veli Omegai Posej Velj Omegaj inertia_moment, g_Rot, rotor_position, kf, km, body_p_mass
-    class GTSAM_EXPORT DynamcisCaliFactor_RS : public NoiseModelFactor12<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector3, gtsam::Rot3, gtsam::Vector3, double, double, gtsam::Pose3> 
+    class GTSAM_EXPORT DynamcisCaliFactor_RS : public NoiseModelFactor13<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector3, gtsam::Rot3, gtsam::Vector3, double, double, gtsam::Pose3, gtsam::Vector3> 
     {        
     public:
         typedef boost::shared_ptr<DynamcisCaliFactor_RS> shared_ptr;
 
         DynamcisCaliFactor_RS() {}
         DynamcisCaliFactor_RS(Key p_i, Key vel_i, Key omega_i, Key p_j, Key vel_j, Key omega_j, 
-            Key im_key, Key rwg_key, Key p_key, Key kf_key, Key km_key, Key bTm_key, gtsam::Vector4 actuator_outputs, 
+            Key im_key, Key rwg_key, Key p_key, Key kf_key, Key km_key, Key bTm_key, Key drag_key, gtsam::Vector4 actuator_outputs, 
             float dt, float mass, const SharedNoiseModel &model);
 
         virtual ~DynamcisCaliFactor_RS()
@@ -32,17 +32,19 @@ namespace UAVFactor
                              const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j, 
                              const gtsam::Vector3 &inertia_moment, const gtsam::Rot3 &rwg, 
                              const gtsam::Vector3 &rotor_pos, const double &ct, const double &km, const gtsam::Pose3& bTm,
+                             const gtsam::Vector3 &drag_k,
                              boost::optional<Matrix &> H1 = boost::none, boost::optional<Matrix &> H2 = boost::none,
                              boost::optional<Matrix &> H3 = boost::none, boost::optional<Matrix &> H4 = boost::none,
                              boost::optional<Matrix &> H5 = boost::none, boost::optional<Matrix &> H6 = boost::none,
                              boost::optional<Matrix &> H7 = boost::none, boost::optional<Matrix &> H8 = boost::none,
                              boost::optional<Matrix &> H9 = boost::none, boost::optional<Matrix &> H10 = boost::none,
-                             boost::optional<Matrix &> H11 = boost::none, boost::optional<Matrix &> H12 = boost::none) const;
+                             boost::optional<Matrix &> H11 = boost::none, boost::optional<Matrix &> H12 = boost::none,
+                             boost::optional<Matrix &> H13 = boost::none) const;
 
     private: 
         typedef DynamcisCaliFactor_RS This;
-        typedef NoiseModelFactor12<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3,
-            gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector3, gtsam::Rot3, gtsam::Vector3, double, double, gtsam::Pose3>
+        typedef NoiseModelFactor13<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3,
+            gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector3, gtsam::Rot3, gtsam::Vector3, double, double, gtsam::Pose3, gtsam::Vector3>
             Base;
         
         float          dt_;
@@ -51,7 +53,60 @@ namespace UAVFactor
 
         gtsam::Vector3 gI_ = gtsam::Vector3(0, 0, 9.81); // gravity
         
+    public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     };
+
+    class GTSAM_EXPORT DynamcisCaliFactor_RS_AB : public NoiseModelFactor15<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector3, gtsam::Rot3, gtsam::Vector3, double, double, gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector3>
+    {
+            public:
+        typedef boost::shared_ptr<DynamcisCaliFactor_RS> shared_ptr;
+
+        DynamcisCaliFactor_RS_AB() {}
+        DynamcisCaliFactor_RS_AB(Key p_i, Key vel_i, Key omega_i, Key p_j, Key vel_j, Key omega_j, 
+            Key im_key, Key rwg_key, Key p_key, Key kf_key, Key km_key, Key bTm_key, Key drag_key, Key A_key, Key B_key,
+            gtsam::Vector4 actuator_outputs, 
+            float dt, float mass, const SharedNoiseModel &model);
+
+        virtual ~DynamcisCaliFactor_RS_AB()
+        {
+        }
+
+
+        Vector evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector3 &omega_i, 
+                             const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j, 
+                             const gtsam::Vector3 &inertia_moment, const gtsam::Rot3 &rwg, 
+                             const gtsam::Vector3 &rotor_pos, const double &ct, const double &km, const gtsam::Pose3& bTm,
+                             const gtsam::Vector3 &drag_k, const gtsam::Vector3 &A, const gtsam::Vector3 &B, 
+                             boost::optional<Matrix &> H1 = boost::none, boost::optional<Matrix &> H2 = boost::none,
+                             boost::optional<Matrix &> H3 = boost::none, boost::optional<Matrix &> H4 = boost::none,
+                             boost::optional<Matrix &> H5 = boost::none, boost::optional<Matrix &> H6 = boost::none,
+                             boost::optional<Matrix &> H7 = boost::none, boost::optional<Matrix &> H8 = boost::none,
+                             boost::optional<Matrix &> H9 = boost::none, boost::optional<Matrix &> H10 = boost::none,
+                             boost::optional<Matrix &> H11 = boost::none, boost::optional<Matrix &> H12 = boost::none,
+                             boost::optional<Matrix &> H13 = boost::none, boost::optional<Matrix &> H14 = boost::none,
+                             boost::optional<Matrix &> H15 = boost::none) const;
+        
+        gtsam::Vector6 Thrust_Torque(const gtsam::Vector4 & actuator_outputs, const double & ct, const double & km, const gtsam::Vector3 & rotor_pos) const;
+
+
+    private: 
+        typedef DynamcisCaliFactor_RS_AB This;
+        typedef NoiseModelFactor15<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3,
+            gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector3, gtsam::Rot3, gtsam::Vector3, double, double, gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector3>
+            Base;
+        
+        float          dt_;
+        float          mass_;
+        gtsam::Vector4 actuator_outputs_;
+
+        gtsam::Vector3 gI_ = gtsam::Vector3(0, 0, 9.81); // gravity
+        
+    public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    };
+
 
     /*Motor speed factor*/
     // rpm2 = rpm1 + k * pwm
@@ -142,12 +197,10 @@ namespace UAVFactor
         AllocationCalibFactor(Key thrust_key, Key moments_key, Key rotor_pos_key, Key rotor_axis_key, 
                             Key ct_key, Key km_key, Key k_esc_key, 
                             ActuatorEffectivenessRotors &actuatorEffectivenessRotors, gtsam::Vector4 & actuators, 
-                            double PWM_MIN, double PWM_MAX, const SharedNoiseModel &model)
+                            const SharedNoiseModel &model)
                             : Base(model, thrust_key, moments_key, rotor_pos_key, rotor_axis_key, ct_key, km_key, k_esc_key)
                             , actuatorEffectivenessRotors_(actuatorEffectivenessRotors)
-                            , actuators_(actuators)
-                            , PWM_MIN_(PWM_MIN)
-                            , PWM_MAX_(PWM_MAX) {};
+                            , actuators_(actuators){};
 
         virtual ~AllocationCalibFactor()
         {
@@ -169,8 +222,6 @@ namespace UAVFactor
         ActuatorEffectivenessRotors actuatorEffectivenessRotors_;
         
         gtsam::Vector4 actuators_; // rotor's PWM
-
-        double PWM_MIN_, PWM_MAX_;
 
     };
 

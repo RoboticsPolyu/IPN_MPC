@@ -203,12 +203,12 @@ int main(void)
     initial_value_dyn.insert(K(0), quad_params.k_f);
     initial_value_dyn.insert(M(0), quad_params.k_m);
     gtsam::Rot3 delta_ = gtsam::Rot3::Rz(4.0/180.0*M_PI)* gtsam::Rot3::Ry(-3.0/180.0*M_PI)* gtsam::Rot3::Rx(5.0/180.0*M_PI);
-    initial_value_dyn.insert(D(0), gtsam::Pose3::identity()* gtsam::Pose3(delta_, gtsam::Vector3(0.05f, 0.05f, 0.05f)));
+    initial_value_dyn.insert(D(0), gtsam::Pose3::identity() * gtsam::Pose3(delta_, gtsam::Vector3(0.10f, 0.10f, 0.10f)));
 
     gtsam::Vector3 rotor_p(rotor_p_x, rotor_p_y, 0);
     // gtsam::Vector3 fake_rotor_p(0.15f, 0.20f, 0);
     initial_value_dyn.insert(P(0), rotor_p);
-    dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(P(0), rotor_p, rp_noise)); 
+    // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(P(0), rotor_p, rp_noise)); 
     // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(D(0), gtsam::Pose3::identity(), bm_nosie));
     // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(J(0), gtsam::Vector3(quad_params.Ixx, quad_params.Iyy, quad_params.Izz), im_noise));
     // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Rot3>(R(0), gtsam::Rot3::identity(), gr_noise));

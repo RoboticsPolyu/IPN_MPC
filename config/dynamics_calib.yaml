@@ -1,3 +1,14 @@
 ROTOR_P_X: 0.10
 ROTOR_P_Y: 0.10
+DATASET_S: 2000
+DATASET_LENS: 16000
+P_THRUST_SIGMA: 0.1
+UNMODEL_THRUST_SIGMA: 0.05
+ENABLE_DRAG: TRUE
+ENABLE_I:    TRUE
+
+ROOT_PATH: /Users/ypwen/IPN/IPN_MPC/data/blackbird/ampersand/yawForward/maxSpeed2p0
+
+# ROOT_PATH: /Users/ypwen/IPN/IPN_MPC/data/blackbird/ampersand/yawConstant/maxSpeed3p0
+# /Users/ypwen/IPN/IPN_MPC/data/blackbird/pacasso/yawForward/maxSpeed4p0
 
