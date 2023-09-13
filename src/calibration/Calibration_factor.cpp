@@ -227,11 +227,6 @@ namespace UAVFactor
         rk3 = gtsam::Vector3(-1, -1, 1).asDiagonal();
         rk4 = gtsam::Vector3(-1,  1, 1).asDiagonal();
 
-        // rk1 = gtsam::Vector3(-1,  1, 1).asDiagonal(); 
-        // rk2 = gtsam::Vector3(-1, -1, 1).asDiagonal(); 
-        // rk3 = gtsam::Vector3( 1, -1, 1).asDiagonal();
-        // rk4 = gtsam::Vector3( 1,  1, 1).asDiagonal();
-
         // rk1 = gtsam::Vector3( 1,  0, 1).asDiagonal(); 
         // rk2 = gtsam::Vector3( 0,  1, 1).asDiagonal(); 
         // rk3 = gtsam::Vector3(-1,  0, 1).asDiagonal();
@@ -249,12 +244,12 @@ namespace UAVFactor
 
         gtsam::Matrix64 effectiveness_matrix; 
         effectiveness_matrix.setZero();
-        gtsam::Vector4 real_thrust_4_rotors;
+        gtsam::Vector4 rpm_square;
 
         for(uint i = 0; i < 4u; i++)
         {
             double rel_pwm = actuator_outputs_(i);
-            real_thrust_4_rotors(i) = rel_pwm * rel_pwm;
+            rpm_square(i) = rel_pwm * rel_pwm;
             effectiveness_matrix.block(0, i, 3, 1) = _thrust;
         }
 
@@ -263,10 +258,10 @@ namespace UAVFactor
         effectiveness_matrix.block(3, 2, 3, 1) = _moment3;
         effectiveness_matrix.block(3, 3, 3, 1) = _moment4;
 
-        gtsam::Vector6 thrust_torque = effectiveness_matrix * real_thrust_4_rotors;
+        gtsam::Vector6 thrust_torque = effectiveness_matrix * rpm_square;
 
         // std::cout << "effectiveness_matrix: " << effectiveness_matrix / ct << std::endl;
-        // std::cout << "real_thrust_4_rotors" << real_thrust_4_rotors << "\n";
+        // std::cout << "rpm_square" << rpm_square << "\n";
         // std::cout << "thrust_torque: " << thrust_torque << "\n";
 
         Matrix36 jac_t_posei, jac_t_posej;
@@ -440,8 +435,8 @@ namespace UAVFactor
 
             gtsam::Matrix3 J_thrust_rp;
 
-            J_thrust_rp = J_m1_rp * real_thrust_4_rotors(0) + J_m2_rp * real_thrust_4_rotors(1) 
-                        + J_m3_rp * real_thrust_4_rotors(2) + J_m4_rp * real_thrust_4_rotors(3);
+            J_thrust_rp = J_m1_rp * rpm_square(0) + J_m2_rp * rpm_square(1) 
+                        + J_m3_rp * rpm_square(2) + J_m4_rp * rpm_square(3);
             *H9 = J_moments * J_thrust_rp;
         }
 
@@ -474,8 +469,8 @@ namespace UAVFactor
             J_tm_ct4.block(0, 0, 3, 1) = J_thrust_ct;
             J_tm_ct4.block(3, 0, 3, 1) = J_m4_ct;
 
-            J_ct = J_tm_ct1 * real_thrust_4_rotors(0) + J_tm_ct2 * real_thrust_4_rotors(1) + 
-                    J_tm_ct3 * real_thrust_4_rotors(2) + J_tm_ct4 * real_thrust_4_rotors(3);
+            J_ct = J_tm_ct1 * rpm_square(0) + J_tm_ct2 * rpm_square(1) + 
+                    J_tm_ct3 * rpm_square(2) + J_tm_ct4 * rpm_square(3);
 
             *H10 = J_e_thrust_moments * J_ct;
         }
@@ -504,8 +499,8 @@ namespace UAVFactor
             J_tm_km4.setZero();
             J_tm_km4.block(3, 0, 3, 3) = J_m4_km;
 
-            J_km = J_tm_km1 * real_thrust_4_rotors(0) + J_tm_km2 * real_thrust_4_rotors(1) 
-                 + J_tm_km3 * real_thrust_4_rotors(2) + J_tm_km4 * real_thrust_4_rotors(3);
+            J_km = J_tm_km1 * rpm_square(0) + J_tm_km2 * rpm_square(1) 
+                 + J_tm_km3 * rpm_square(2) + J_tm_km4 * rpm_square(3);
 
             *H11 = J_e_thrust_moments * J_km;
         }
@@ -523,17 +518,9 @@ namespace UAVFactor
             J_drag_k.setZero();
             gtsam::Matrix3 _J_drag;
             _J_drag.setZero();
-//             std::cout << "r_w_mi: \n" << r_w_mi << "\n";
-
-// std::cout << "vel_i" << vel_i.transpose() << "\n";
-           // std::cout << "r_w_mi.unrotate(vel_i): " << "\n" << r_w_mi.unrotate(vel_i) << "\n";
-
             _J_drag.diagonal() << r_w_mi.unrotate(vel_i);
-// std::cout << "J_drag: " << "\n" << _J_drag << "\n";
-
             J_drag_k.block(6, 0, 3, 3) = - mass_ * _J_drag * dt_;
 
-            // std::cout << "J_drag: " << J_drag_k << "\n";
             *H13 = J_drag_k;
         }
 
@@ -555,36 +542,25 @@ namespace UAVFactor
             , actuator_outputs_(actuator_outputs) {};
 
 
-    gtsam::Vector6 DynamcisCaliFactor_RS_AB::Thrust_Torque(const gtsam::Vector4 & actuator_outputs, const double & ct, const double & km, const gtsam::Vector3 & rotor_pos) const
-    {
-        gtsam::Vector3 axis      = gtsam::Vector3(0, 0, 1);
-        gtsam::Vector3 _thrust   = ct * axis;
-        gtsam::Matrix3 axis_mat  = gtsam::skewSymmetric(axis);
-        gtsam::Matrix3 rk1, rk2, rk3, rk4;
-        // !!! Check the order of PWM
-        rk1 = gtsam::Vector3( 1,  1, 1).asDiagonal(); 
-        rk2 = gtsam::Vector3( 1, -1, 1).asDiagonal(); 
-        rk3 = gtsam::Vector3(-1, -1, 1).asDiagonal();
-        rk4 = gtsam::Vector3(-1,  1, 1).asDiagonal();
+    gtsam::Vector6 DynamcisCaliFactor_RS_AB::Thrust_Torque(const gtsam::Vector4 & rpm_square, const double & ct, const double & km, const gtsam::Vector3 & rotor_pos) const
+    {   
+        gtsam::Vector3 _thrust  = ct * axis;
 
         gtsam::Vector3 rp1, rp2, rp3, rp4;
-        rp1 = rk1 * rotor_pos;
+        rp1 = rk1_ * rotor_pos;
         gtsam::Vector3 _moment1 = - ct * axis_mat * rp1 + ct * km * axis; // moments of 1rd rotor
-        rp2 = rk2 * rotor_pos;
+        rp2 = rk2_ * rotor_pos;
         gtsam::Vector3 _moment2 = - ct * axis_mat * rp2 - ct * km * axis; // moments of 2rd rotor
-        rp3 = rk3 * rotor_pos;
+        rp3 = rk3_ * rotor_pos;
         gtsam::Vector3 _moment3 = - ct * axis_mat * rp3 + ct * km * axis; // moments of 3rd rotor
-        rp4 = rk4 * rotor_pos;
+        rp4 = rk4_ * rotor_pos;
         gtsam::Vector3 _moment4 = - ct * axis_mat * rp4 - ct * km * axis; // moments of 4rd rotor
 
         gtsam::Matrix64 effectiveness_matrix; 
         effectiveness_matrix.setZero();
-        gtsam::Vector4 real_thrust_4_rotors;
 
         for(uint i = 0; i < 4u; i++)
         {
-            double rel_pwm = actuator_outputs(i);
-            real_thrust_4_rotors(i) = rel_pwm * rel_pwm;
             effectiveness_matrix.block(0, i, 3, 1) = _thrust;
         }
 
@@ -593,7 +569,7 @@ namespace UAVFactor
         effectiveness_matrix.block(3, 2, 3, 1) = _moment3;
         effectiveness_matrix.block(3, 3, 3, 1) = _moment4;
 
-        gtsam::Vector6 thrust_torque = effectiveness_matrix * real_thrust_4_rotors;
+        gtsam::Vector6 thrust_torque = effectiveness_matrix * rpm_square;
 
         return thrust_torque;
     }
@@ -613,48 +589,17 @@ namespace UAVFactor
     {
         gtsam::Vector12 err;
         gtsam::Vector3 axis      = gtsam::Vector3(0, 0, 1);
-        // gtsam::Vector3 _thrust   = ct * axis;
         gtsam::Matrix3 axis_mat  = gtsam::skewSymmetric(axis);
-        gtsam::Matrix3 rk1, rk2, rk3, rk4;
-        // !!! Check the order of PWM
-        rk1 = gtsam::Vector3( 1,  1, 1).asDiagonal(); 
-        rk2 = gtsam::Vector3( 1, -1, 1).asDiagonal(); 
-        rk3 = gtsam::Vector3(-1, -1, 1).asDiagonal();
-        rk4 = gtsam::Vector3(-1,  1, 1).asDiagonal();
 
-        // gtsam::Vector3 rp1, rp2, rp3, rp4;
-        // rp1 = rk1 * rotor_pos;
-        // gtsam::Vector3 _moment1 = - ct * axis_mat * rp1 + ct * km * axis; // moments of 1rd rotor
-        // rp2 = rk2 * rotor_pos;
-        // gtsam::Vector3 _moment2 = - ct * axis_mat * rp2 - ct * km * axis; // moments of 2rd rotor
-        // rp3 = rk3 * rotor_pos;
-        // gtsam::Vector3 _moment3 = - ct * axis_mat * rp3 + ct * km * axis; // moments of 3rd rotor
-        // rp4 = rk4 * rotor_pos;
-        // gtsam::Vector3 _moment4 = - ct * axis_mat * rp4 - ct * km * axis; // moments of 4rd rotor
-
-        // gtsam::Matrix64 effectiveness_matrix; 
-        // effectiveness_matrix.setZero();
-        gtsam::Vector4 real_thrust_4_rotors;
+        gtsam::Vector4 rpm_square;
 
         for(uint i = 0; i < 4u; i++)
         {
             double rel_pwm = actuator_outputs_(i);
-            real_thrust_4_rotors(i) = rel_pwm * rel_pwm;
-            // effectiveness_matrix.block(0, i, 3, 1) = _thrust;
+            rpm_square(i) = rel_pwm * rel_pwm;
         }
 
-        // effectiveness_matrix.block(3, 0, 3, 1) = _moment1;
-        // effectiveness_matrix.block(3, 1, 3, 1) = _moment2;
-        // effectiveness_matrix.block(3, 2, 3, 1) = _moment3;
-        // effectiveness_matrix.block(3, 3, 3, 1) = _moment4;
-
-        // gtsam::Vector6 thrust_torque = effectiveness_matrix * real_thrust_4_rotors;
-
-        // std::cout << "effectiveness_matrix: " << effectiveness_matrix / ct << std::endl;
-        // std::cout << "real_thrust_4_rotors" << real_thrust_4_rotors << "\n";
-        // std::cout << "thrust_torque: " << thrust_torque << "\n";
-
-        gtsam::Vector6 thrust_torque = Thrust_Torque(actuator_outputs_, ct, km, rotor_pos);
+        gtsam::Vector6 thrust_torque = Thrust_Torque(rpm_square, ct, km, rotor_pos);
 
         Matrix36 jac_t_posei, jac_t_posej;
         Matrix36 jac_r_posei, jac_r_posej;
@@ -862,26 +807,26 @@ namespace UAVFactor
         // rotor position
         if (H9)
         {
-            gtsam::Matrix3  J_m1_rp  = - ct * axis_mat * rk1;
-            gtsam::Matrix3  J_m2_rp  = - ct * axis_mat * rk2;
-            gtsam::Matrix3  J_m3_rp  = - ct * axis_mat * rk3;
-            gtsam::Matrix3  J_m4_rp  = - ct * axis_mat * rk4;
+            gtsam::Matrix3  J_m1_rp  = - ct * axis_mat * rk1_;
+            gtsam::Matrix3  J_m2_rp  = - ct * axis_mat * rk2_;
+            gtsam::Matrix3  J_m3_rp  = - ct * axis_mat * rk3_;
+            gtsam::Matrix3  J_m4_rp  = - ct * axis_mat * rk4_;
 
             gtsam::Matrix3 J_thrust_rp;
 
-            J_thrust_rp = J_m1_rp * real_thrust_4_rotors(0) + J_m2_rp * real_thrust_4_rotors(1) 
-                        + J_m3_rp * real_thrust_4_rotors(2) + J_m4_rp * real_thrust_4_rotors(3);
+            J_thrust_rp = J_m1_rp * rpm_square(0) + J_m2_rp * rpm_square(1) 
+                        + J_m3_rp * rpm_square(2) + J_m4_rp * rpm_square(3);
             *H9 = J_moments * J_thrust_rp;
         }
 
-        // c_t
+        // k_f
         if (H10)
         {
             gtsam::Matrix31 J_thrust_ct = axis;
-            gtsam::Matrix31 J_m1_ct  = (rk1 * rotor_pos).cross(axis) + km * axis;
-            gtsam::Matrix31 J_m2_ct  = (rk2 * rotor_pos).cross(axis) - km * axis;
-            gtsam::Matrix31 J_m3_ct  = (rk3 * rotor_pos).cross(axis) + km * axis;
-            gtsam::Matrix31 J_m4_ct  = (rk4 * rotor_pos).cross(axis) - km * axis;
+            gtsam::Matrix31 J_m1_ct  = (rk1_ * rotor_pos).cross(axis) + km * axis;
+            gtsam::Matrix31 J_m2_ct  = (rk2_ * rotor_pos).cross(axis) - km * axis;
+            gtsam::Matrix31 J_m3_ct  = (rk3_ * rotor_pos).cross(axis) + km * axis;
+            gtsam::Matrix31 J_m4_ct  = (rk4_ * rotor_pos).cross(axis) - km * axis;
 
             // c_t
             gtsam::Matrix61 J_ct;
@@ -903,8 +848,8 @@ namespace UAVFactor
             J_tm_ct4.block(0, 0, 3, 1) = J_thrust_ct;
             J_tm_ct4.block(3, 0, 3, 1) = J_m4_ct;
 
-            J_ct = J_tm_ct1 * real_thrust_4_rotors(0) + J_tm_ct2 * real_thrust_4_rotors(1) + 
-                    J_tm_ct3 * real_thrust_4_rotors(2) + J_tm_ct4 * real_thrust_4_rotors(3);
+            J_ct = J_tm_ct1 * rpm_square(0) + J_tm_ct2 * rpm_square(1) + 
+                    J_tm_ct3 * rpm_square(2) + J_tm_ct4 * rpm_square(3);
 
             *H10 = J_e_thrust_moments * J_ct;
         }
@@ -933,8 +878,8 @@ namespace UAVFactor
             J_tm_km4.setZero();
             J_tm_km4.block(3, 0, 3, 3) = J_m4_km;
 
-            J_km = J_tm_km1 * real_thrust_4_rotors(0) + J_tm_km2 * real_thrust_4_rotors(1) 
-                 + J_tm_km3 * real_thrust_4_rotors(2) + J_tm_km4 * real_thrust_4_rotors(3);
+            J_km = J_tm_km1 * rpm_square(0) + J_tm_km2 * rpm_square(1) 
+                 + J_tm_km3 * rpm_square(2) + J_tm_km4 * rpm_square(3);
 
             *H11 = J_e_thrust_moments * J_km;
         }
@@ -952,21 +897,13 @@ namespace UAVFactor
             J_drag_k.setZero();
             gtsam::Matrix3 _J_drag;
             _J_drag.setZero();
-            // std::cout << "r_w_mi: \n" << r_w_mi << "\n";
-
-// std::cout << "vel_i" << vel_i.transpose() << "\n";
-            // std::cout << "r_w_mi.unrotate(vel_i): " << "\n" << r_w_mi.unrotate(vel_i) << "\n";
-
             _J_drag.diagonal() << r_w_mi.unrotate(vel_i);
-// std::cout << "J_drag: " << "\n" << _J_drag << "\n";
-
             J_drag_k.block(6, 0, 3, 3) = - mass_ * _J_drag * dt_;
 
-            // std::cout << "J_drag: " << J_drag_k << "\n";
             *H13 = J_drag_k;
         }
 
-        if(H14)
+        if (H14)
         {
             Matrix123 J_e_A;
             J_e_A.setZero();
@@ -977,7 +914,7 @@ namespace UAVFactor
             *H14 = J_e_A;
         }
 
-        if(H15)
+        if (H15)
         {
             Matrix123 J_e_B;
 
@@ -1051,7 +988,7 @@ namespace UAVFactor
     {
         gtsam::Vector6 err;
 
-        gtsam::Vector4 real_thrust_4_rotors;
+        gtsam::Vector4 rpm_square;
         gtsam::Matrix3 J_axis;
 
         // thrust      = ct * axis * actuator
@@ -1104,12 +1041,8 @@ namespace UAVFactor
 
         for(uint i = 0; i < 4u; i++)
         {
-
-            // double rel_pwm = actuators_(i) * 22.0f - 17000.0f;    //  (actuators_(i) - PWM_MIN_) / (PWM_MAX_ - PWM_MIN_); // pacasso
-            // double rel_pwm = actuators_(i) * 19.0f - 12697.0f; // ampersand
-            double rel_pwm = actuators_(i);
-            
-            real_thrust_4_rotors(i) = rel_pwm * rel_pwm;
+            double rel_pwm = actuators_(i);    
+            rpm_square(i) = rel_pwm * rel_pwm;
             effectiveness_matrix.block(0, i, 3, 1) = _thrust;
         }
 
@@ -1118,11 +1051,8 @@ namespace UAVFactor
         effectiveness_matrix.block(3, 2, 3, 1) = _moment_3;
         effectiveness_matrix.block(3, 3, 3, 1) = _moment_4;
 
-        err =  effectiveness_matrix * real_thrust_4_rotors - thrust_moments;
-    // std::cout << "effectiveness_matrix: " << effectiveness_matrix << std::endl;
-    // std::cout << err << std::endl;
-    // std::cout << "real_thrust_4_rotors" << real_thrust_4_rotors << "\n";
-    // std::cout << "thrust_moments: " << thrust_moments << "\n";
+        err =  effectiveness_matrix * rpm_square - thrust_moments;
+
         // thrust + torque
         if(H1)
         {
@@ -1149,8 +1079,8 @@ namespace UAVFactor
             J_tm_rotor4.setZero();
             J_tm_rotor4.block(3, 0, 3, 3) = J_m4_rp;
 
-            J_rotorpos = J_tm_rotor1 * real_thrust_4_rotors(0) + J_tm_rotor2 * real_thrust_4_rotors(1) 
-                       + J_tm_rotor3 * real_thrust_4_rotors(2) + J_tm_rotor4 * real_thrust_4_rotors(3);
+            J_rotorpos = J_tm_rotor1 * rpm_square(0) + J_tm_rotor2 * rpm_square(1) 
+                       + J_tm_rotor3 * rpm_square(2) + J_tm_rotor4 * rpm_square(3);
 
             *H2 = J_rotorpos;
         }
@@ -1177,8 +1107,8 @@ namespace UAVFactor
             J_tm_ct4.block(0, 0, 3, 1) = J_thrust_ct;
             J_tm_ct4.block(3, 0, 3, 1) = J_m4_ct;
 
-            J_ct = J_tm_ct1 * real_thrust_4_rotors(0) + J_tm_ct2 * real_thrust_4_rotors(1) + 
-                   J_tm_ct3 * real_thrust_4_rotors(2) + J_tm_ct4 * real_thrust_4_rotors(3);
+            J_ct = J_tm_ct1 * rpm_square(0) + J_tm_ct2 * rpm_square(1) + 
+                   J_tm_ct3 * rpm_square(2) + J_tm_ct4 * rpm_square(3);
             *H3 = J_ct;
 
         }
@@ -1201,8 +1131,8 @@ namespace UAVFactor
             J_tm_km4.setZero();
             J_tm_km4.block(3, 0, 3, 3) = J_m4_km;
 
-            J_km = J_tm_km1 * real_thrust_4_rotors(0) + J_tm_km2 * real_thrust_4_rotors(1) 
-                 + J_tm_km3 * real_thrust_4_rotors(2) + J_tm_km4 * real_thrust_4_rotors(3);
+            J_km = J_tm_km1 * rpm_square(0) + J_tm_km2 * rpm_square(1) 
+                 + J_tm_km3 * rpm_square(2) + J_tm_km4 * rpm_square(3);
             *H4 = J_km;
 
         }

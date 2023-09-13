@@ -7,7 +7,8 @@ namespace UAVFactor
        : Base(model, p_i, vel_i, omega_i, input_i, p_j, vel_j, omega_j),
          dt_(dt){};
 
-   Vector DynamicsFactor::evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector3 &omega_i, const gtsam::Vector4 &input_i,
+   Vector DynamicsFactor::evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, 
+                                        const gtsam::Vector3 &omega_i, const gtsam::Vector4 &input_i,
                                         const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j,
                                         boost::optional<Matrix &> H1, boost::optional<Matrix &> H2,
                                         boost::optional<Matrix &> H3, boost::optional<Matrix &> H4,
@@ -177,12 +178,13 @@ namespace UAVFactor
        : Base(model, p_i, vel_i, omega_i, input_i, p_j, vel_j, omega_j),
          dt_(dt){};
 
-   Vector DynamicsFactorTm::evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector3 &omega_i, const gtsam::Vector4 &input_i,
-                                        const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j,
-                                        boost::optional<Matrix &> H1, boost::optional<Matrix &> H2,
-                                        boost::optional<Matrix &> H3, boost::optional<Matrix &> H4,
-                                        boost::optional<Matrix &> H5, boost::optional<Matrix &> H6,
-                                        boost::optional<Matrix &> H7) const
+   Vector DynamicsFactorTm::evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, 
+                                          const gtsam::Vector3 &omega_i, const gtsam::Vector4 &input_i,
+                                          const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j,
+                                          boost::optional<Matrix &> H1, boost::optional<Matrix &> H2,
+                                          boost::optional<Matrix &> H3, boost::optional<Matrix &> H4,
+                                          boost::optional<Matrix &> H5, boost::optional<Matrix &> H6,
+                                          boost::optional<Matrix &> H7) const
    {
       gtsam::Vector12 err;
       Matrix36 jac_t_posei, jac_t_posej;
@@ -349,7 +351,8 @@ namespace UAVFactor
        : Base(model, p_i, vel_i, omega_i, tm_ij, p_j, vel_j, omega_j),
          dt_(dt){};
 
-   Vector DynamicsFactorFullTM::evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector3 &omega_i, const gtsam::Vector6 &thrust_torque,
+   Vector DynamicsFactorFullTM::evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, 
+                                        const gtsam::Vector3 &omega_i, const gtsam::Vector6 &thrust_torque,
                                         const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j,
                                         boost::optional<Matrix &> H1, boost::optional<Matrix &> H2,
                                         boost::optional<Matrix &> H3, boost::optional<Matrix &> H4,

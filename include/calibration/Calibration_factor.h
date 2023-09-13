@@ -87,7 +87,7 @@ namespace UAVFactor
                              boost::optional<Matrix &> H13 = boost::none, boost::optional<Matrix &> H14 = boost::none,
                              boost::optional<Matrix &> H15 = boost::none) const;
         
-        gtsam::Vector6 Thrust_Torque(const gtsam::Vector4 & actuator_outputs, const double & ct, const double & km, const gtsam::Vector3 & rotor_pos) const;
+        gtsam::Vector6 Thrust_Torque(const gtsam::Vector4 & rpm_square, const double & ct, const double & km, const gtsam::Vector3 & rotor_pos) const;
 
 
     private: 
@@ -101,6 +101,14 @@ namespace UAVFactor
         gtsam::Vector4 actuator_outputs_;
 
         gtsam::Vector3 gI_ = gtsam::Vector3(0, 0, 9.81); // gravity
+        
+        // !!! Check the order of PWM
+        const gtsam::Matrix3 rk1_ = gtsam::Vector3( 1,  1, 1).asDiagonal(); 
+        const gtsam::Matrix3 rk2_ = gtsam::Vector3( 1, -1, 1).asDiagonal(); 
+        const gtsam::Matrix3 rk3_ = gtsam::Vector3(-1, -1, 1).asDiagonal();
+        const gtsam::Matrix3 rk4_ = gtsam::Vector3(-1,  1, 1).asDiagonal();
+        const gtsam::Vector3 axis = gtsam::Vector3(0, 0, 1);
+        const gtsam::Matrix3 axis_mat = gtsam::skewSymmetric(axis);
         
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
