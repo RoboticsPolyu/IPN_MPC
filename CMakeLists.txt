@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.10)
 project(MPC_FGO)
 
 option(BUILD_SHARED_LIBS "Build shared gtsam library, instead of static" ON)
+option(BUILD_HARDWARE "Enable Hardware Support" ON)
+option(BUILD_WITH_ROS "Enable Ros Support" ON)
+
 
 set(wio_factor_version 1.0)
 set(wio_factor_soversion 1.0)
@@ -28,13 +31,20 @@ if(APPLE)
 endif()
 
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -Wno-reorder" CACHE STRING "" FORCE)
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -DNDEBUG -Wno-reorder -O2" CACHE STRING "" FORCE)
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -fpermissive -Wno-reorder" CACHE STRING "" FORCE)
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -fpermissive -DNDEBUG -Wno-reorder -O2" CACHE STRING "" FORCE)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "/usr/local/cmake/lib/cmake")
 
-# third party libs
+if(BUILD_WITH_ROS)
+find_package(catkin REQUIRED COMPONENTS
+  roscpp
+)
+include_directories(${catkin_INCLUDE_DIRS})
+catkin_package(CATKIN_DEPENDS roscpp)
+endif()
+
 # Eigen
 find_package(Eigen3 REQUIRED NO_MODULE)
 include_directories(${EIGEN3_INCLUDE_DIR})
@@ -149,3 +159,15 @@ target_link_libraries(Aerial_vehicle_calibration_BLACK gtsam quadrotor_dynamics 
 
 add_executable(Aerial_vehicle_calibration_NBEM app/Aerial_vehicle_calibration_NBEM.cpp)
 target_link_libraries(Aerial_vehicle_calibration_NBEM quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+
+if(BUILD_HARDWARE)
+add_executable(Orin_rotor_angular_speed_test app/Orin_rotor_angular_speed_test.cpp)
+target_link_libraries(Orin_rotor_angular_speed_test ${YAML_CPP_LIBRARIES})
+
+if(BUILD_WITH_ROS)
+add_executable(Orin_rotor_angular_speed app/Orin_rotor_angular_speed.cpp)
+target_link_libraries(Orin_rotor_angular_speed ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})    
+endif(BUILD_WITH_ROS)
+
+
+endif(BUILD_HARDWARE)
