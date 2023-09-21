@@ -76,8 +76,8 @@ title('Trajectory control error');
 
 length = size(xep);
 disp('------------------------------- X RMS -------------------------------'); 
-disp(rms(xep(1:1:length)));
+disp(rms(xep(2000:1:length)));
 disp('------------------------------- Y RMS -------------------------------'); 
-disp(rms(yep(1:1:length)));
+disp(rms(yep(2000:1:length)));
 disp('------------------------------- Z RMS -------------------------------'); 
-disp(rms(zep(1:1:length)));
+disp(rms(zep(2000:1:length)));

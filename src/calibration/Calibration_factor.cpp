@@ -588,8 +588,6 @@ namespace UAVFactor
         boost::optional<Matrix &> H15) const
     {
         gtsam::Vector12 err;
-        gtsam::Vector3 axis      = gtsam::Vector3(0, 0, 1);
-        gtsam::Matrix3 axis_mat  = gtsam::skewSymmetric(axis);
 
         gtsam::Vector4 rpm_square;
 

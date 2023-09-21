@@ -3,7 +3,7 @@ ROTOR_P_X: 0.10
 ROTOR_P_Y: 0.10
 
 # Dataset segment 
-DATASET_S: 1000
+DATASET_S: 10
 DATASET_L: 13000
 
 # Thrust sigma of z-axis direction
@@ -12,7 +12,7 @@ P_T_SIGMA: 0.1
 # Unmodel thrust sigma of xy-axis direction 
 U_T_SIGMA: 0.05
 
-ENABLE_DRAG: TRUE
+ENABLE_DRAG: FALSE
 
 # INERTIA_IX: 0.049
 # INERTIA_IY: 0.049

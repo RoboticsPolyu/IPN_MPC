@@ -143,7 +143,7 @@ int main(void)
     // }
 
     State _interp_state;
-    for(int i = 1200; i < Uav_pwms.size(); i++)
+    for(int i = 0; i < Uav_pwms.size(); i++)
     {
         for(int j = 0; j < Uav_states.size() -1; j++)
         {
@@ -266,7 +266,8 @@ int main(void)
         DynamcisCaliFactor_RS_AB dyn_err(X(idx), V(idx), S(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), P(0), K(0), M(0), H(0), D(0), A(0), B(0), Interp_states.at(idx).actuator_output, dt, quad_params.mass, dyn_noise);
         
         gtsam::Vector12        dyn_e = dyn_err.evaluateError(Interp_states.at(idx).pose, vi, oi, Interp_states.at(idx+1).pose, vj, oj, IM, rot, p, kf, km, bTm, dk, ak, bk);
-        gtsam::Vector6 thrust_torque = dyn_err.Thrust_Torque(Interp_states.at(idx).actuator_output, kf, km, p);
+        gtsam::Vector4 rpm_square = Interp_states.at(idx).actuator_output.cwiseAbs2();
+        gtsam::Vector6 thrust_torque = dyn_err.Thrust_Torque(rpm_square, kf, km, p);
 
         gtsam::Pose3          pose = result.at<gtsam::Pose3>(X(idx));
         gtsam::Vector3 dyn_pos_err = pose.rotation() * gtsam::Vector3(dyn_e(0), dyn_e(1), dyn_e(2)) / quad_params.mass;

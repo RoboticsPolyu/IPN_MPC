@@ -76,14 +76,13 @@ namespace QuadrotorSim_SO3
             vnorm.normalize();
         }
 
-        Eigen::Vector3d drag_force = -state_.rot.matrix() * Eigen::Matrix3d(drag_force_params_.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
-        Eigen::Vector3d v_dot = - Eigen::Vector3d(0, 0, g_) + state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ +
-                                external_force_ / mass_ + drag_force;
+        Eigen::Vector3d drag_force = 
+            - state_.rot.matrix() * Eigen::Matrix3d(drag_force_params_.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
+        Eigen::Vector3d v_dot      = - Eigen::Vector3d(0, 0, g_) + state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ 
+                                    + external_force_ / mass_ + drag_force;
 
-        Eigen::Vector3d p_dot = state_.v;
-
-        // J* omega_dot = moments - J.cross(J* omega)
-        Eigen::Vector3d omega_dot = J_.inverse() * (moments - state_.omega.cross(J_ * state_.omega) + external_moment_);
+        Eigen::Vector3d p_dot      = state_.v;
+        Eigen::Vector3d omega_dot  = J_.inverse() * (moments - state_.omega.cross(J_ * state_.omega) + external_moment_);
 
 
         // Predict state
@@ -91,7 +90,7 @@ namespace QuadrotorSim_SO3
         predicted_state_.v         = state_.v + v_dot * dt;                                                    
         predicted_state_.rot       = state_.rot * gtsam::Rot3::Expmap(state_.omega * dt);
         predicted_state_.omega     = state_.omega + omega_dot * dt;                                        
-        predicted_state_.motor_rpm = state_.motor_rpm;
+        // predicted_state_.motor_rpm = state_.motor_rpm + (motor_rpm - state_.motor_rpm) / motor_time_constant_;
 
         state_ = predicted_state_;
         // Don't go below zero, simulate floor
@@ -227,8 +226,8 @@ namespace QuadrotorSim_SO3
         std::normal_distribution<double> angular_speed_noise(ANGULAR_SPEED_MEAN, ANGULAR_SPEED_COV);
         gtsam::Vector3 ome_noise = gtsam::Vector3(angular_speed_noise(generator_), angular_speed_noise(generator_), 0.01* angular_speed_noise(generator_));
 
-        state_.x = state_.x;
-        state_.v = state_.v;
+        state_.x     = state_.x;
+        state_.v     = state_.v;
         state_.omega = state_.omega + ome_noise;
 
         // printCurState();
