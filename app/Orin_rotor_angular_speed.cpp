@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
 	int ret = 0;
 	int fd;
 
-	// parse_opts(argc, argv);
+	parse_opts(argc, argv);
 
 	mode |= SPI_CPHA;
 
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
 
     ros::Publisher rotor_av_pub = n.advertise<std_msgs::UInt16>("/Quad13/Dynamics/MotorEncoder1", 1000);
  
-    ros::Rate loop_rate(1500);
+    ros::Rate loop_rate(2000);
 
     int count = 0;
 
@@ -87,17 +87,18 @@ int main(int argc, char *argv[])
 	size = unescape((char *)tx, input_tx, size);
 
 	uint16_t rotor_angular_vel = 0;
+	uint16_t motor_ang = 0;
 
     while (ros::ok())
     {
     	std_msgs::UInt16 msg;
-     	msg.data = rotor_angular_vel;
-
+     	// msg.data = rotor_angular_vel;
+		msg.data = motor_ang;
 	
 		transfer(fd, tx, rx, size);
-		uint16_t motor_ang = ((((uint16_t) rx[0] << 8) | rx[1]) & 0x3fff);
+		motor_ang = ((((uint16_t) rx[0] << 8) | rx[1]) & 0x3fff);
 
-     	ROS_INFO("The Rotor's Angular Speed - %u", motor_ang);
+     	// ROS_INFO("The Rotor's Angular Speed - %u", motor_ang);
 
      	rotor_av_pub.publish(msg);
 

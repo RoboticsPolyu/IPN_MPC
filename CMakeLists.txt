@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(MPC_FGO)
+project(IPN_MPC)
 
 option(BUILD_SHARED_LIBS "Build shared gtsam library, instead of static" ON)
 option(BUILD_HARDWARE "Enable Hardware Support" ON)
@@ -39,10 +39,15 @@ list(APPEND CMAKE_MODULE_PATH "/usr/local/cmake/lib/cmake")
 
 if(BUILD_WITH_ROS)
 find_package(catkin REQUIRED COMPONENTS
-  roscpp
+  roscpp message_generation std_msgs geometry_msgs
 )
+# find_package(genmsg REQUIRED)
+# find_package(geometry_msgs REQUIRED)
+
+add_message_files(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/msg" FILES Rsm.msg)
+generate_messages(DEPENDENCIES std_msgs geometry_msgs)
 include_directories(${catkin_INCLUDE_DIRS})
-catkin_package(CATKIN_DEPENDS roscpp)
+catkin_package(CATKIN_DEPENDS roscpp message_runtime std_msgs geometry_msgs)
 endif()
 
 # Eigen
@@ -114,8 +119,14 @@ add_library(quadrotor_dynamics
             src/env_sensors_sim/Lidar.cpp
             src/dynamics/Quadrotor_SO3.cpp
             src/trajectory_generator/Trajectory_generator.cpp)
-            
+
 target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES} PRIVATE osqp::osqp OsqpEigen::OsqpEigen )
+
+
+add_library(hardware_lib 
+            src/hardware/uart.cpp)
+            
+target_link_libraries(hardware_lib PUBLIC ${YAML_CPP_LIBRARIES})
 
 add_executable(test_dynamics src/test_dynamics/test_dynamics.cpp)
 target_link_libraries(test_dynamics gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})
@@ -167,7 +178,12 @@ target_link_libraries(Orin_rotor_angular_speed_test ${YAML_CPP_LIBRARIES})
 if(BUILD_WITH_ROS)
 add_executable(Orin_rotor_angular_speed app/Orin_rotor_angular_speed.cpp)
 target_link_libraries(Orin_rotor_angular_speed ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})    
+
+add_executable(Orin_rotor_asm_uart app/Orin_rotor_asm_uart.cpp)
+add_dependencies(Orin_rotor_asm_uart ${YAML_CPP_LIBRARIES} hardware_lib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(Orin_rotor_asm_uart hardware_lib ${catkin_LIBRARIES})   
+
+install(TARGETS Orin_rotor_asm_uart
+        DESTINATION bin)
 endif(BUILD_WITH_ROS)
-
-
 endif(BUILD_HARDWARE)

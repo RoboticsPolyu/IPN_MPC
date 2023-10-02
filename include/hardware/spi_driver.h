@@ -24,7 +24,7 @@ static uint32_t    mode;
 static uint8_t     bits = 8;
 static char       *input_file;
 static char       *output_file;
-static uint32_t    speed = 500000;
+static uint32_t    speed = 1000000; // 1000Khz
 static uint16_t    delay;
 static int         verbose = 0;
 
