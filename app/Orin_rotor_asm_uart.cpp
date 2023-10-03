@@ -4,28 +4,34 @@
 #include <hardware/uart.h>
 #include <inttypes.h>
 #include <IPN_MPC/Rsm.h>
-#include <ros/console.h> 
+#include <ros/console.h>
 #include "ros/ros.h"
 #include <stdio.h>
 #include "std_msgs/String.h"
 #include "std_msgs/UInt16.h"
 #include <string.h>
 #include <termios.h>
+#include <yaml-cpp/yaml.h>
 
 #define MAX_READ_SIZE 9
 
 int main(int argc, char *argv[]) 
 {
+	YAML::Node RSM_config  = YAML::LoadFile("../config/rsm_uart.yaml");  
+    std::string dev_name   = RSM_config["dev_name"].as<std::string>();
+	std::string topic_name = RSM_config["topic_name"].as<std::string>();
+
 	ros::init(argc, argv, "RotorSpeedNode");
 
     ros::NodeHandle node;
 
-    ros::Publisher rotor_rsm_pub = node.advertise<IPN_MPC::Rsm>("/Quad13/Dynamics/RotorSpeed", 1000);
+    ros::Publisher rotor_rsm_pub = node.advertise<IPN_MPC::Rsm>(topic_name, 1000);
 
 	struct UartDevice dev;
 	int rc;
 
-	dev.filename = "/dev/ttyUSB0";
+	dev.filename = new char[dev_name.length() + 1];
+	strcpy(dev.filename, dev_name.c_str());
 	dev.rate = B115200;
 
 	rc = uart_start(&dev, false);
@@ -41,7 +47,9 @@ int main(int argc, char *argv[])
 	uart_writes(&dev, "QUAD13\r\n");
 	ros::Duration(1.0).sleep();
 
-	uint16_t rotor1_speed = 0;
+	// The increment of contigous frame
+	// The count value of one circle is 2^14
+	uint16_t rotor1_speed = 0; 
 	uint16_t rotor2_speed = 0;
 	uint16_t rotor3_speed = 0;
 	uint16_t rotor4_speed = 0;
