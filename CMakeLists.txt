@@ -124,7 +124,8 @@ target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable ${Pangolin_
 
 
 add_library(hardware_lib 
-            src/hardware/uart.cpp)
+            src/hardware/uart.cpp
+            )
             
 target_link_libraries(hardware_lib PUBLIC ${YAML_CPP_LIBRARIES})
 
@@ -179,11 +180,19 @@ if(BUILD_WITH_ROS)
 add_executable(Orin_rotor_angular_speed app/Orin_rotor_angular_speed.cpp)
 target_link_libraries(Orin_rotor_angular_speed ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})    
 
-add_executable(Orin_rotor_asm_uart app/Orin_rotor_asm_uart.cpp)
-add_dependencies(Orin_rotor_asm_uart ${YAML_CPP_LIBRARIES} hardware_lib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(Orin_rotor_asm_uart hardware_lib ${catkin_LIBRARIES})   
+add_executable(Orin_rsm_uart app/Orin_rsm_uart.cpp)
+add_dependencies(Orin_rsm_uart ${YAML_CPP_LIBRARIES} hardware_lib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(Orin_rsm_uart hardware_lib ${catkin_LIBRARIES})   
 
-install(TARGETS Orin_rotor_asm_uart
+add_executable(Orin_rsm_can app/Orin_rsm_can.cpp)
+add_dependencies(Orin_rsm_can ${YAML_CPP_LIBRARIES} hardware_lib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(Orin_rsm_can hardware_lib ${catkin_LIBRARIES})   
+
+add_executable(Orin_rsm_transmit_can app/Orin_rsm_transmit_can.cpp)
+add_dependencies(Orin_rsm_transmit_can ${YAML_CPP_LIBRARIES} hardware_lib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(Orin_rsm_transmit_can hardware_lib ${catkin_LIBRARIES})   
+
+install(TARGETS Orin_rsm_uart
         DESTINATION bin)
 endif(BUILD_WITH_ROS)
 endif(BUILD_HARDWARE)
