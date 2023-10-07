@@ -60,7 +60,7 @@ int main(int argc, char **argv)
 	uint16_t rotor3_speed = 0;
 	uint16_t rotor4_speed = 0;
 
-	while(true)
+	while(ros::ok())
 	{
 		nbytes = read(s, &frame, sizeof(struct can_frame));
 
@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 			return 1;
 		}
 
-		if(frame.can_id = 0x11)
+		if(frame.can_id == 0x11)
 		{
 			rotor1_speed = frame.data[1];rotor1_speed |= frame.data[0] << 8;
 			rotor2_speed = frame.data[3];rotor1_speed |= frame.data[2] << 8;
@@ -82,6 +82,10 @@ int main(int argc, char **argv)
 			ROS_DEBUG("Rotor3 speed: %d\r\n", rotor3_speed);
 			ROS_DEBUG("Rotor4 speed: %d\r\n", rotor4_speed);
 
+			if(count % 400 == 0)
+			{
+				ROS_INFO("Rotor speed - [%d] - [%d] - [%d] - [%d] ", rotor1_speed, rotor2_speed, rotor3_speed, rotor4_speed);
+			}
 			rsm_msg.header.seq   = count;
 			rsm_msg.header.stamp = ros::Time::now();
 			rsm_msg.rotor1_speed = rotor1_speed;
@@ -91,7 +95,7 @@ int main(int argc, char **argv)
 			rotor_rsm_pub.publish(rsm_msg);
 			count++;
 		}
-		else if(frame.can_id = 0x12)
+		else if(frame.can_id == 0x12)
 		{
 
 		}
