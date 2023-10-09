@@ -673,7 +673,7 @@ namespace UAVFactor
         torque_gyroscopic = - A_mat * _torque_gyro_k * omega_i;
 
         gtsam::Vector3  asp_err = J * (omega_j - omega_i) + skewSymmetric(omega_i) * J * omega_i * dt_ - thrust_torque.tail(3) * dt_ + torque_gyroscopic * dt_ - B_mat * omega_i * dt_;
-
+        
 
         Matrix126 J_e_pi, J_e_posej;
         if (H1)
@@ -1161,6 +1161,30 @@ namespace UAVFactor
             *H3 = - pwm_;
         }
 
+        return err;
+    }
+
+    Vector MotorCalibFactor::evaluateError(const gtsam::Vector5 & params, boost::optional<Matrix &> H1) const
+    {
+        gtsam::Vector1 err;
+        
+        double v_a = (battery_voltage_+1) * (std::sqrt(pwm_ - params[3])+1) + pwm_ - params[4];
+        
+        // double v_a = std::sqrt(kk);
+        // double v_a = kk * kk;
+
+        gtsam::Vector3 dot3(v_a, - rotor_speed1_, - rotor_speed1_* rotor_speed1_);
+
+        err = gtsam::Vector1(rotor_speed2_ - rotor_speed1_ - params.head(3).dot(dot3)* dt_);
+
+        if(H1)
+        {
+            gtsam::Vector5 jac;
+            jac.head(3) = - dot3 * dt_;
+            jac[3] = - params[0] * ((battery_voltage_+1) /2/std::sqrt(pwm_ - params[3])* -1)* dt_;
+            jac[4] = - params[0] * - 1 * dt_;
+            *H1 = jac.transpose();
+        }
         return err;
     }
 

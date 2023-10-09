@@ -95,7 +95,6 @@ add_library(quadrotor_dynamics
             include/gtsam_wrapper.h
             src/calibration/Calibration_factor.cpp
             src/calibration/Calibration_inertial.cpp
-            src/calibration/Dynamics_calib.cpp
             src/control/SE3_controller.cpp
             src/dynamics/Dynamics_control_factor.cpp
             src/dynamics/Dynamics_factor.cpp
@@ -149,3 +148,6 @@ target_link_libraries(Aerial_vehicle_calibration_BLACK gtsam quadrotor_dynamics 
 
 add_executable(Aerial_vehicle_calibration_NBEM app/Aerial_vehicle_calibration_NBEM.cpp)
 target_link_libraries(Aerial_vehicle_calibration_NBEM quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+
+add_executable(Motor_calibration app/Motor_calibration.cpp)
+target_link_libraries(Motor_calibration quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})

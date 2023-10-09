@@ -264,7 +264,35 @@ namespace UAVFactor
 
     };
 
-    
+    class GTSAM_EXPORT MotorCalibFactor: public NoiseModelFactor1<gtsam::Vector5>
+    {
+        public:
+            typedef boost::shared_ptr<MotorCalibFactor> shared_ptr;
+            MotorCalibFactor(Key s3_key, double battery_voltage, double pwm, double rotor_speed1, double rotor_speed2, double dt,
+                            const SharedNoiseModel &model)
+                            : Base(model, s3_key)
+                            , battery_voltage_(battery_voltage)
+                            , pwm_(pwm)
+                            , rotor_speed1_(rotor_speed1)
+                            , rotor_speed2_(rotor_speed2)
+                            , dt_(dt){};
+
+            virtual ~MotorCalibFactor()
+            {   
+            }
+
+            Vector evaluateError(const gtsam::Vector5 & params, boost::optional<Matrix &> H1 = boost::none) const;
+
+    private:
+        typedef MotorCalibFactor This;
+        typedef NoiseModelFactor1<gtsam::Vector5> Base;
+        
+        double battery_voltage_;
+        double pwm_;
+        double rotor_speed1_;
+        double rotor_speed2_;
+        double dt_;
+    };
 
 }
 
