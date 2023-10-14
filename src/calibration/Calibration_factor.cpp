@@ -310,8 +310,6 @@ namespace UAVFactor
             Matrix33 Jac_rerr_r =   J_dr * J_ri;
             Matrix33 Jac_verr_r =   mass_* J_ve_rot1 - mass_ * drag_matrix * J_dv_rit * dt_;
 
-// std::cout << "mass_ * drag_matrix * J_dv_rit * dt_: " << mass_ * drag_matrix * J_dv_rit * dt_ << "\n";
-
             Matrix36 Jac_perr_posei = Jac_perr_p * jac_t_posei + Jac_perr_r * jac_r_posei;
             Matrix36 Jac_rerr_posei = Jac_rerr_r * jac_r_posei;
             Matrix36 Jac_verr_posei = Jac_verr_r * jac_r_posei;
@@ -332,8 +330,6 @@ namespace UAVFactor
             Matrix33 Jac_verr_v     = - mass_* _unrbi_matrix;
             J_e_v.block(0, 0, 3, 3) =   Jac_perr_veli;
             J_e_v.block(6, 0, 3, 3) =   Jac_verr_v - mass_ * drag_matrix * dt_ * J_dv_v;
-
-// std::cout << "mass_ * drag_matrix * dt_ * J_dv_v: " << mass_ * drag_matrix * dt_ * J_dv_v << "\n";
 
             *H2 = J_e_v;
         }
@@ -532,8 +528,6 @@ namespace UAVFactor
         return err;
     };
 
-
-
     DynamcisCaliFactor_RS_AB::DynamcisCaliFactor_RS_AB(Key p_i, Key vel_i, Key omega_i,
             Key p_j, Key vel_j, Key omega_j, Key im_key, Key rwg_key, Key p_key, Key kf_key, Key km_key, Key bTm_key, Key drag_key, Key A_key, Key B_key, gtsam::Vector4 actuator_outputs, float dt, float mass, const SharedNoiseModel &model)
             : Base(model, p_i, vel_i, omega_i, p_j, vel_j, omega_j, im_key, rwg_key, p_key, kf_key, km_key, bTm_key, drag_key, A_key, B_key)
@@ -683,8 +677,6 @@ namespace UAVFactor
             Matrix33 Jac_rerr_r =   J_dr * J_ri;
             Matrix33 Jac_verr_r =   mass_* J_ve_rot1 - mass_ * drag_matrix * J_dv_rit * dt_; // - A_mat * J_da_ri * dt_;
 
-// std::cout << "mass_ * drag_matrix * J_dv_rit * dt_: " << mass_ * drag_matrix * J_dv_rit * dt_ << "\n";
-
             Matrix36 Jac_perr_posei = Jac_perr_p * jac_t_posei + Jac_perr_r * jac_r_posei;
             Matrix36 Jac_rerr_posei = Jac_rerr_r * jac_r_posei;
             Matrix36 Jac_verr_posei = Jac_verr_r * jac_r_posei;
@@ -705,10 +697,6 @@ namespace UAVFactor
             Matrix33 Jac_verr_v     = - mass_* _unrbi_matrix;
             J_e_v.block(0, 0, 3, 3) =   Jac_perr_veli;
             J_e_v.block(6, 0, 3, 3) =   Jac_verr_v - mass_ * drag_matrix * dt_ * J_dv_v;
-
-            // J_e_v.block(9, 0, 3, 3) = - A_mat * J_da_v * dt_;
-
-// std::cout << "mass_ * drag_matrix * dt_ * J_dv_v: " << mass_ * drag_matrix * dt_ * J_dv_v << "\n";
 
             *H2 = J_e_v;
         }
@@ -860,7 +848,6 @@ namespace UAVFactor
             gtsam::Matrix31 J_m3_km  =   ct * axis;
             gtsam::Matrix31 J_m4_km  = - ct * axis;
 
-            // km
             gtsam::Matrix61 J_km;
             J_km.setZero();
             gtsam::Matrix61 J_tm_km1;
@@ -1168,7 +1155,7 @@ namespace UAVFactor
     {
         gtsam::Vector1 err;
         
-        double v_a = (battery_voltage_+1) * (std::sqrt(pwm_ - params[3])+1) + pwm_ - params[4];
+        double v_a = battery_voltage_ * std::sqrt(pwm_ - params[3]) + pwm_ - params[4];
         
         // double v_a = std::sqrt(kk);
         // double v_a = kk * kk;
@@ -1181,7 +1168,7 @@ namespace UAVFactor
         {
             gtsam::Vector5 jac;
             jac.head(3) = - dot3 * dt_;
-            jac[3] = - params[0] * ((battery_voltage_+1) /2/std::sqrt(pwm_ - params[3])* -1)* dt_;
+            jac[3] = - params[0] * (battery_voltage_ /2/std::sqrt(pwm_ - params[3])* -1)* dt_;
             jac[4] = - params[0] * - 1 * dt_;
             *H1 = jac.transpose();
         }

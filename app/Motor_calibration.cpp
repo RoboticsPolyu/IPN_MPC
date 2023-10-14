@@ -14,7 +14,16 @@ struct Motor_Data
   double rotor_speed1;
   double battery_voltage;
   double pwm;
+  double gt_t;
 };
+
+struct Battery_Data
+{
+  double battery_voltage;
+  double gt_t;
+};
+
+
 
 int main(void)
 {        
@@ -30,30 +39,56 @@ int main(void)
     calib_log.open(file_name);
     
     std::string file_path = "../data/Motor";
-    std::ifstream state_file;
+    std::ifstream state_file, battery_file;
     std::string state_file_path = file_path + std::string("/rsm_2023-10-06-16-50-09.txt");
+    std::string battery_file_path = file_path + std::string("/battery_rsm_2023-10-06-16-50-09.txt");
     state_file.open(state_file_path);
+    battery_file.open(battery_file_path);
+
 
     double gt_t, battery_voltage, pwm, rotor_speed_sensor1, rotor_speed_sensor2;
     std::vector<Motor_Data> motor_datas;
+    std::vector<Battery_Data> battery_datas;
+
+    while (battery_file >> gt_t >> battery_voltage)
+    {
+      Battery_Data battery_data;
+      battery_data.battery_voltage = battery_voltage;
+      battery_data.gt_t = gt_t;
+      battery_datas.push_back(battery_data);
+      std::cout << battery_data.battery_voltage << " " << gt_t << std::endl;
+    }
+
 
     uint32_t count = 0;
+    double div = 16384.0*200.0*60.0
+
     while (state_file >> gt_t >> rotor_speed_sensor1 >> rotor_speed_sensor2)
     {
 
       if(count > 4995 && count < 10500)
       {
-        std::cout << "gt: " << gt_t << std::endl;
         Motor_Data motor_data;
-        motor_data.battery_voltage = 16;
-        motor_data.rotor_speed1 = rotor_speed_sensor1/16384.0*200.0*60.0;
+        motor_data.gt_t = gt_t;
+        for(uint16_t bi = 0; bi < battery_datas.size(); bi++)
+        {
+          if(battery_datas[bi].gt_t <= gt_t && gt_t < battery_datas[bi+1].gt_t)
+          {
+            double interp = (gt_t - battery_datas[bi].gt_t)/ (battery_datas[bi+1].gt_t - battery_datas[bi].gt_t);
+            battery_voltage = (1-interp)* battery_datas[bi].battery_voltage + interp* battery_datas[bi+1].battery_voltage;
+          }
+        }
+
+        motor_data.battery_voltage = battery_voltage;
+        motor_data.rotor_speed1 = rotor_speed_sensor1/div;
         uint32_t count_add = count - 4995;
         motor_data.pwm = 1100 +  (count_add - count_add % 560) / 560 * 50;
-        // std::cout << motor_data.rotor_speed1 << " - " << motor_data.pwm << std::endl;
+        std::cout << motor_data.battery_voltage << " - " << motor_data.pwm << std::endl;
         motor_datas.push_back(motor_data);
       }
       count++;
     }
+
 
     uint32_t DATASET_S = 0;
     uint32_t DATASET_LENS = motor_datas.size();
