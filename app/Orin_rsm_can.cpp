@@ -73,9 +73,9 @@ int main(int argc, char **argv)
 		if(frame.can_id == 0x11)
 		{
 			rotor1_speed = frame.data[1];rotor1_speed |= frame.data[0] << 8;
-			rotor2_speed = frame.data[3];rotor1_speed |= frame.data[2] << 8;
-			rotor3_speed = frame.data[5];rotor1_speed |= frame.data[4] << 8;
-			rotor4_speed = frame.data[7];rotor1_speed |= frame.data[6] << 8;
+			rotor2_speed = frame.data[3];rotor2_speed |= frame.data[2] << 8;
+			rotor3_speed = frame.data[5];rotor3_speed |= frame.data[4] << 8;
+			rotor4_speed = frame.data[7];rotor4_speed |= frame.data[6] << 8;
 
 			ROS_DEBUG("Rotor1 speed: %d\r\n", rotor1_speed);
 			ROS_DEBUG("Rotor2 speed: %d\r\n", rotor2_speed);
@@ -103,7 +103,8 @@ int main(int argc, char **argv)
 
 	}
 
-	if (close(s) < 0) {
+	if (close(s) < 0) 
+	{
 		perror("Close");
 		return 1;
 	}

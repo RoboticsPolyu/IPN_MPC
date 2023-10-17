@@ -1,5 +1,6 @@
 #pragma once
 #include <gtsam/geometry/Pose3.h>
+#include <gtsam/geometry/Quaternion.h>
 #include <gtsam/geometry/Rot3.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/navigation/ImuFactor.h>

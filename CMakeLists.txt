@@ -41,13 +41,17 @@ if(BUILD_WITH_ROS)
 find_package(catkin REQUIRED COMPONENTS
   roscpp message_generation std_msgs geometry_msgs
 )
-# find_package(genmsg REQUIRED)
-# find_package(geometry_msgs REQUIRED)
 
 add_message_files(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/msg" FILES Rsm.msg)
 generate_messages(DEPENDENCIES std_msgs geometry_msgs)
 include_directories(${catkin_INCLUDE_DIRS})
-catkin_package(CATKIN_DEPENDS roscpp message_runtime std_msgs geometry_msgs)
+catkin_package(
+    CATKIN_DEPENDS 
+    roscpp 
+    mavros_msgs
+    message_runtime 
+    std_msgs 
+    geometry_msgs)
 endif()
 
 # Eigen
@@ -87,6 +91,7 @@ find_package(OsqpEigen REQUIRED)
 # Find yaml-cpp
 find_package(yaml-cpp)
 include_directories(${YAML_CPP_INCLUDE_DIRS})
+include_directories("/home/amov/Mav/devel/include")
 
 set(WIO_SOURCE
     src/wio/wio_factor.cpp
@@ -166,17 +171,19 @@ target_link_libraries(Joint_Positioning_Control_Test gtsam quadrotor_dynamics ${
 add_executable(Aerial_vehicle_calibration_BLACK app/Aerial_vehicle_calibration_BLACK.cpp)
 target_link_libraries(Aerial_vehicle_calibration_BLACK gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
-# add_executable(Aerial_vehicle_calibration_sim app/Aerial_vehicle_calibration_sim.cpp)
-# target_link_libraries(Aerial_vehicle_calibration_sim gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+add_executable(Aerial_vehicle_calibration_sim app/Aerial_vehicle_calibration_sim.cpp)
+target_link_libraries(Aerial_vehicle_calibration_sim gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
 add_executable(Aerial_vehicle_calibration_NBEM app/Aerial_vehicle_calibration_NBEM.cpp)
 target_link_libraries(Aerial_vehicle_calibration_NBEM quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
-if(BUILD_HARDWARE)
-add_executable(Orin_rotor_angular_speed_test app/Orin_rotor_angular_speed_test.cpp)
-target_link_libraries(Orin_rotor_angular_speed_test ${YAML_CPP_LIBRARIES})
-
 if(BUILD_WITH_ROS)
+
+add_executable(Traj_load_run_px4 app/Traj_load_run_px4.cpp)
+target_link_libraries(Traj_load_run_px4 gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})   
+
+if(BUILD_HARDWARE)
+
 add_executable(Orin_rotor_angular_speed app/Orin_rotor_angular_speed.cpp)
 target_link_libraries(Orin_rotor_angular_speed ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})    
 
@@ -192,7 +199,11 @@ add_executable(Orin_rsm_transmit_can app/Orin_rsm_transmit_can.cpp)
 add_dependencies(Orin_rsm_transmit_can ${YAML_CPP_LIBRARIES} hardware_lib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(Orin_rsm_transmit_can hardware_lib ${catkin_LIBRARIES})   
 
+add_executable(Orin_rotor_angular_speed_test app/Orin_rotor_angular_speed_test.cpp)
+target_link_libraries(Orin_rotor_angular_speed_test ${YAML_CPP_LIBRARIES})
+
 install(TARGETS Orin_rsm_uart
         DESTINATION bin)
-endif(BUILD_WITH_ROS)
+        
 endif(BUILD_HARDWARE)
+endif(BUILD_WITH_ROS)
