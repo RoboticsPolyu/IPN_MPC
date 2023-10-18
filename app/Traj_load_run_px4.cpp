@@ -24,7 +24,8 @@ mavros_msgs::State         current_state;
 geometry_msgs::PoseStamped current_pose;
 geometry_msgs::PoseStamped init_pose;
 
-void state_cb(const mavros_msgs::State::ConstPtr& msg){
+void state_cb(const mavros_msgs::State::ConstPtr& msg)
+{
     current_state = *msg;
 }
 
@@ -52,7 +53,7 @@ int main(int argc, char **argv)
 
     ros::Subscriber    sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/vision_pose/pose", 1, uav_pose_cb);
 
-    //the setpoint publishing rate MUST be faster than 2Hz
+    // the setpoint publishing rate MUST be faster than 2Hz
     ros::Rate rate(control_freq);
 
     // load trajectory 
