@@ -88,7 +88,7 @@ namespace UAVFactor
                              boost::optional<Matrix &> H15 = boost::none) const;
         
         gtsam::Vector6 Thrust_Torque(const gtsam::Vector4 & rpm_square, const double & ct, const double & km, const gtsam::Vector3 & rotor_pos) const;
-
+        gtsam::Vector6 Thrust_Torque(const gtsam::Vector4 & rpm_square, const double & ct, const double & km, const gtsam::Vector3 & rotor_pos, gtsam::Vector3 & A) const;
 
     private: 
         typedef DynamcisCaliFactor_RS_AB This;

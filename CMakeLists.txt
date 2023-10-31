@@ -143,6 +143,9 @@ target_link_libraries(Joint_Positioning_Control_Test gtsam quadrotor_dynamics ${
 add_executable(Aerial_vehicle_calibration_BLACK app/Aerial_vehicle_calibration_BLACK.cpp)
 target_link_libraries(Aerial_vehicle_calibration_BLACK gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
+add_executable(Quadrotor_dynamics_calibration app/Quadrotor_dynamics_calibration.cpp)
+target_link_libraries(Quadrotor_dynamics_calibration gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+
 # add_executable(Aerial_vehicle_calibration_sim app/Aerial_vehicle_calibration_sim.cpp)
 # target_link_libraries(Aerial_vehicle_calibration_sim gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
@@ -151,3 +154,5 @@ target_link_libraries(Aerial_vehicle_calibration_NBEM quadrotor_dynamics ${Pango
 
 add_executable(Motor_calibration app/Motor_calibration.cpp)
 target_link_libraries(Motor_calibration quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+
+

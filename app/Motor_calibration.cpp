@@ -61,7 +61,7 @@ int main(void)
 
 
     uint32_t count = 0;
-    double div = 16384.0*200.0*60.0
+    double div = 1.0/16384.0*200.0*60.0;
 
     while (state_file >> gt_t >> rotor_speed_sensor1 >> rotor_speed_sensor2)
     {
@@ -80,7 +80,8 @@ int main(void)
         }
 
         motor_data.battery_voltage = battery_voltage;
-        motor_data.rotor_speed1 = rotor_speed_sensor1/div;
+        motor_data.battery_voltage = 16;
+        motor_data.rotor_speed1 = rotor_speed_sensor1* div;
         uint32_t count_add = count - 4995;
         motor_data.pwm = 1100 +  (count_add - count_add % 560) / 560 * 50;
         std::cout << motor_data.battery_voltage << " - " << motor_data.pwm << std::endl;

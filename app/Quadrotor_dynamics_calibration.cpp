@@ -53,7 +53,7 @@ int main(void)
 {        
     DynamicsParams quad_params;
     double      dt         = 0.01f;
-    quad_params.mass       = 0.915f;
+    quad_params.mass       = 0.928f; // Big 949g small 920g
     quad_params.Ixx        = 4.9* 1e-2;
     quad_params.Iyy        = 4.9* 1e-2;
     quad_params.Izz        = 6.9* 1e-2;
@@ -62,7 +62,7 @@ int main(void)
     quad_params.arm_length = 0.13f;
 
     // Configuration file 
-    YAML::Node CAL_config = YAML::LoadFile("../config/dynamics_BLACK.yaml");  
+    YAML::Node CAL_config = YAML::LoadFile("../config/dynamics.yaml");  
     double     rotor_px   = CAL_config["ROTOR_P_X"].as<double>();
     double     rotor_py   = CAL_config["ROTOR_P_Y"].as<double>();
     uint16_t DATASET_S    = CAL_config["DATASET_S"].as<uint16_t>();
@@ -70,11 +70,15 @@ int main(void)
     double p_thrust_sigma = CAL_config["P_T_SIGMA"].as<double>();
     double unmodel_thrust_sigma = CAL_config["U_T_SIGMA"].as<double>();
     std::string file_path = CAL_config["ROOT_PATH"].as<std::string>();
+    std::string pose_file = CAL_config["POSE_FILE"].as<std::string>();
+    std::string rsm_file  = CAL_config["RSM_FILE"].as<std::string>();
     bool enable_drag      = CAL_config["ENABLE_DRAG"].as<bool>();
     bool enable_inertia   = CAL_config["ENABLE_I"].as<bool>();
+    bool enable_h         = CAL_config["ENABLE_H"].as<bool>();
     quad_params.Ixx       = CAL_config["INERTIA_IX"].as<double>();
     quad_params.Iyy       = CAL_config["INERTIA_IY"].as<double>();
     quad_params.Izz       = CAL_config["INERTIA_IZ"].as<double>();
+    float DT              = CAL_config["DT"].as<double>();
 
     gtsam::Vector3 thrust_sigma(unmodel_thrust_sigma, unmodel_thrust_sigma, 2* p_thrust_sigma);
     // sigma = (rotor_p_x* 2* P_thrust_single_rotor, rotor_p_x* 2* P_thrust_single_rotor, k_m * 2 * P_thrust_single_rotor) 
@@ -82,13 +86,13 @@ int main(void)
 
     auto dyn_noise   = noiseModel::Diagonal::Sigmas((Vector(12) << thrust_sigma * 0.5f * dt * dt, Vector3::Constant(0.001 * dt), 
                                                                    thrust_sigma * dt, moments_sigma * dt).finished());
-    auto vicon_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.0005), Vector3::Constant(0.001)).finished());
+    auto vicon_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.0005), Vector3::Constant(0.001)).finished()); // v r 0.0005
 
     auto im_noise    = noiseModel::Diagonal::Sigmas(Vector3(0.000001, 0.000001, 0.000001));
     auto rp_noise    = noiseModel::Diagonal::Sigmas(Vector3(0.00001, 0.00001, 0.00001));
     auto gr_noise    = noiseModel::Diagonal::Sigmas(Vector3(0.0001, 0.0001, 0.0001));
     auto km_noise    = noiseModel::Diagonal::Sigmas(Vector1(0.00001));
-    auto bm_nosie    = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.00001), Vector3::Constant(0.00001)).finished());
+    auto bm_noise    = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.00001), Vector3::Constant(0.00001)).finished());
 
     std::ofstream calib_log;
     std::string file_name = "../data/calib_";
@@ -104,36 +108,64 @@ int main(void)
 
     std::ifstream state_file;
     std::string state_file_path = file_path + std::string("/state_black.txt");
-    state_file.open(state_file_path);
+    state_file.open(pose_file);
     std::ifstream actuator_black_file;
     std::string actuator_file_path = file_path + std::string("/interp_actuator_black.txt");
-    actuator_black_file.open(actuator_file_path);
+    actuator_black_file.open(rsm_file);
     std::ifstream rpm_black_file;
     std::string rpm_file_path = file_path + std::string("/rpm_black.txt");
-    rpm_black_file.open(rpm_file_path);
+    rpm_black_file.open(rsm_file);
 
-    double gt_t, gt_qw, gt_qx, gt_qy, gt_qz, gt_x, gt_y, gt_z, pwm_t, pwm1, pwm2, pwm3, pwm4;
+    double div = 200.0*60.0/16384.0;
+    double gt_t, gt_qw, gt_qx, gt_qy, gt_qz, gt_x, gt_y, gt_z, pwm_t, pwm1, pwm2, pwm3, pwm4, bak;
 
-    while (state_file >> gt_t >> gt_x >> gt_y >> gt_z >> gt_qw >> gt_qx >> gt_qy >> gt_qz)
+    state_file >> gt_t >> gt_x >> gt_y >> gt_z >> gt_qx >> gt_qy >> gt_qz >> gt_qw >> bak >> bak >> bak;
+        
+    State _state;
+    _state.timestamp   = gt_t;
+    _state.pose        = gtsam::Pose3(gtsam::Quaternion(gt_qw, gt_qx, gt_qy, gt_qz), gtsam::Vector3(gt_x, gt_y, gt_z));
+    gtsam::Rot3 rx_pi  = gtsam::Rot3::Rx(M_PI);
+    gtsam::Rot3 rz_pi4 = gtsam::Rot3::Rz(-0/4.0);
+
+    _state.pose        = gtsam::Pose3(rx_pi, gtsam::Vector3(0,0,0)) * _state.pose * gtsam::Pose3(rx_pi, gtsam::Vector3(0,0,0)) * gtsam::Pose3(rz_pi4, gtsam::Vector3(0,0,0));
+    Uav_states.push_back(_state);
+
+    float dt_v = 3.430857152425035 * 1e-3;
+
+    while (state_file >> gt_t >> gt_x >> gt_y >> gt_z >> gt_qx >> gt_qy >> gt_qz >> gt_qw >> bak >> bak >> bak)
     {
         State _state;
+        // gt_t = gt_t + 3.430857152425035*1e6;
         _state.timestamp   = gt_t;
         _state.pose        = gtsam::Pose3(gtsam::Quaternion(gt_qw, gt_qx, gt_qy, gt_qz), gtsam::Vector3(gt_x, gt_y, gt_z));
-        gtsam::Rot3 rx_pi  = gtsam::Rot3::Rx(M_PI);
-        gtsam::Rot3 rz_pi4 = gtsam::Rot3::Rz(-0/4.0);
+        // gtsam::Rot3 rx_pi  = gtsam::Rot3::Rx(M_PI);
+        // gtsam::Rot3 rz_pi4 = gtsam::Rot3::Rz(-0/4.0);
 
-        _state.pose        = gtsam::Pose3(rx_pi, gtsam::Vector3(0,0,0)) * _state.pose * gtsam::Pose3(rx_pi, gtsam::Vector3(0,0,0)) * gtsam::Pose3(rz_pi4, gtsam::Vector3(0,0,0));
+        // _state.pose        = gtsam::Pose3(rx_pi, gtsam::Vector3(0,0,0)) * _state.pose * gtsam::Pose3(rx_pi, gtsam::Vector3(0,0,0)) * gtsam::Pose3(rz_pi4, gtsam::Vector3(0,0,0));
         Uav_states.push_back(_state);
     }
 
-    while (rpm_black_file >> pwm_t >> pwm1 >> pwm2 >> pwm3 >> pwm4)
+    rpm_black_file >> pwm_t >> pwm1 >> pwm2 >> pwm3 >> pwm4;
+
+    Uav_pwm _uav_pwm;
+    pwm_t = pwm_t - DT * 1e6;
+    _uav_pwm.timestamp       = pwm_t;
+    _uav_pwm.actuator_output = gtsam::Vector4(pwm3*div, pwm1*div, pwm4*div, pwm2*div);
+    std::cout << "RSM: " << _uav_pwm.actuator_output.transpose() << std::endl;
+    Uav_pwms.push_back(_uav_pwm);
+
+    while (rpm_black_file >> bak >> pwm1 >> pwm2 >> pwm3 >> pwm4)
     {
         Uav_pwm _uav_pwm;
-        _uav_pwm.timestamp       = pwm_t;
-        _uav_pwm.actuator_output = gtsam::Vector4(pwm1, pwm2, pwm3, pwm4);
+        pwm_t                    = pwm_t + 5 * 1e6;
+        _uav_pwm.timestamp       = pwm_t - DT;
+        _uav_pwm.actuator_output = gtsam::Vector4(pwm3*div, pwm1*div, pwm4*div, pwm2*div);
+        std::cout << "RSM: " << _uav_pwm.actuator_output.transpose() << std::endl;
         Uav_pwms.push_back(_uav_pwm);
     }
 
+    std::cout << "Uav pwm size: " << Uav_pwms.size() << std::endl;
+    std::cout << "Uav_states pwm size: " << Uav_states.size() << std::endl;
     // while (actuator_black_file >> pwm_t >> pwm1 >> pwm2 >> pwm3 >> pwm4)
     // {
     //     Uav_pwm _uav_pwm;
@@ -143,9 +175,9 @@ int main(void)
     // }
 
     State _interp_state;
-    for(int i = 0; i < Uav_pwms.size(); i++)
+    for(int i = 0; i < Uav_pwms.size()-2; i = i + 2)
     {
-        for(int j = 0; j < Uav_states.size() -1; j++)
+        for(int j = 2; j < Uav_states.size() -3; j++)
         {
             if(Uav_pwms[i].timestamp >= Uav_states[j].timestamp && Uav_pwms[i].timestamp < Uav_states[j+1].timestamp)
             {
@@ -157,11 +189,11 @@ int main(void)
                 _interp_state.timestamp       = Uav_pwms[i].timestamp;
                 _interp_state.pose            = interp_pose;
 
-                gtsam::Vector3 vel_l   = (Uav_states.at(j+1).pose.translation() - Uav_states.at(j-1).pose.translation())/dt/2.0;
-                gtsam::Vector3 vel_r   = (Uav_states.at(j+2).pose.translation() - Uav_states.at(j).pose.translation())/dt/2.0;
+                gtsam::Vector3 vel_l   = (Uav_states.at(j+1).pose.translation() - Uav_states.at(j-1).pose.translation())/dt_v/2.0;
+                gtsam::Vector3 vel_r   = (Uav_states.at(j+2).pose.translation() - Uav_states.at(j).pose.translation())/dt_v/2.0;
 
-                gtsam::Vector3 omega_l = gtsam::Rot3::Logmap(Uav_states.at(j-1).pose.rotation().between(Uav_states.at(j+1).pose.rotation()))/2.0 /dt;
-                gtsam::Vector3 omega_r = gtsam::Rot3::Logmap(Uav_states.at(j).pose.rotation().between(Uav_states.at(j+2).pose.rotation()))/2.0 /dt;
+                gtsam::Vector3 omega_l = gtsam::Rot3::Logmap(Uav_states.at(j-1).pose.rotation().between(Uav_states.at(j+1).pose.rotation()))/2.0 /dt_v;
+                gtsam::Vector3 omega_r = gtsam::Rot3::Logmap(Uav_states.at(j).pose.rotation().between(Uav_states.at(j+2).pose.rotation()))/2.0 /dt_v;
 
                 _interp_state.vel      = (1-t)* vel_l + t* vel_r;
                 _interp_state.omega    = (1-t)* omega_l + t* omega_r;
@@ -171,25 +203,28 @@ int main(void)
         }
     }
 
+std::cout << "Interp_states  size: " << Interp_states.size() << std::endl;
 
     NonlinearFactorGraph dyn_factor_graph;
     Values initial_value_dyn;
     dyn_factor_graph.empty();
 
-    for(uint32_t idx = DATASET_S; idx < DATASET_LENS; idx++)
+    for(uint32_t idx = DATASET_S; idx < DATASET_S + DATASET_LENS/2; idx++)
     {   
         gtsam::Vector3 vel;
         gtsam::Vector3 omega;
 
         dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx), Interp_states.at(idx).pose, vicon_noise));
+        // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), Interp_states.at(idx).omega, gr_noise));
 
         initial_value_dyn.insert(X(idx), Interp_states.at(idx).pose);
         initial_value_dyn.insert(V(idx), Interp_states.at(idx).vel);
         initial_value_dyn.insert(S(idx), Interp_states.at(idx).omega);
 
-        if( idx == DATASET_LENS-1)
+        if( idx == DATASET_S + DATASET_LENS/2 - 1)
         {
             dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx+1), Interp_states.at(idx+1).pose,  vicon_noise));
+            // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx+1), Interp_states.at(idx+1).omega, gr_noise));
 
             initial_value_dyn.insert(X(idx+1), Interp_states.at(idx+1).pose);
             initial_value_dyn.insert(V(idx+1), Interp_states.at(idx+1).vel);
@@ -197,7 +232,7 @@ int main(void)
         }
         
 
-        // pose, velocity, angular speed, pose, velocity, angular speed, inertial of moments, rot of g, position of rotot, kf, km        
+        // pose, velocity, angular speed, pose, velocity, angular speed, inertial of moments, rot of g, position of rotot, kf, km, bTm, drag, A, B        
         DynamcisCaliFactor_RS_AB dynamicsCalibFactor(X(idx), V(idx), S(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), P(0), K(0), M(0), H(0), D(0), A(0), B(0), Interp_states.at(idx).actuator_output, dt, quad_params.mass, dyn_noise);
         dyn_factor_graph.add(dynamicsCalibFactor);
     }
@@ -220,18 +255,22 @@ int main(void)
     {
         dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(J(0), gtsam::Vector3(quad_params.Ixx, quad_params.Iyy, quad_params.Izz), im_noise));
     }
-
-    // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(H(0), gtsam::Pose3::identity(), bm_nosie));
+    if(!enable_h)
+    {
+        dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(H(0), gtsam::Pose3::identity(), bm_noise)); 
+    }
+    // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(H(0), gtsam::Pose3::identity(), bm_noise));
     // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Rot3>(R(0), gtsam::Rot3::identity(), gr_noise));
     dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(P(0), rotor_p, rp_noise)); 
-    // dyn_factor_graph.add(gtsam::PriorFactor<double>(M(0), 0.0025f, km_noise));
-    // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(A(0), gtsam::Vector3::Zero(), im_noise));   
-    // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(B(0), gtsam::Vector3::Zero(), im_noise)); 
+    // dyn_factor_graph.add(gtsam::PriorFactor<double>(M(0), 0.000573188719099, km_noise));
+
+    // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(A(0), gtsam::Vector3(0.004, 0, 0), im_noise));   
+    dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(B(0), gtsam::Vector3::Zero(), im_noise)); 
+    //dyn_factor_graph.add(gtsam::PriorFactor<double)(M(0), 0.000573188719099, )
     if(!enable_drag)
     {
         dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(D(0), gtsam::Vector3::Zero(), im_noise)); 
     }
-    
 
     gtsam::LevenbergMarquardtParams parameters;
     parameters.absoluteErrorTol = 1e-8;
@@ -256,7 +295,7 @@ int main(void)
     gtsam::Vector3  bk = result.at<gtsam::Vector3>(B(0));
 
 
-    for(uint32_t idx = DATASET_S; idx < DATASET_LENS; idx++)
+    for(uint32_t idx = DATASET_S; idx < DATASET_S + DATASET_LENS/2; idx++)
     {
         gtsam::Pose3    pi = result.at<gtsam::Pose3>(X(idx));
         gtsam::Vector3  vi = result.at<gtsam::Vector3>(V(idx));
@@ -266,16 +305,18 @@ int main(void)
 
         DynamcisCaliFactor_RS_AB dyn_err(X(idx), V(idx), S(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), P(0), K(0), M(0), H(0), D(0), A(0), B(0), Interp_states.at(idx).actuator_output, dt, quad_params.mass, dyn_noise);
         
-        gtsam::Vector12        dyn_e = dyn_err.evaluateError(Interp_states.at(idx).pose, vi, oi, Interp_states.at(idx+1).pose, vj, oj, IM, rot, p, kf, km, bTm, dk, ak, bk);
+        gtsam::Vector12     dyn_e = dyn_err.evaluateError(Interp_states.at(idx).pose, vi, oi, Interp_states.at(idx+1).pose, vj, oj, IM, rot, p, kf, km, bTm, dk, ak, bk);
         gtsam::Vector4 rpm_square = Interp_states.at(idx).actuator_output.cwiseAbs2();
-        gtsam::Vector6 thrust_torque = dyn_err.Thrust_Torque(rpm_square, kf, km, p);
+        gtsam::Vector6 thrust_torque = dyn_err.Thrust_Torque(rpm_square, kf, km, p, ak);
 
         gtsam::Pose3          pose = result.at<gtsam::Pose3>(X(idx));
         gtsam::Vector3 dyn_pos_err = pose.rotation() * gtsam::Vector3(dyn_e(0), dyn_e(1), dyn_e(2)) / quad_params.mass;
 
+        // pi = Interp_states.at(idx).pose;
+
         gtsam::Vector3 vel_body = pose.rotation().unrotate(vi);
 
-        calib_log << std::setprecision(19) << Interp_states.at(idx).timestamp << std::setprecision(5) << " " << dyn_pos_err(0) << " " << dyn_pos_err(1) << " " << dyn_pos_err(2) << " " << dyn_e(3) << " " << dyn_e(4) << " " << dyn_e(5) << " " << dyn_e(6) << " " << dyn_e(7) << " " << dyn_e(8) << " " << dyn_e(9) << " " << dyn_e(10) << " " << dyn_e(11) << " " << thrust_torque(0)<< " " << thrust_torque(1) << " " << thrust_torque(2) << " " << thrust_torque(3) << " " << thrust_torque(4) << " " << thrust_torque(5) << " " << vel_body(0) << " " << vel_body(1) << " " << vel_body(2) << " " << oi(0) << " " << oi(1) << " " << oi(2) << " " << Interp_states.at(idx).actuator_output(0) << " " << Interp_states.at(idx).actuator_output(1) << " " << Interp_states.at(idx).actuator_output(2) << " " << Interp_states.at(idx).actuator_output(3) << " " << pi.translation().x() << " " << pi.translation().y() << " " << pi.translation().z() << " " << pi.rotation().xyz().x() << " " << pi.rotation().xyz().y() << " " << pi.rotation().xyz().z() <<
+        calib_log << std::setprecision(19) << Interp_states.at(idx).timestamp << std::setprecision(5) << " " << dyn_pos_err(0) << " " << dyn_pos_err(1) << " " << dyn_pos_err(2) << " " << dyn_e(3) << " " << dyn_e(4) << " " << dyn_e(5) << " " << dyn_e(6) << " " << dyn_e(7) << " " << dyn_e(8) << " " << dyn_e(9) << " " << dyn_e(10) << " " << dyn_e(11) << " " << thrust_torque(0)<< " " << thrust_torque(1) << " " << thrust_torque(2) << " " << thrust_torque(3) << " " << thrust_torque(4) << " " << thrust_torque(5) << " " << vel_body(0) << " " << vel_body(1) << " " << vel_body(2) << " " << Interp_states.at(idx).omega.x() << " " << Interp_states.at(idx).omega.y() << " " << Interp_states.at(idx).omega.z() << " " << Interp_states.at(idx).actuator_output(0) << " " << oi(1) << " " << oi(2) << " " << oi(3) << " " << pi.translation().x() << " " << pi.translation().y() << " " << pi.translation().z() << " " << pi.rotation().xyz().x() << " " << pi.rotation().xyz().y() << " " << pi.rotation().xyz().z() <<
         "\n";
 
     }
