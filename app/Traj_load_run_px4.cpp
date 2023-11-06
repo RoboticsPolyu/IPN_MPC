@@ -72,6 +72,7 @@ int main(int argc, char **argv)
         trajs.push_back(trj_state);
     }
 
+std::cout << "Traj size: " << trajs.size() << " , " << file_name << std::endl;
     // wait for FCU connection
     while(ros::ok() && current_state.connected)
     {
@@ -110,7 +111,8 @@ int main(int argc, char **argv)
 
     ROS_INFO("Change to offboard mode and arm");
     ROS_INFO("%s\n", current_state.mode.c_str());
-    
+    std::cout << "armed: " << current_state.armed << std::endl;
+
     while(ros::ok() && !current_state.armed)
     {
         if( current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(5.0)))
@@ -130,10 +132,16 @@ int main(int argc, char **argv)
                 {
                     ROS_INFO("Vehicle armed");
                 }
-                last_request = ros::Time::now();
-            }
+		else
+		{
+		    std::cout << "Try to arm";
+		}
+		last_request = ros::Time::now();
+		std::cout << "current state: " << current_state.armed << std::endl;
+	    }
         }
-        local_pos_pub.publish(control);
+//	std::cout << "Publish control " << std::endl;
+ local_pos_pub.publish(control);
         ros::spinOnce();
         rate.sleep();
     }
