@@ -1,6 +1,4 @@
 #include <fcntl.h>
-#include <gflags/gflags.h>
-#include "glog/logging.h"
 #include <hardware/uart.h>
 #include <inttypes.h>
 #include <IPN_MPC/Rsm.h>

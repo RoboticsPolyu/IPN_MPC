@@ -10,6 +10,6 @@ sudo ip link set up can0
 
 cd /home/amov/IPN_MPC/build
 
-./devel/lib/IPN_MPC/Orin_rsm_can
+./devel/lib/IPN_MPC/Orin_board_can
 
 

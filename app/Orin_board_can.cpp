@@ -5,6 +5,7 @@
 
 #include <net/if.h>
 #include <IPN_MPC/Rsm.h>
+#include <IPN_MPC/IMU.h>
 #include <ros/console.h>
 #include "ros/ros.h"
 #include "std_msgs/String.h"
@@ -20,13 +21,15 @@ int main(int argc, char **argv)
 {
 	YAML::Node RSM_config  = YAML::LoadFile("../config/rsm_uart.yaml");  
     std::string dev_name   = RSM_config["dev_name"].as<std::string>();
-	std::string topic_name = RSM_config["topic_name"].as<std::string>();
+	std::string rsm_topic_name = RSM_config["rsm_topic_name"].as<std::string>();
+	std::string imu_topic_name = RSM_config["imu_topic_name"].as<std::string>();
 
 	ros::init(argc, argv, "RotorSpeedNode");
 
     ros::NodeHandle node;
 
-    ros::Publisher rotor_rsm_pub = node.advertise<IPN_MPC::Rsm>(topic_name, 1000);
+    ros::Publisher rotor_rsm_pub = node.advertise<IPN_MPC::Rsm>(rsm_topic_name, 1000);
+	ros::Publisher rotor_imu_pub = node.advertise<IPN_MPC::IMU>(imu_topic_name, 1000);
 
 	int s; 
 	int nbytes;
@@ -54,11 +57,18 @@ int main(int argc, char **argv)
 	}
 
     int count = 0;
+	int count_imu = 0;
+
 	IPN_MPC::Rsm rsm_msg;
+	IPN_MPC::IMU imu_msg;
+
 	uint16_t rotor1_speed = 0; 
 	uint16_t rotor2_speed = 0;
 	uint16_t rotor3_speed = 0;
 	uint16_t rotor4_speed = 0;
+
+	uint16_t acc_x = 0, acc_y = 0, acc_z = 0, acc_id = 0;
+	uint16_t gyro_x = 0, gyro_y = 0, gyro_z = 0, gyro_id = 0;
 
 	while(ros::ok())
 	{
@@ -70,7 +80,7 @@ int main(int argc, char **argv)
 			return 1;
 		}
 
-		if(frame.can_id == 0x11)
+		if(frame.can_id == 0x11) // 100hz
 		{
 			rotor1_speed = frame.data[1];rotor1_speed |= frame.data[0] << 8;
 			rotor2_speed = frame.data[3];rotor2_speed |= frame.data[2] << 8;
@@ -82,7 +92,7 @@ int main(int argc, char **argv)
 			ROS_DEBUG("Rotor3 speed: %d\r\n", rotor3_speed);
 			ROS_DEBUG("Rotor4 speed: %d\r\n", rotor4_speed);
 
-			if(count % 400 == 0)
+			if(count % 200 == 0)
 			{
 				ROS_INFO("Rotor speed - [%d] - [%d] - [%d] - [%d] ", rotor1_speed, rotor2_speed, rotor3_speed, rotor4_speed);
 			}
@@ -95,8 +105,50 @@ int main(int argc, char **argv)
 			rotor_rsm_pub.publish(rsm_msg);
 			count++;
 		}
-		else if(frame.can_id == 0x12)
+		else if(frame.can_id == 0x12) // 1000hz
 		{
+			acc_x = frame.data[1]; acc_x |= frame.data[0] << 8;
+			acc_y = frame.data[3]; acc_y |= frame.data[2] << 8;
+			acc_z = frame.data[5]; acc_z |= frame.data[4] << 8;
+			acc_id = frame.data[7]; acc_id |= frame.data[6] << 8;
+
+			ROS_DEBUG("ACC X: %d\r\n", acc_x);
+			ROS_DEBUG("ACC Y: %d\r\n", acc_y);
+			ROS_DEBUG("ACC Z: %d\r\n", acc_z);
+			ROS_DEBUG("ACC ID: %d\r\n", acc_id);
+
+		}
+		else if(frame.can_id == 0x13) // 1000hz
+		{
+			gyro_x = frame.data[1]; gyro_x |= frame.data[0] << 8;
+			gyro_y = frame.data[3]; gyro_y |= frame.data[2] << 8;
+			gyro_z = frame.data[5]; gyro_z |= frame.data[4] << 8;
+			gyro_id = frame.data[7]; gyro_id |= frame.data[6] << 8;
+
+			ROS_DEBUG("GYRO X: %d\r\n", gyro_x);
+			ROS_DEBUG("GYRO Y: %d\r\n", gyro_y);
+			ROS_DEBUG("GYRO Z: %d\r\n", gyro_z);
+			ROS_DEBUG("GYRO ID: %d\r\n", gyro_id);
+
+			if(count_imu % 2000 == 0)
+			{
+				ROS_INFO("Acc - [%d] - [%d] - [%d] - Gyro - [%d] - [%d] - [%d]", acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z);
+			}
+
+			imu_msg.header.seq   = count;
+			imu_msg.header.stamp = ros::Time::now();
+			imu_msg.acc_x   = acc_x;
+			imu_msg.acc_y   = acc_y;
+			imu_msg.acc_z   = acc_z;
+			imu_msg.acc_id  = acc_id;
+			imu_msg.gyro_x  = gyro_x;
+			imu_msg.gyro_y  = gyro_y;
+			imu_msg.gyro_z  = gyro_z;
+			imu_msg.gyro_id = gyro_id;
+
+			rotor_imu_pub.publish(imu_msg);
+
+			count_imu++;
 
 		}
 		ros::spinOnce();

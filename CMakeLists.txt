@@ -42,7 +42,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp message_generation std_msgs geometry_msgs
 )
 
-add_message_files(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/msg" FILES Rsm.msg)
+add_message_files(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/msg" FILES Rsm.msg IMU.msg)
 generate_messages(DEPENDENCIES std_msgs geometry_msgs)
 include_directories(${catkin_INCLUDE_DIRS})
 catkin_package(
@@ -191,9 +191,9 @@ add_executable(Orin_rsm_uart app/Orin_rsm_uart.cpp)
 add_dependencies(Orin_rsm_uart ${YAML_CPP_LIBRARIES} hardware_lib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(Orin_rsm_uart hardware_lib ${catkin_LIBRARIES})   
 
-add_executable(Orin_rsm_can app/Orin_rsm_can.cpp)
-add_dependencies(Orin_rsm_can ${YAML_CPP_LIBRARIES} hardware_lib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(Orin_rsm_can hardware_lib ${catkin_LIBRARIES})   
+add_executable(Orin_board_can app/Orin_board_can.cpp)
+add_dependencies(Orin_board_can ${YAML_CPP_LIBRARIES} hardware_lib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(Orin_board_can hardware_lib ${catkin_LIBRARIES})   
 
 add_executable(Orin_rsm_transmit_can app/Orin_rsm_transmit_can.cpp)
 add_dependencies(Orin_rsm_transmit_can ${YAML_CPP_LIBRARIES} hardware_lib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
