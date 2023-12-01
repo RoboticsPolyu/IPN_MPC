@@ -1,2 +1,6 @@
 dev_name: /dev/ttyUSB0
-topic_name: /Quad13/Dynamics/RotorSpeed
+topic_name: /Quad13/Dynamics/RotorSpeedu
+rsm_topic_name: /Quad13/Dynamics/RotorSpeed
+imu_topic_name: /Quad13/Dynamics/IMU
+camera_counter_topic_name: /Quad13/Dynamics/CAM_COUNTER
+camera_data_path: /home/amov/CAMERA

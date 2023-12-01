@@ -93,6 +93,11 @@ find_package(yaml-cpp)
 include_directories(${YAML_CPP_INCLUDE_DIRS})
 include_directories("/home/amov/Mav/devel/include")
 
+# OpenCV
+find_package( OpenCV REQUIRED )
+include_directories( ${OpenCV_INCLUDE_DIRS} )
+
+
 set(WIO_SOURCE
     src/wio/wio_factor.cpp
     src/wio/wio_integration.cpp)
@@ -201,6 +206,9 @@ target_link_libraries(Orin_rsm_transmit_can hardware_lib ${catkin_LIBRARIES})
 
 add_executable(Orin_rotor_angular_speed_test app/Orin_rotor_angular_speed_test.cpp)
 target_link_libraries(Orin_rotor_angular_speed_test ${YAML_CPP_LIBRARIES})
+
+add_executable(Orin_csi_camera app/Orin_csi_camera.cpp)
+target_link_libraries(Orin_csi_camera ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES} ${OpenCV_LIBS})   
 
 install(TARGETS Orin_rsm_uart
         DESTINATION bin)
