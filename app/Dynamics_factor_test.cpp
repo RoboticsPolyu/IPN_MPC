@@ -33,10 +33,10 @@ int main(void)
     {
         double t = 0 + dt * idx;
 
-        m_state.x = circle_generator.pos(t);
+        m_state.p = circle_generator.pos(t);
         m_state.v = circle_generator.vel(t);
         m_state.rot = gtsam::Rot3::Expmap(circle_generator.theta(t));
-        m_state.omega = circle_generator.omega(t);
+        m_state.body_rate = circle_generator.omega(t);
         gtsam::Vector4 input = circle_generator.input(t);
         m_state.motor_rpm << input[0], input[1], input[2], input[3];
         ref_states.push_back(m_state);
@@ -96,18 +96,18 @@ int main(void)
         gtsam::Vector4 _input;
         if (idx == 0)
         {
-            m_state.x = circle_generator.pos(idx * dt) + gtsam::Vector3(0.0, 0.0, -0.10);
+            m_state.p = circle_generator.pos(idx * dt) + gtsam::Vector3(0.0, 0.0, -0.10);
             m_state.v = circle_generator.vel(idx * dt);
             m_state.rot = gtsam::Rot3::Expmap(circle_generator.theta(idx * dt));
-            m_state.omega = circle_generator.omega(idx * dt);
+            m_state.body_rate = circle_generator.omega(idx * dt);
             gtsam::Vector4 input = circle_generator.input(idx * dt);
             m_state.motor_rpm << input[0], input[1], input[2], input[3];
 
-            gtsam::Pose3 ref_pose(m_state.rot, m_state.x);
+            gtsam::Pose3 ref_pose(m_state.rot, m_state.p);
 
             graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx), ref_pose, vicon_noise));
             graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx), m_state.v, vel_noise));
-            graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), m_state.omega, omega_noise));
+            graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), m_state.body_rate, omega_noise));
 
             initial_value.insert(X(idx), ref_pose);
             initial_value.insert(V(idx), circle_generator.vel(idx * dt));
@@ -153,12 +153,12 @@ int main(void)
                   << ref_omega.transpose() << std::endl;
 
         Quadrotor::State state_;
-        state_.x = i_pose.translation();
+        state_.p = i_pose.translation();
         state_.rot = i_pose.rotation();
         quad_.setState(state_);
         quad_.renderHistoryTrj();
 
-        state_.x = ref_pose.translation();
+        state_.p = ref_pose.translation();
         state_.rot = ref_pose.rotation();
         opt_trj.push_back(state_);
 
@@ -173,10 +173,10 @@ int main(void)
             if (ikey == 0)
             {
                 
-                m_state.x = i_pose.translation();
+                m_state.p = i_pose.translation();
                 m_state.rot = i_pose.rotation();
                 m_state.v = vel;
-                m_state.omega = omega;
+                m_state.body_rate = omega;
                 
                 quad_.setState(m_state);
                 quad_.setInput(input[0], input[1], input[2], input[3]);
@@ -185,10 +185,10 @@ int main(void)
                 std::cout << "RUNNING: \n"
                           << std::endl;
                 m_state = quad_.getState();
-                std::cout << "new statex: " << m_state.x.transpose() << std::endl;
+                std::cout << "new statex: " << m_state.p.transpose() << std::endl;
                 std::cout << "new stater: " << Rot3::Logmap(m_state.rot).transpose() << std::endl;
                 std::cout << "new statev: " << m_state.v.transpose() << std::endl;
-                std::cout << "new stateomega: " << m_state.omega.transpose() << std::endl;
+                std::cout << "new stateomega: " << m_state.body_rate.transpose() << std::endl;
             }
         }
         std::cout << def;

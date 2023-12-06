@@ -31,7 +31,7 @@ typedef struct State
     double         timestamp;
     gtsam::Pose3   pose;
     gtsam::Vector3 vel;
-    gtsam::Vector3 omega;
+    gtsam::Vector3 body_rate;
     gtsam::Vector4 actuator_output;
 
 } State;
@@ -47,8 +47,7 @@ typedef struct Actuator_control
 // Pose slerp interpolation
 Pose3 interpolateRt(const::Pose3& T_l, const Pose3& T, double t) 
 {
-    return Pose3(gtsam::interpolate<Rot3>(T_l.rotation(), T.rotation(), t), 
-        gtsam::interpolate<Point3>(T_l.translation(), T.translation(), t));
+    return Pose3(gtsam::interpolate<Rot3>(T_l.rotation(), T.rotation(), t), gtsam::interpolate<Point3>(T_l.translation(), T.translation(), t));
 }
 
 int main(void)
@@ -83,15 +82,15 @@ int main(void)
     auto vel_noise    = noiseModel::Diagonal::Sigmas(Vector3(0.0001, 0.0001, 0.0001));
     auto ang_s_noise  = noiseModel::Diagonal::Sigmas(Vector3(0.0001, 0.0001, 0.0001));
 
-    auto dyn_noise   = noiseModel::Diagonal::Sigmas((Vector(12) << thrust_sigma * 0.5f * dt * dt, Vector3::Constant(0.0005 * 0.01), 
+    auto dyn_noise    = noiseModel::Diagonal::Sigmas((Vector(12) << thrust_sigma * 0.5f * dt * dt, Vector3::Constant(0.0005 * 0.01), 
                                                                    thrust_sigma * dt, moments_sigma * dt).finished());
-    auto vicon_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.0005), Vector3::Constant(0.001)).finished());
+    auto vicon_noise  = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.0005), Vector3::Constant(0.001)).finished());
 
-    auto im_noise    = noiseModel::Diagonal::Sigmas(Vector3(0.000001, 0.000001, 0.000001));
-    auto rp_noise    = noiseModel::Diagonal::Sigmas(Vector3(0.00001, 0.00001, 0.00001));
-    auto gr_noise    = noiseModel::Diagonal::Sigmas(Vector3(0.0001, 0.0001, 0.0001));
-    auto km_noise    = noiseModel::Diagonal::Sigmas(Vector1(0.00001));
-    auto bm_nosie    = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.00001), Vector3::Constant(0.00001)).finished());
+    auto im_noise     = noiseModel::Diagonal::Sigmas(Vector3(0.000001, 0.000001, 0.000001));
+    auto rp_noise     = noiseModel::Diagonal::Sigmas(Vector3(0.00001, 0.00001, 0.00001));
+    auto gr_noise     = noiseModel::Diagonal::Sigmas(Vector3(0.0001, 0.0001, 0.0001));
+    auto km_noise     = noiseModel::Diagonal::Sigmas(Vector1(0.00001));
+    auto bm_nosie     = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.00001), Vector3::Constant(0.00001)).finished());
 
     std::ofstream calib_log;
     std::string file_name = "../data/calib_";
@@ -118,7 +117,7 @@ int main(void)
         _state.timestamp   = gt_t;
         _state.pose        = gtsam::Pose3(gtsam::Quaternion(gt_qw, gt_qx, gt_qy, gt_qz), gtsam::Vector3(gt_x, gt_y, gt_z));
         _state.vel         = gtsam::Vector3(vel_x, vel_y, vel_z);
-        _state.omega       = gtsam::Vector3(ang_vel_x, ang_vel_y, ang_vel_z);
+        _state.body_rate       = gtsam::Vector3(ang_vel_x, ang_vel_y, ang_vel_z);
         _state.actuator_output = gtsam::Vector4(pwm1, pwm2, pwm3, pwm4);
 
         // std::cout << "_state.actuator_output: " << _state.actuator_output.transpose() << "\n";
@@ -152,21 +151,21 @@ int main(void)
 
         dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx), Interp_states.at(idx).pose, vicon_noise));
         // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx), Interp_states.at(idx).vel, vel_noise));
-        // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), Interp_states.at(idx).omega, ang_s_noise));
+        // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), Interp_states.at(idx).body_rate, ang_s_noise));
 
         initial_value_dyn.insert(X(idx), Interp_states.at(idx).pose);
         initial_value_dyn.insert(V(idx), Interp_states.at(idx).vel);
-        initial_value_dyn.insert(S(idx), Interp_states.at(idx).omega);
+        initial_value_dyn.insert(S(idx), Interp_states.at(idx).body_rate);
 
         if( idx == DATASET_LENS-1)
         {
             dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx+1), Interp_states.at(idx+1).pose,  vicon_noise));
             // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx), Interp_states.at(idx+1).vel, vel_noise));
-            // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), Interp_states.at(idx+1).omega, ang_s_noise));
+            // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), Interp_states.at(idx+1).body_rate, ang_s_noise));
 
             initial_value_dyn.insert(X(idx+1), Interp_states.at(idx+1).pose);
             initial_value_dyn.insert(V(idx+1), Interp_states.at(idx+1).vel);
-            initial_value_dyn.insert(S(idx+1), Interp_states.at(idx+1).omega);
+            initial_value_dyn.insert(S(idx+1), Interp_states.at(idx+1).body_rate);
         }
         
         // pose, velocity, angular speed, pose, velocity, angular speed, inertial of moments, rot of g, position of rotot, kf, km        

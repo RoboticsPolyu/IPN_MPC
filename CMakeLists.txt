@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
-project(MPC_FGO)
+project(IPN_MPC)
 
 option(BUILD_SHARED_LIBS "Build shared gtsam library, instead of static" ON)
+option(BUILD_HARDWARE    "Enable Hardware Support" OFF)
+option(BUILD_WITH_ROS    "Enable Ros Support" OFF)
+
 
 set(wio_factor_version 1.0)
 set(wio_factor_soversion 1.0)
@@ -28,13 +31,29 @@ if(APPLE)
 endif()
 
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -Wno-reorder" CACHE STRING "" FORCE)
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -DNDEBUG -Wno-reorder -O2" CACHE STRING "" FORCE)
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -fpermissive -Wno-reorder" CACHE STRING "" FORCE)
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -fpermissive -DNDEBUG -Wno-reorder -O2" CACHE STRING "" FORCE)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "/usr/local/cmake/lib/cmake")
 
-# third party libs
+if(BUILD_WITH_ROS)
+find_package(catkin REQUIRED COMPONENTS
+  roscpp message_generation std_msgs geometry_msgs
+)
+
+add_message_files(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/msg" FILES IMU.msg INPUT.msg Rsm.msg)
+generate_messages(DEPENDENCIES std_msgs geometry_msgs)
+include_directories(${catkin_INCLUDE_DIRS})
+catkin_package(
+    CATKIN_DEPENDS 
+    roscpp 
+    mavros_msgs
+    message_runtime 
+    std_msgs 
+    geometry_msgs)
+endif()
+
 # Eigen
 find_package(Eigen3 REQUIRED NO_MODULE)
 include_directories(${EIGEN3_INCLUDE_DIR})
@@ -72,6 +91,12 @@ find_package(OsqpEigen REQUIRED)
 # Find yaml-cpp
 find_package(yaml-cpp)
 include_directories(${YAML_CPP_INCLUDE_DIRS})
+include_directories("/home/amov/Mav/devel/include")
+
+# OpenCV
+find_package( OpenCV REQUIRED )
+include_directories( ${OpenCV_INCLUDE_DIRS} )
+
 
 set(WIO_SOURCE
     src/wio/wio_factor.cpp
@@ -95,7 +120,7 @@ add_library(quadrotor_dynamics
             include/gtsam_wrapper.h
             src/calibration/Calibration_factor.cpp
             src/calibration/Calibration_inertial.cpp
-            src/control/SE3_controller.cpp
+            src/control/Minimum_snap_controller.cpp
             src/dynamics/Dynamics_control_factor.cpp
             src/dynamics/Dynamics_factor.cpp
             src/env_sensors_sim/IMU.cpp
@@ -103,8 +128,17 @@ add_library(quadrotor_dynamics
             src/env_sensors_sim/Lidar.cpp
             src/dynamics/Quadrotor_SO3.cpp
             src/trajectory_generator/Trajectory_generator.cpp)
-            
+
 target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES} PRIVATE osqp::osqp OsqpEigen::OsqpEigen )
+
+if(BUILD_HARDWARE)
+add_library(hardware_lib 
+            src/hardware/uart.cpp
+            src/hardware/mavros_middleware.cpp
+            )
+            
+target_link_libraries(hardware_lib PUBLIC ${YAML_CPP_LIBRARIES})
+endif(BUILD_HARDWARE)
 
 add_executable(test_dynamics src/test_dynamics/test_dynamics.cpp)
 target_link_libraries(test_dynamics gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})
@@ -156,3 +190,36 @@ add_executable(Motor_calibration app/Motor_calibration.cpp)
 target_link_libraries(Motor_calibration quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
 
+if(BUILD_WITH_ROS)
+
+add_executable(Traj_load_run_px4 app/Traj_load_run_px4.cpp)
+target_link_libraries(Traj_load_run_px4 gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})   
+
+if(BUILD_HARDWARE)
+
+add_executable(Orin_rotor_angular_speed app/Orin_rotor_angular_speed.cpp)
+target_link_libraries(Orin_rotor_angular_speed ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})    
+
+add_executable(Orin_rsm_uart app/Orin_rsm_uart.cpp)
+add_dependencies(Orin_rsm_uart ${YAML_CPP_LIBRARIES} hardware_lib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(Orin_rsm_uart hardware_lib ${catkin_LIBRARIES})   
+
+add_executable(Orin_board_can app/Orin_board_can.cpp)
+add_dependencies(Orin_board_can ${YAML_CPP_LIBRARIES} hardware_lib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(Orin_board_can hardware_lib ${catkin_LIBRARIES})   
+
+add_executable(Orin_rsm_transmit_can app/Orin_rsm_transmit_can.cpp)
+add_dependencies(Orin_rsm_transmit_can ${YAML_CPP_LIBRARIES} hardware_lib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(Orin_rsm_transmit_can hardware_lib ${catkin_LIBRARIES})   
+
+add_executable(Orin_rotor_angular_speed_test app/Orin_rotor_angular_speed_test.cpp)
+target_link_libraries(Orin_rotor_angular_speed_test ${YAML_CPP_LIBRARIES})
+
+add_executable(Orin_csi_camera app/Orin_csi_camera.cpp)
+target_link_libraries(Orin_csi_camera ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES} ${OpenCV_LIBS})   
+
+install(TARGETS Orin_rsm_uart
+        DESTINATION bin)
+        
+endif(BUILD_HARDWARE)
+endif(BUILD_WITH_ROS)

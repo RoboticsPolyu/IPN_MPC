@@ -146,19 +146,19 @@ int main(void)
 
         if(traj_idx == 0)
         {
-            predicted_state.x            =  circle_generator.pos(t0);
+            predicted_state.p            =  circle_generator.pos(t0);
             predicted_state.rot          = gtsam::Rot3::Expmap(circle_generator.theta(t0));
             predicted_state.v            = circle_generator.vel(t0);
-            predicted_state.omega        = circle_generator.omega(t0);
-            predicted_state.force_moment = circle_generator.inputfm(t0);
+            predicted_state.body_rate        = circle_generator.omega(t0);
+            predicted_state.thrust_torque = circle_generator.inputfm(t0);
             quadrotor.setState(predicted_state);
         }
         
         if(traj_idx == 50 && TEST_RECOVERY)
         {
-            predicted_state.x[0] = predicted_state.x[0] + MOVE_X;
-            predicted_state.x[1] = predicted_state.x[1] + MOVE_Y;
-            predicted_state.x[2] = predicted_state.x[2] + MOVE_Z;
+            predicted_state.p[0] = predicted_state.p[0] + MOVE_X;
+            predicted_state.p[1] = predicted_state.p[1] + MOVE_Y;
+            predicted_state.p[2] = predicted_state.p[2] + MOVE_Z;
             quadrotor.setState(predicted_state);
         }
 
@@ -171,24 +171,24 @@ int main(void)
         gtsam::Vector3 pos_noise     = gtsam::Vector3(position_noise(meas_x_gen), position_noise(meas_y_gen), position_noise(meas_z_gen));
         gtsam::Vector3 vel_noise_add = gtsam::Vector3(velocity_noise(meas_vx_gen), velocity_noise(meas_vy_gen), velocity_noise(meas_vz_gen));
         
-        vicon_measurement      = predicted_state.x + pos_noise;
+        vicon_measurement      = predicted_state.p + pos_noise;
         gtsam::Vector3 vel_add = predicted_state.v + vel_noise_add;
         
-        // vicon_measurement = predicted_state.x;
+        // vicon_measurement = predicted_state.p;
         // gtsam::Vector3 vel_add = predicted_state.v;
 
         Quadrotor::State m_state;
-        m_state.x     = vicon_measurement;
+        m_state.p     = vicon_measurement;
         m_state.rot   = predicted_state.rot;
         m_state.v     = vel_add;
-        m_state.omega = predicted_state.omega;
+        m_state.body_rate = predicted_state.body_rate;
 
         measurements.push_back(m_state);
 
 
         if(traj_idx > 0)
         {
-            gtsam::Pose3 lidar_pR(last_state.rot.inverse()* predicted_state.rot, last_state.rot.unrotate(predicted_state.x - last_state.x));
+            gtsam::Pose3 lidar_pR(last_state.rot.inverse()* predicted_state.rot, last_state.rot.unrotate(predicted_state.p - last_state.p));
             lidar_measures.push_back(lidar_pR);
         }
 
@@ -257,12 +257,12 @@ int main(void)
                     if(idx == WINDOW_SIZE - 1 )
                     {
                         graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx), measurements[idx].v, vel_noise));
-                        graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), measurements[idx].omega, omega_noise));
+                        graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), measurements[idx].body_rate, omega_noise));
                         initial_value.insert(V(idx), measurements[idx].v);
-                        initial_value.insert(S(idx), measurements[idx].omega);
+                        initial_value.insert(S(idx), measurements[idx].body_rate);
                     }
 
-                    graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx), gtsam::Pose3(measurements[idx].rot, measurements[idx].x), vicon_noise));
+                    graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx), gtsam::Pose3(measurements[idx].rot, measurements[idx].p), vicon_noise));
                     
                     if(idx > 0)
                     {
@@ -270,7 +270,7 @@ int main(void)
                         graph.add(gtsam::BetweenFactor<gtsam::Pose3>(X(idx-1), X(idx), lidar_measures[idx], bet_noise));
                     }
 
-                    initial_value.insert(X(idx), gtsam::Pose3(measurements[idx].rot, measurements[idx].x) );
+                    initial_value.insert(X(idx), gtsam::Pose3(measurements[idx].rot, measurements[idx].p) );
                     
                 }
 
@@ -331,7 +331,7 @@ int main(void)
                     //                 << circle_generator.inputfm(t_ref).transpose() << std::endl;
                     // }
                     Quadrotor::State m_state;
-                    m_state.x = i_pose.translation();
+                    m_state.p = i_pose.translation();
                     if(ikey < WINDOW_SIZE)
                     {
                         state_trj.push_back(m_state);
@@ -346,7 +346,7 @@ int main(void)
             }
 
             input = result.at<gtsam::Vector4>(U(WINDOW_SIZE-1));
-            predicted_state.force_moment = input;
+            predicted_state.thrust_torque = input;
             predicted_state.timestamp = t0 + dt;
             last_state = predicted_state;
             quadrotor.setState(predicted_state);
@@ -357,7 +357,7 @@ int main(void)
         else
         {
             input = circle_generator.inputfm(t0 - dt);
-            predicted_state.force_moment = input;
+            predicted_state.thrust_torque = input;
             predicted_state.timestamp = t0 + dt;
             last_state = predicted_state;
             quadrotor.setState(predicted_state);
@@ -367,7 +367,7 @@ int main(void)
         }
 
         predicted_state = quadrotor.getState();
-        gtsam::Pose3 predicted_pose = gtsam::Pose3(predicted_state.rot, predicted_state.x);
+        gtsam::Pose3 predicted_pose = gtsam::Pose3(predicted_state.rot, predicted_state.p);
 
         std::cout << "predicted_pose: " << predicted_pose.translation() << std::endl;
 
@@ -379,7 +379,7 @@ int main(void)
         gtsam::Vector3 tar_omega        = circle_generator.omega(t0 + 1 * dt);
         gtsam::Vector4 ref_input        = circle_generator.inputfm(t0);
 
-        gtsam::Vector3 err              = predicted_state.x - tar_position;
+        gtsam::Vector3 err              = predicted_state.p - tar_position;
         gtsam::Vector3 pred_theta       = gtsam::Rot3::Logmap(predicted_state.rot);
         gtsam::Vector3 rot_err          = tar_rotation.rpy() - predicted_state.rot.rpy();
         gtsam::Vector4 actuator_outputs = quadrotor.CumputeRotorsVel();
@@ -401,7 +401,7 @@ int main(void)
         JEC_log << predicted_pose.translation().x() << " " << predicted_pose.translation().y() << " " << predicted_pose.translation().z() << " " 
             << predicted_state.rot.rpy().x() << " " << predicted_state.rot.rpy().y() << " " << predicted_state.rot.rpy().z() << " " 
             << predicted_state.v.x() << " " << predicted_state.v.y() << " " << predicted_state.v.z() << " "
-            << predicted_state.omega.x() << " " << predicted_state.omega.y() << " " << predicted_state.omega.z() << " " 
+            << predicted_state.body_rate.x() << " " << predicted_state.body_rate.y() << " " << predicted_state.body_rate.z() << " " 
             << input[0] << " " << input[1] << " " << input[2] << " " << input[3] << " "
             << tar_position.x() << " " << tar_position.y() << " " << tar_position.z() << " "
             << tar_rotation.rpy().x() << " " << tar_rotation.rpy().y() << " " << tar_rotation.rpy().z() << " "

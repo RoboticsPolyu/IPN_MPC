@@ -7,6 +7,19 @@
 
 using namespace UAVFactor;
 
+typedef struct traj_state
+{
+    double            t;
+    gtsam::Vector3    pos;
+    gtsam::Vector3    vel;
+    gtsam::Quaternion rotation;
+    gtsam::Vector3    angular_speed;
+    gtsam::Vector3    acc;
+    gtsam::Vector3    a_rot;
+    gtsam::Vector4    motor;
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+}traj_state;
+
 namespace Trajectory
 {
     template <class T>
