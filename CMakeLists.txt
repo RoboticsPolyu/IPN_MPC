@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 project(IPN_MPC)
 
 option(BUILD_SHARED_LIBS "Build shared gtsam library, instead of static" ON)
-option(BUILD_HARDWARE "Enable Hardware Support" ON)
-option(BUILD_WITH_ROS "Enable Ros Support" ON)
+option(BUILD_HARDWARE    "Enable Hardware Support" ON)
+option(BUILD_WITH_ROS    "Enable Ros Support" ON)
 
 
 set(wio_factor_version 1.0)
@@ -42,7 +42,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp message_generation std_msgs geometry_msgs
 )
 
-add_message_files(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/msg" FILES Rsm.msg IMU.msg)
+add_message_files(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/msg" FILES IMU.msg INPUT.msg Rsm.msg)
 generate_messages(DEPENDENCIES std_msgs geometry_msgs)
 include_directories(${catkin_INCLUDE_DIRS})
 catkin_package(
@@ -121,7 +121,7 @@ add_library(quadrotor_dynamics
             src/calibration/Calibration_factor.cpp
             src/calibration/Calibration_inertial.cpp
             src/calibration/Dynamics_calib.cpp
-            src/control/SE3_controller.cpp
+            src/control/Minimum_snap_controller.cpp
             src/dynamics/Dynamics_control_factor.cpp
             src/dynamics/Dynamics_factor.cpp
             src/env_sensors_sim/IMU.cpp
@@ -135,6 +135,7 @@ target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable ${Pangolin_
 
 add_library(hardware_lib 
             src/hardware/uart.cpp
+            src/hardware/mavros_middleware.cpp
             )
             
 target_link_libraries(hardware_lib PUBLIC ${YAML_CPP_LIBRARIES})

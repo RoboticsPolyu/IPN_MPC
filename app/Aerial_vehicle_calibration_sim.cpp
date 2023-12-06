@@ -37,13 +37,13 @@ typedef struct State
 
 } State;
 
-typedef struct Uav_pwm
+typedef struct Quad_pwm
 {
     int            id;
     double         timestamp;
     gtsam::Vector4 actuator_output;
 
-} Uav_pwm;
+} Quad_pwm;
 
 // Pose slerp interpolation
 Pose3 interpolateRt(const::Pose3& T_l, const Pose3& T, double t) 
@@ -112,13 +112,13 @@ int main(void)
 
     std::vector<State>   Interp_states;
     std::vector<State>   Uav_states;
-    std::vector<Uav_pwm> Uav_pwms;
+    std::vector<Quad_pwm> Uav_pwms;
 
     Quadrotor quad;
     Quadrotor::State state_0;
     Quadrotor::State state_1;
 
-    state_0.x     = gtsam::Vector3(0,0,0);
+    state_0.p     = gtsam::Vector3(0,0,0);
     state_0.rot   = gtsam::Rot3::identity();
     state_0.v     = gtsam::Vector3(0,0,0);
     state_0.omega = gtsam::Vector3(0,0,0);
@@ -142,24 +142,24 @@ int main(void)
         // gtsam::Vector4 input_ = circle_generator.input(timestamp_cur);
         // gtsam::Vector4 thrust_moment4 = circle_generator.inputfm(timestamp_cur);
 
-        Uav_pwm _uav_pwm;
+        Quad_pwm _uav_pwm;
         _uav_pwm.timestamp       = timestamp_cur;
         _uav_pwm.actuator_output = rand_actuator; // input_
         Uav_pwms.push_back(_uav_pwm);
 
         State _state;
         _state.timestamp   = timestamp_cur;
-        _state.pose        = gtsam::Pose3(state_1.rot, state_1.x);
+        _state.pose        = gtsam::Pose3(state_1.rot, state_1.p);
         // gtsam::Pose3(Rot3::Expmap(circle_generator.theta(timestamp_cur)),circle_generator.pos(timestamp_cur));
         _state.vel         = state_1.v; // circle_generator.vel(timestamp_cur);
-        _state.omega       = state_1.omega; // circle_generator.omega(timestamp_cur);
+        _state.body_rate   = state_1.body_rate; // circle_generator.omega(timestamp_cur);
 
         _state.actuator_output = rand_actuator;// input_;
 
         // _state.timestamp   = timestamp_cur;
         // _state.pose        = gtsam::Pose3(Rot3::Expmap(circle_generator.theta(timestamp_cur)),circle_generator.pos(timestamp_cur));
         // _state.vel         = circle_generator.vel(timestamp_cur);
-        // _state.omega       = circle_generator.omega(timestamp_cur);
+        // _state.body_rate       = circle_generator.omega(timestamp_cur);
 
         // _state.actuator_output = input_;
 
@@ -183,14 +183,14 @@ int main(void)
 
         initial_value_dyn.insert(X(idx), Interp_states.at(idx).pose);
         initial_value_dyn.insert(V(idx), Interp_states.at(idx).vel);
-        initial_value_dyn.insert(S(idx), Interp_states.at(idx).omega);
+        initial_value_dyn.insert(S(idx), Interp_states.at(idx).body_rate);
 
-        if( idx == DATASET_LENS-1)
+        if( idx == DATASET_LENS - 1 )
         {
             dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx+1), Interp_states.at(idx+1).pose,  vicon_noise));
             initial_value_dyn.insert(X(idx+1), Interp_states.at(idx+1).pose);
             initial_value_dyn.insert(V(idx+1), Interp_states.at(idx+1).vel);
-            initial_value_dyn.insert(S(idx+1), Interp_states.at(idx+1).omega);
+            initial_value_dyn.insert(S(idx+1), Interp_states.at(idx+1).body_rate);
         }
         
         // pose, velocity, angular speed, thrust_moments, pose, velocity, angular speed, inertial of moments, rot of g
@@ -234,7 +234,7 @@ int main(void)
         // gtsam::Vector6 t_t = result.at<gtsam::Vector6>(T(idx));
         DynamcisCaliFactor_RS dyn_err(X(idx), V(idx), S(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), P(0), K(0), M(0), D(0), Interp_states.at(idx).actuator_output, dt, quad_params.mass, dyn_noise);
         // DynamcisCaliFactor_TM dyn_err(X(idx), V(idx), S(idx), T(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), dt, quad_params.mass, dyn_noise);
-        gtsam::Vector12 dyn_e = dyn_err.evaluateError(Interp_states.at(idx).pose, Interp_states.at(idx).vel, Interp_states.at(idx).omega, Interp_states.at(idx+1).pose, Interp_states.at(idx+1).vel, Interp_states.at(idx+1).omega, IM, rot, p, kf, mf, bTm);
+        gtsam::Vector12 dyn_e = dyn_err.evaluateError(Interp_states.at(idx).pose, Interp_states.at(idx).vel, Interp_states.at(idx).body_rate, Interp_states.at(idx+1).pose, Interp_states.at(idx+1).vel, Interp_states.at(idx+1).body_rate, IM, rot, p, kf, mf, bTm);
 
         gtsam::Pose3          pose = result.at<gtsam::Pose3>(X(idx));
         gtsam::Vector3 dyn_pos_err = pose.rotation() * gtsam::Vector3(dyn_e(0), dyn_e(1), dyn_e(2)) / quad_params.mass;

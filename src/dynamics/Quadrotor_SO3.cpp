@@ -28,10 +28,10 @@ namespace QuadrotorSim_SO3
         max_rpm_             = 35000;
         esc_factor_          = 1;
 
-        state_.x         = Eigen::Vector3d::Zero();     // position
+        state_.p         = Eigen::Vector3d::Zero();     // position
         state_.v         = Eigen::Vector3d::Zero();     // velocity
         state_.rot       = gtsam::Rot3::identity();   // altitude
-        state_.omega     = Eigen::Vector3d::Zero(); // angular velocity
+        state_.body_rate = Eigen::Vector3d::Zero(); // angular velocity
         state_.motor_rpm = Eigen::Array4d::Zero();
 
         last_state_      = state_;
@@ -43,7 +43,7 @@ namespace QuadrotorSim_SO3
 
         record_info_.open("../data/record_info.txt");
 
-        YAML::Node config   = YAML::LoadFile("../config/quadrotor.yaml");
+        YAML::Node config    = YAML::LoadFile("../config/quadrotor.yaml");
         THRUST_NOISE_MEAN   = config["THRUST_NOISE_MEAN"].as<double>();
         THRUST_NOISE_COV    = config["THRUST_NOISE_COV"].as<double>();
         ANGULAR_SPEED_MEAN  = config["ANGULAR_SPEED_MEAN"].as<double>();
@@ -65,10 +65,10 @@ namespace QuadrotorSim_SO3
 
         double thrust = kf_ * motor_rpm_sq.sum();
 
-        Eigen::Vector3d moments;
-        moments(0) = kf_ * (motor_rpm_sq(2) - motor_rpm_sq(3)) * arm_length_;
-        moments(1) = kf_ * (motor_rpm_sq(1) - motor_rpm_sq(0)) * arm_length_;
-        moments(2) = km_ * (motor_rpm_sq(0) + motor_rpm_sq(1) - motor_rpm_sq(2) - motor_rpm_sq(3));
+        Eigen::Vector3d torque;
+        torque(0) = kf_ * (motor_rpm_sq(2) - motor_rpm_sq(3)) * arm_length_;
+        torque(1) = kf_ * (motor_rpm_sq(1) - motor_rpm_sq(0)) * arm_length_;
+        torque(2) = km_ * (motor_rpm_sq(0) + motor_rpm_sq(1) - motor_rpm_sq(2) - motor_rpm_sq(3));
 
         vnorm = state_.v;
         if (vnorm.norm() != 0)
@@ -82,38 +82,38 @@ namespace QuadrotorSim_SO3
 
         Eigen::Vector3d p_dot = state_.v;
 
-        // J* omega_dot = moments - J.cross(J* omega)
-        Eigen::Vector3d omega_dot = J_.inverse() * (moments - state_.omega.cross(J_ * state_.omega) + external_moment_);
+        // J* body_rate_dot = torque - J.cross(J* body_rate)
+        Eigen::Vector3d body_rate_dot = J_.inverse() * (torque - state_.body_rate.cross(J_ * state_.body_rate) + external_moment_);
 
 
         // Predict state
-        predicted_state_.x         = state_.x + p_dot * dt;                                                   
+        predicted_state_.p         = state_.p + p_dot * dt;                                                   
         predicted_state_.v         = state_.v + v_dot * dt;                                                    
-        predicted_state_.rot       = state_.rot * gtsam::Rot3::Expmap(state_.omega * dt);
-        predicted_state_.omega     = state_.omega + omega_dot * dt;                                        
+        predicted_state_.rot       = state_.rot * gtsam::Rot3::Expmap(state_.body_rate * dt);
+        predicted_state_.body_rate     = state_.body_rate + body_rate_dot * dt;                                        
         predicted_state_.motor_rpm = state_.motor_rpm;
 
         state_ = predicted_state_;
         // Don't go below zero, simulate floor
-        if (state_.x(2) < 0.0 && state_.v(2) < 0)
+        if (state_.p(2) < 0.0 && state_.v(2) < 0)
         {
-            state_.x(2) = 0;
+            state_.p(2) = 0;
             state_.v(2) = 0;
         }
     }
 
     void Quadrotor::operator()(const Quadrotor::stateType &x, Quadrotor::stateType &dxdt, const double t)
     {
-        State cur_state;
+        State est_state;
         Eigen::Matrix3d cur_rotm;
         for (int i = 0; i < 3; i++)
         {
-            cur_state.x(i)     = x[0 + i];
-            cur_state.v(i)     = x[3 + i];
+            est_state.p(i)     = x[0 + i];
+            est_state.v(i)     = x[3 + i];
             cur_rotm(i, 0)     = x[6 + i];
             cur_rotm(i, 1)     = x[9 + i];
             cur_rotm(i, 2)     = x[12 + i];
-            cur_state.omega(i) = x[15 + i];
+            est_state.body_rate(i) = x[15 + i];
         }
 
         // Re-orthonormalize R (polar decomposition)
@@ -121,7 +121,7 @@ namespace QuadrotorSim_SO3
         Eigen::Matrix3d P = llt.matrixL();
         Eigen::Matrix3d R = cur_rotm * P.inverse();
 
-        cur_state.rot = gtsam::Rot3(R);
+        est_state.rot = gtsam::Rot3(R);
 
         Eigen::Vector3d vnorm;
 
@@ -132,23 +132,23 @@ namespace QuadrotorSim_SO3
 
         Eigen::Vector3d moment(x[19], x[20], x[21]); // cur moment
 
-        vnorm = cur_state.v;
+        vnorm = est_state.v;
         if (vnorm.norm() != 0)
         {
             vnorm.normalize();
         }
 
-        Eigen::Vector3d drag_force = - cur_state.rot.matrix() * Eigen::Matrix3d(drag_force_params_.asDiagonal()) * cur_state.rot.matrix().transpose() * cur_state.v;
+        Eigen::Vector3d drag_force = - est_state.rot.matrix() * Eigen::Matrix3d(drag_force_params_.asDiagonal()) * est_state.rot.matrix().transpose() * est_state.v;
         
-        Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) + cur_state.rot.rotate(gtsam::Vector3(0, 0, thrust / mass_)) +
+        Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) + est_state.rot.rotate(gtsam::Vector3(0, 0, thrust / mass_)) +
                                 external_force_ / mass_ + drag_force / mass_;
 
-        Eigen::Vector3d p_dot = cur_state.v;
+        Eigen::Vector3d p_dot = est_state.v;
 
-        Eigen::Matrix3d r_dot = cur_state.rot.matrix() * gtsam::skewSymmetric(cur_state.omega);
+        Eigen::Matrix3d r_dot = est_state.rot.matrix() * gtsam::skewSymmetric(est_state.body_rate);
 
-        // J* omega_dot = moment - J.cross(J* omega)
-        Eigen::Vector3d omega_dot = J_.inverse() * (moment - cur_state.omega.cross(J_ * cur_state.omega) + external_moment_);
+        // J* body_rate_dot = moment - J.cross(J* body_rate)
+        Eigen::Vector3d body_rate_dot = J_.inverse() * (moment - est_state.body_rate.cross(J_ * est_state.body_rate) + external_moment_);
 
         for (int i = 0; i < 3; i++)
         {
@@ -157,12 +157,12 @@ namespace QuadrotorSim_SO3
             dxdt[6 + i]  = r_dot(i, 0);
             dxdt[9 + i]  = r_dot(i, 1);
             dxdt[12 + i] = r_dot(i, 2);
-            dxdt[15 + i] = omega_dot(i);
+            dxdt[15 + i] = body_rate_dot(i);
         }
 
         for (int i = 0; i < 4; i++)
         {
-            dxdt[18 + i] = (force_moment_[i] - state_.force_moment[i]) / 0.01f;
+            dxdt[18 + i] = (thrust_torque_[i] - state_.thrust_torque[i]) / 0.01f;
         }
 
         for (int i = 0; i < 22; ++i)
@@ -181,40 +181,40 @@ namespace QuadrotorSim_SO3
         Eigen::Matrix3d r = state_.rot.matrix();
         for (int i = 0; i < 3; i++)
         {
-            x[0 + i] = state_.x(i);
+            x[0 + i] = state_.p(i);
             x[3 + i] = state_.v(i);
             x[6 + i] = r(i, 0);
             x[9 + i] = r(i, 1);
             x[12 + i] = r(i, 2);
-            x[15 + i] = state_.omega(i);
+            x[15 + i] = state_.body_rate(i);
         }
 
         // float sin_force = 0.1* sin()
-        state_.force_moment[0] = state_.force_moment[0];
+        state_.thrust_torque[0] = state_.thrust_torque[0];
 
         for (int i = 0; i < 4; i++)
         {
 
-            x[18 + i] = state_.force_moment[i];
+            x[18 + i] = state_.thrust_torque[i];
         }
 
-        force_moment_ = fm; // control at future dt.
+        thrust_torque_ = fm; // control at future dt.
         integrate(boost::ref(*this), x, 0.0, dt, dt);
 
         Eigen::Matrix3d cur_rotm;
         for (int i = 0; i < 3; i++)
         {
-            state_.x(i)     = x[0 + i];
+            state_.p(i)     = x[0 + i];
             state_.v(i)     = x[3 + i];
             cur_rotm(i, 0)  = x[6 + i];
             cur_rotm(i, 1)  = x[9 + i];
             cur_rotm(i, 2)  = x[12 + i];
-            state_.omega(i) = x[15 + i];
+            state_.body_rate(i) = x[15 + i];
         }
 
         for (int i = 0; i < 4; i++)
         {
-            state_.force_moment[i] = x[18 + i];
+            state_.thrust_torque[i] = x[18 + i];
         }
 
         // Re-orthonormalize R (polar decomposition)
@@ -227,9 +227,9 @@ namespace QuadrotorSim_SO3
         std::normal_distribution<double> angular_speed_noise(ANGULAR_SPEED_MEAN, ANGULAR_SPEED_COV);
         gtsam::Vector3 ome_noise = gtsam::Vector3(angular_speed_noise(generator_), angular_speed_noise(generator_), 0.01* angular_speed_noise(generator_));
 
-        state_.x = state_.x;
+        state_.p = state_.p;
         state_.v = state_.v;
-        state_.omega = state_.omega + ome_noise;
+        state_.body_rate = state_.body_rate + ome_noise;
 
         // printCurState();
     }
@@ -260,7 +260,7 @@ namespace QuadrotorSim_SO3
         effectiveness_ = ComputeEffectivenessMatrix();
 
         Eigen::Vector4d thrust;
-        thrust = effectiveness_.inverse()* force_moment_;
+        thrust = effectiveness_.inverse()* thrust_torque_;
         Eigen::Vector4d identity = Eigen::Vector4d::Identity();
 
         // esc_factor* Actuator_Ouput^2 + (1 - esc_factor)* Actuator_Output - rotor_thrust = 0
@@ -281,11 +281,11 @@ namespace QuadrotorSim_SO3
 
         Eigen::Vector4d actuator_output; 
 
-        Eigen::Vector4d thrust_moments;
+        Eigen::Vector4d thrust_torque;
         actuator_output = esc_factor_* rotor_speed.cwiseAbs2() + (1- esc_factor_)* rotor_speed;
 
-        thrust_moments = effectiveness_* actuator_output;
-        return thrust_moments;
+        thrust_torque = effectiveness_* actuator_output;
+        return thrust_torque;
 
         // esc_factor* Actuator_Ouput^2 + (1 - esc_factor)* Actuator_Output - rotor_thrust = 0
     }
@@ -296,16 +296,16 @@ namespace QuadrotorSim_SO3
         Color::Modifier def(Color::FG_DEFAULT);
         Color::Modifier green(Color::FG_GREEN);
         std::cout << red;
-        std::cout << "Cur Position: " << state_.x.transpose() << std::endl;
+        std::cout << "Cur Position: " << state_.p.transpose() << std::endl;
         std::cout << "Cur Rotation: " << Rot3::Logmap(state_.rot).transpose() << std::endl;
         std::cout << "Cur Velocity: " << state_.v.transpose() << std::endl;
-        std::cout << "Cur    Omega: " << state_.omega.transpose() << std::endl;
-        std::cout << "Cur ForceMom: " << state_.force_moment.transpose() << std::endl;
+        std::cout << "Cur    body_rate: " << state_.body_rate.transpose() << std::endl;
+        std::cout << "Cur ForceMom: " << state_.thrust_torque.transpose() << std::endl;
         std::cout << def;
     }
-    void Quadrotor::setInput(gtsam::Vector4 force_moment)
+    void Quadrotor::setInput(gtsam::Vector4 thrust_torque)
     {
-        force_moment_ = force_moment;
+        thrust_torque_ = thrust_torque;
     }
 
 
@@ -336,18 +336,18 @@ namespace QuadrotorSim_SO3
     }
     void Quadrotor::setState(const Quadrotor::State &state)
     {
-        state_.x = state.x;
-        state_.v = state.v;
-        state_.rot = state.rot;
-        state_.omega = state.omega;
-        state_.motor_rpm = state.motor_rpm;
-        state_.force_moment = state.force_moment;
-        state_.timestamp = state.timestamp;
+        state_.p             = state.p;
+        state_.v             = state.v;
+        state_.rot           = state.rot;
+        state_.body_rate     = state.body_rate;
+        state_.motor_rpm     = state.motor_rpm;
+        state_.thrust_torque = state.thrust_torque;
+        state_.timestamp     = state.timestamp;
     }
 
     void Quadrotor::setStatePos(const Eigen::Vector3d &Pos)
     {
-        state_.x = Pos;
+        state_.p = Pos;
     }
 
     double Quadrotor::getMass(void) const
@@ -628,7 +628,7 @@ namespace QuadrotorSim_SO3
         for (int idx = 0; idx < features.size(); idx++)
         {
             gtsam::Vector3 l_body_body(features[idx].x, features[idx].y, features[idx].z);
-            gtsam::Vector3 l_body_w = state_.rot.rotate(l_body_body) + state_.x;
+            gtsam::Vector3 l_body_w = state_.rot.rotate(l_body_body) + state_.p;
             glVertex3f(l_body_w.x(), l_body_w.y(), l_body_w.z());
         }
 
@@ -661,11 +661,11 @@ namespace QuadrotorSim_SO3
             drawFrame(gtsam::Vector3(0, 0, 0), gtsam::Rot3::identity());
             for (int i = 0; i < trj_.size() - 1; i++)
             {
-                drawLine(gtsam::Vector3(0.5, 0, 0.5), trj_[i].x, trj_[i + 1].x);
+                drawLine(gtsam::Vector3(0.5, 0, 0.5), trj_[i].p, trj_[i + 1].p);
             }
-            drawQuadrotor(state_.x, state_.rot);
+            drawQuadrotor(state_.p, state_.rot);
 
-            last_state_.x = state_.x;
+            last_state_.p = state_.p;
 
             renderPanel();
 
@@ -683,13 +683,13 @@ namespace QuadrotorSim_SO3
         if(rot_err)
         {
             gtsam::Vector3 rot_error = *rot_err;
-            record_info_ << state_.x[0] << " " << state_.x[1] << " " << state_.x[2] << " " << error[0] << " " << error[1] << " " << error[2] << " " << state_.force_moment[0] << " " 
-            << state_.force_moment[1] << " " << state_.force_moment[2] << " " << state_.force_moment[3] << " " << 
+            record_info_ << state_.p[0] << " " << state_.p[1] << " " << state_.p[2] << " " << error[0] << " " << error[1] << " " << error[2] << " " << state_.thrust_torque[0] << " " 
+            << state_.thrust_torque[1] << " " << state_.thrust_torque[2] << " " << state_.thrust_torque[3] << " " << 
             rot_error[0] << " " << rot_error[1] << " " << rot_error[2] << std::endl;
         }
         else
         {
-            record_info_ << state_.x[0] << " " << state_.x[1] << " " << state_.x[2] << " " << error[0] << " " << error[1] << " " << error[2] << " " << state_.force_moment[0] << " " << state_.force_moment[1] << " " << state_.force_moment[2] << " " << state_.force_moment[3] << std::endl;
+            record_info_ << state_.p[0] << " " << state_.p[1] << " " << state_.p[2] << " " << error[0] << " " << error[1] << " " << error[2] << " " << state_.thrust_torque[0] << " " << state_.thrust_torque[1] << " " << state_.thrust_torque[2] << " " << state_.thrust_torque[3] << std::endl;
         }
 
         if (!pangolin::ShouldQuit())
@@ -707,14 +707,15 @@ namespace QuadrotorSim_SO3
             glLineWidth(1);
             drawFrame(gtsam::Vector3(0, 0, 0), gtsam::Rot3::identity());
             for (int i = 0; i < trj_.size() - 1; i++)
+            
             {
-                drawLine(gtsam::Vector3(0.5, 0, 0.5), trj_[i].x, trj_[i + 1].x);
+                drawLine(gtsam::Vector3(0.5, 0, 0.5), trj_[i].p, trj_[i + 1].p);
             }
 
             glLineWidth(2);
             for (int i = 0; i < trj.size() - 1; i++)
             {
-                drawLine(gtsam::Vector3(1.0, 0, 0), trj[i].x, trj[i + 1].x);
+                drawLine(gtsam::Vector3(1.0, 0, 0), trj[i].p, trj[i + 1].p);
             }
 
             glLineWidth(2);
@@ -723,14 +724,14 @@ namespace QuadrotorSim_SO3
                 int i;
                 for (i = 0; i < (*state_trj).size() - 1; i++)
                 {
-                    drawLine(gtsam::Vector3(0.4f, 0.2f, 0.6f), (*state_trj)[i].x, (*state_trj)[i + 1].x);
+                    drawLine(gtsam::Vector3(0.4f, 0.2f, 0.6f), (*state_trj)[i].p, (*state_trj)[i + 1].p);
                 }
-                drawLine(gtsam::Vector3(0.5f, 0.7f, 0.9f), (*state_trj)[i].x, trj[0].x);
+                drawLine(gtsam::Vector3(0.5f, 0.7f, 0.9f), (*state_trj)[i].p, trj[0].p);
             }
 
-            drawQuadrotor(state_.x, state_.rot);
+            drawQuadrotor(state_.p, state_.rot);
 
-            last_state_.x = state_.x;
+            last_state_.p = state_.p;
 
             if (errs_.size() >= ERRS_LENS)
             {
@@ -772,20 +773,20 @@ namespace QuadrotorSim_SO3
 
     void Quadrotor::renderPanel()
     {
-        std::string temp_str = std::to_string(state_.force_moment[0]);
+        std::string temp_str = std::to_string(state_.thrust_torque[0]);
         *dis_force_ = temp_str;
         std::stringstream ss;
-        ss << std::setprecision(15) << state_.force_moment[1];
+        ss << std::setprecision(15) << state_.thrust_torque[1];
         *dis_M1_ = ss.str();
-        ss << std::setprecision(15) << state_.force_moment[2];
+        ss << std::setprecision(15) << state_.thrust_torque[2];
         *dis_M2_ = ss.str();
-        ss << std::setprecision(15) << state_.force_moment[3];
+        ss << std::setprecision(15) << state_.thrust_torque[3];
         *dis_M3_ = ss.str();
-        temp_str = std::to_string(state_.x[0]);
+        temp_str = std::to_string(state_.p[0]);
         *dis_Quad_x_ = temp_str;
-        temp_str = std::to_string(state_.x[1]);
+        temp_str = std::to_string(state_.p[1]);
         *dis_Quad_y_ = temp_str;
-        temp_str = std::to_string(state_.x[2]);
+        temp_str = std::to_string(state_.p[2]);
         *dis_Quad_z_ = temp_str;
         temp_str = std::to_string(state_.v[0]);
         *dis_Quad_velx_ = temp_str;

@@ -56,7 +56,7 @@ int main(int argc, char **argv)
         }
         
         state = quad.getState();
-        thrust = m * g + KP * (z_des - state.x(2)) + KD * (0 - state.v(2));
+        thrust = m * g + KP * (z_des - state.p(2)) + KD * (0 - state.v(2));
         rpm = std::sqrt(thrust / (4 * kf));
         if (i < 3000)
             quad.setExternalForce(Eigen::Vector3d(0, 0, -KP * z_des));
@@ -80,7 +80,7 @@ int main(int argc, char **argv)
 
         Eigen::Vector3d euler = state.rot.rpy();
         
-        std::cout << i * dt << " s, " << "p: [" <<state.x << "], Eular: [" << euler(0) << ", " << euler(1) << ", " << euler(2) << "], " << state.omega(0) << ", " << state.omega(1) << ", " << state.omega(2) << ", " << state.motor_rpm(0) << std::endl;
+        std::cout << i * dt << " s, " << "p: [" <<state.p << "], Eular: [" << euler(0) << ", " << euler(1) << ", " << euler(2) << "], " << state.body_rate(0) << ", " << state.body_rate(1) << ", " << state.body_rate(2) << ", " << state.motor_rpm(0) << std::endl;
 
         clock_gettime(CLOCK_MONOTONIC, &ts2);
         time_taken += ((ts2.tv_sec - ts1.tv_sec) * 1000000000UL + (ts2.tv_nsec - ts1.tv_nsec));

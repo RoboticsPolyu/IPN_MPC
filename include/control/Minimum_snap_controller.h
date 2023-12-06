@@ -1,18 +1,21 @@
-#ifndef __SE3_CONTROLLER_H__
-#define __SE3_CONTROLLER_H__
+#ifndef __MINI_SNAP_CONTROLLER__
+#define __MINI_SNAP_CONTROLLER__
 
 #include "quadrotor_simulator/Dynamics_factor.h"
 #include "quadrotor_simulator/Quadrotor_SO3.h"
 
 #include <yaml-cpp/yaml.h>
 
+/**
+ * Cited Minimum Snap Trajectory Generation and Control for Quadrotors
+*/
 
 using namespace QuadrotorSim_SO3;
 using namespace UAVFactor;
 
 namespace Control
 {
-    class SE3_controller
+    class MiniSnapController
     {
 
     public:
@@ -26,23 +29,26 @@ namespace Control
 
         struct FeedOut
         {
-            double force;
-            gtsam::Vector3 moment;
+            double         acc_z;
+            gtsam::Vector3 body_rate;
 
             EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
         };
 
-        SE3_controller(/* args */);
+        MiniSnapController(/* args */);
 
-        FeedOut Feedback(const Quadrotor::State &cur_state, const Quadrotor::State &target_state);
+        FeedOut & Feedback(const Quadrotor::State &est_state, const Quadrotor::State &des_state);
 
-        ~SE3_controller();    
+        ~MiniSnapController();    
         
     private:
-        SE3_controller::SE3_Params se3_params_;
+        MiniSnapController::SE3_Params controller_params_;
         DynamicsParams dynamics_params_;
+
+        const float g_ = 9.81;
+
     };
 
 } // namespace Control
 
-#endif
+#endif // __MINI_SNAP_CONTROLLER__

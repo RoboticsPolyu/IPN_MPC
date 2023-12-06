@@ -38,11 +38,11 @@ int main(void)
     
     dt = 0.01;
     double t0 = 1.0; 
-    // state_0.x = circle_generator.pos(t0);
+    // state_0.p = circle_generator.pos(t0);
     // state_0.v = circle_generator.vel(t0);
     // state_0.rot = Rot3::Expmap(circle_generator.theta(t0));
     // state_0.omega = circle_generator.omega(t0);
-    // state_0.force_moment = circle_generator.inputfm(t0);
+    // state_0.thrust_torque = circle_generator.inputfm(t0);
 
     quad.setState(state_0);
 
@@ -76,11 +76,11 @@ int main(void)
         }
 
         std::cout << "***********************************************************************" << std::endl;
-        std::cout << " state_predicted_x:"
-                  << quad.getState().x.transpose() << " \n state_r:"
+        std::cout << " predicted_state_x:"
+                  << quad.getState().p.transpose() << " \n state_r:"
                   << Rot3::Logmap(quad.getState().rot).transpose() << " \n state_v:"
                   << quad.getState().v.transpose() << " \n state_omega:"
-                  << quad.getState().omega.transpose() << std::endl;
+                  << quad.getState().body_rate.transpose() << std::endl;
 
         std::cout << " state_pos1:   [ " << circle_generator.pos(t0 + dt * i)[0] << " ," << circle_generator.pos(t0 + dt * i)[1] << " ," << circle_generator.pos(t0 + dt * i)[2] << " ]" << std::endl;
         std::cout << " state_vel1:   [ " << circle_generator.vel(t0 + dt * i)[0] << " ," << circle_generator.vel(t0 + dt * i)[1] << " ," << circle_generator.vel(t0 + dt * i)[2] << " ]" << std::endl;
@@ -93,8 +93,8 @@ int main(void)
 
     gtsam::Vector4 input = circle_generator.inputfm(t0);
 
-    Pose3 pose_i(state_0.rot, state_0.x), pose_j(state_1.rot, state_1.x);
-    Vector3 vel_i(state_0.v), vel_j(state_1.v), omega_i(state_0.omega), omega_j(state_1.omega);
+    Pose3 pose_i(state_0.rot, state_0.p), pose_j(state_1.rot, state_1.p);
+    Vector3 vel_i(state_0.v), vel_j(state_1.v), omega_i(state_0.body_rate), omega_j(state_1.body_rate);
 
     std::cout << "pose_i: \n"
               << pose_i << std::endl;

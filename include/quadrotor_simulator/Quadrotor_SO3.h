@@ -41,13 +41,18 @@ namespace QuadrotorSim_SO3
         {
             int64_t         id;
             double          timestamp;
-            Eigen::Vector3d x;
+
+            Eigen::Vector3d p;
             Eigen::Vector3d v;
             gtsam::Rot3     rot;
-            Eigen::Vector3d omega;
+            Eigen::Vector3d body_rate;
+
+            double          acc_z;
+            Eigen::Vector3d torque;
+        
+            Eigen::Vector4d thrust_torque;
             Eigen::Array4d  motor_rpm;
-            Eigen::Vector4d force_moment;
-            
+
             EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
         };
         
@@ -56,11 +61,11 @@ namespace QuadrotorSim_SO3
         
         void renderHistoryTrj();
         
-        void renderHistoryOpt(std::vector<State> & trj, boost::optional<gtsam::Vector3&> err = boost::none, 
-            boost::optional<Features&> features = boost::none,
-            boost::optional<gtsam::Vector3&> vicon_measurement = boost::none,
-            boost::optional<gtsam::Vector3 &> rot_err = boost::none,
-            boost::optional<std::vector<State> &> state_trj = boost::none);
+        void renderHistoryOpt(std::vector<State> & trj, boost::optional<gtsam::Vector3&> err = boost::none,  
+                                                        boost::optional<Features&> features = boost::none, 
+                                                        boost::optional<gtsam::Vector3&> vicon_measurement = boost::none, 
+                                                        boost::optional<gtsam::Vector3 &> rot_err = boost::none, 
+                                                        boost::optional<std::vector<State> &> state_trj = boost::none);
 
         void drawQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot);
 
@@ -122,7 +127,7 @@ namespace QuadrotorSim_SO3
 
         // with 1 and 2 clockwise and 3 and 4 counter-clockwise (looking from top)
         void setInput(double u1, double u2, double u3, double u4);
-        void setInput(gtsam::Vector4 force_moment);
+        void setInput(gtsam::Vector4 thrust_torque);
         // Runs the actual dynamics simulation with a time step of dt
         void step(double dt);
 
@@ -167,7 +172,7 @@ namespace QuadrotorSim_SO3
         Eigen::Array4d  input_;
         Eigen::Vector3d external_force_;
         Eigen::Vector3d external_moment_;
-        gtsam::Vector4  force_moment_;
+        gtsam::Vector4  thrust_torque_;
 
         pangolin::View d_cam;
         std::shared_ptr<pangolin::OpenGlRenderState> s_cam;

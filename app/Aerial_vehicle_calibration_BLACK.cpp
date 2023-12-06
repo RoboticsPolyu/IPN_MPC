@@ -23,24 +23,25 @@ using symbol_shorthand::H; // Pose_B_M
 using symbol_shorthand::A; 
 using symbol_shorthand::B;
 
+
 typedef struct State
 {
     int            id;
     double         timestamp;
     gtsam::Pose3   pose;
     gtsam::Vector3 vel;
-    gtsam::Vector3 omega;
+    gtsam::Vector3 body_rate;
     gtsam::Vector4 actuator_output;
 
 } State;
 
-typedef struct Uav_pwm
+typedef struct Quad_pwm
 {
     int            id;
     double         timestamp;
     gtsam::Vector4 actuator_output;
 
-} Uav_pwm;
+} Quad_pwm;
 
 // Pose slerp interpolation
 Pose3 interpolateRt(const::Pose3& T_l, const Pose3& T, double t) 
@@ -99,7 +100,7 @@ int main(void)
 
     std::vector<State>   Interp_states;
     std::vector<State>   Uav_states;
-    std::vector<Uav_pwm> Uav_pwms;
+    std::vector<Quad_pwm> Uav_pwms;
 
 
     std::ifstream state_file;
@@ -128,7 +129,7 @@ int main(void)
 
     while (rpm_black_file >> pwm_t >> pwm1 >> pwm2 >> pwm3 >> pwm4)
     {
-        Uav_pwm _uav_pwm;
+        Quad_pwm _uav_pwm;
         _uav_pwm.timestamp       = pwm_t;
         _uav_pwm.actuator_output = gtsam::Vector4(pwm1, pwm2, pwm3, pwm4);
         Uav_pwms.push_back(_uav_pwm);
@@ -136,7 +137,7 @@ int main(void)
 
     // while (actuator_black_file >> pwm_t >> pwm1 >> pwm2 >> pwm3 >> pwm4)
     // {
-    //     Uav_pwm _uav_pwm;
+    //     Quad_pwm _uav_pwm;
     //     _uav_pwm.timestamp      = pwm_t;
     //     _uav_pwm.actuator_output = gtsam::Vector4(pwm1, pwm2, pwm3, pwm4);
     //     Uav_pwms.push_back(_uav_pwm);
@@ -164,7 +165,7 @@ int main(void)
                 gtsam::Vector3 omega_r = gtsam::Rot3::Logmap(Uav_states.at(j).pose.rotation().between(Uav_states.at(j+2).pose.rotation()))/2.0 /dt;
 
                 _interp_state.vel      = (1-t)* vel_l + t* vel_r;
-                _interp_state.omega    = (1-t)* omega_l + t* omega_r;
+                _interp_state.body_rate    = (1-t)* omega_l + t* omega_r;
 
                 Interp_states.push_back(_interp_state);
             }
@@ -185,7 +186,7 @@ int main(void)
 
         initial_value_dyn.insert(X(idx), Interp_states.at(idx).pose);
         initial_value_dyn.insert(V(idx), Interp_states.at(idx).vel);
-        initial_value_dyn.insert(S(idx), Interp_states.at(idx).omega);
+        initial_value_dyn.insert(S(idx), Interp_states.at(idx).body_rate);
 
         if( idx == DATASET_LENS-1)
         {
@@ -193,7 +194,7 @@ int main(void)
 
             initial_value_dyn.insert(X(idx+1), Interp_states.at(idx+1).pose);
             initial_value_dyn.insert(V(idx+1), Interp_states.at(idx+1).vel);
-            initial_value_dyn.insert(S(idx+1), Interp_states.at(idx+1).omega);
+            initial_value_dyn.insert(S(idx+1), Interp_states.at(idx+1).body_rate);
         }
         
 

@@ -72,7 +72,8 @@ int main(int argc, char **argv)
         trajs.push_back(trj_state);
     }
 
-std::cout << "Traj size: " << trajs.size() << " , " << file_name << std::endl;
+    std::cout << "Traj size: " << trajs.size() << " , " << file_name << std::endl;
+    
     // wait for FCU connection
     while(ros::ok() && current_state.connected)
     {
@@ -140,8 +141,9 @@ std::cout << "Traj size: " << trajs.size() << " , " << file_name << std::endl;
 		std::cout << "current state: " << current_state.armed << std::endl;
 	    }
         }
-//	std::cout << "Publish control " << std::endl;
- local_pos_pub.publish(control);
+        
+        //	std::cout << "Publish control " << std::endl;
+        local_pos_pub.publish(control);
         ros::spinOnce();
         rate.sleep();
     }

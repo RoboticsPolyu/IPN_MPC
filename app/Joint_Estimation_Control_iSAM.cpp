@@ -42,11 +42,11 @@ int main(void)
     
     // Initial state noise
     auto vicon_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.001), Vector3::Constant(0.001)).finished());
-    auto vel_noise = noiseModel::Diagonal::Sigmas(Vector3(0.001, 0.001, 0.001));
+    auto vel_noise   = noiseModel::Diagonal::Sigmas(Vector3(0.001, 0.001, 0.001));
     auto omega_noise = noiseModel::Diagonal::Sigmas(Vector3(0.001, 0.001, 0.001));
 
-    auto ref_predict_pose_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.1), Vector3::Constant(0.03)).finished());
-    auto ref_predict_vel_noise = noiseModel::Diagonal::Sigmas(Vector3(.3, .3, .3));
+    auto ref_predict_pose_noise  = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.1), Vector3::Constant(0.03)).finished());
+    auto ref_predict_vel_noise   = noiseModel::Diagonal::Sigmas(Vector3(.3, .3, .3));
     auto ref_predict_omega_noise = noiseModel::Diagonal::Sigmas(Vector3(.3, .3, .3));
 
     int opt_lens_traj = 20;
@@ -57,7 +57,7 @@ int main(void)
     Color::Modifier def(Color::FG_DEFAULT);
     Color::Modifier green(Color::FG_GREEN);
 
-    Quadrotor::State state_predicted;
+    Quadrotor::State predicted_state;
     
     NonlinearFactorGraph newFactors;
     Values newValues;
@@ -71,11 +71,11 @@ int main(void)
 
         if(traj_idx == 0)
         {
-            state_predicted.x =  circle_generator.pos(t0);//  + gtsam::Vector3(0.05, 0, 0.10);
-            state_predicted.rot = gtsam::Rot3::Expmap(circle_generator.theta(t0));
-            state_predicted.v = circle_generator.vel(t0);// gtsam::Vector3(0.05, 0, 0.10);
-            state_predicted.omega = circle_generator.omega(t0);
-            state_predicted.force_moment = circle_generator.inputfm(t0);
+            predicted_state.p =  circle_generator.pos(t0);//  + gtsam::Vector3(0.05, 0, 0.10);
+            predicted_state.rot = gtsam::Rot3::Expmap(circle_generator.theta(t0));
+            predicted_state.v = circle_generator.vel(t0);// gtsam::Vector3(0.05, 0, 0.10);
+            predicted_state.body_rate = circle_generator.omega(t0);
+            predicted_state.thrust_torque = circle_generator.inputfm(t0);
         }
         
         if(traj_idx == 0)
@@ -85,13 +85,13 @@ int main(void)
                 if (idx == 0)
                 {
                     // measurement part state prior
-                    newFactors.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx), gtsam::Pose3(state_predicted.rot, state_predicted.x), vicon_noise));
-                    newFactors.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx), state_predicted.v, vel_noise));
-                    newFactors.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), state_predicted.omega, omega_noise));
+                    newFactors.add(gtsam::PriorFactor<gtsam::Pose3>  (X(idx), gtsam::Pose3(predicted_state.rot, predicted_state.p), vicon_noise));
+                    newFactors.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx), predicted_state.v, vel_noise));
+                    newFactors.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), predicted_state.body_rate, omega_noise));
 
-                    newValues.insert(X(idx), gtsam::Pose3(state_predicted.rot, state_predicted.x));
-                    newValues.insert(V(idx), state_predicted.v);
-                    newValues.insert(S(idx), state_predicted.omega);
+                    newValues.insert(X(idx), gtsam::Pose3(predicted_state.rot, predicted_state.p));
+                    newValues.insert(V(idx), predicted_state.v);
+                    newValues.insert(S(idx), predicted_state.body_rate);
                 }
 
                 DynamicsFactorTm dynamics_factor(X(idx), V(idx), S(idx), U(idx), X(idx + 1), V(idx + 1), S(idx + 1), dt, dynamics_noise);
@@ -148,9 +148,9 @@ int main(void)
 
             /* Add current state measurement */
             std::cout << "Add current state measurement: " << cur_est_idx << std::endl;
-            newFactors.addPrior(X(cur_est_idx), gtsam::Pose3(state_predicted.rot, state_predicted.x), vicon_noise);
-            newFactors.addPrior(V(cur_est_idx), state_predicted.v, vel_noise);
-            newFactors.addPrior(S(cur_est_idx), state_predicted.omega, omega_noise);
+            newFactors.addPrior(X(cur_est_idx), gtsam::Pose3(predicted_state.rot, predicted_state.p), vicon_noise);
+            newFactors.addPrior(V(cur_est_idx), predicted_state.v, vel_noise);
+            newFactors.addPrior(S(cur_est_idx), predicted_state.body_rate, omega_noise);
 
             // FactorIndices: adding newest control state prior (3), then current estimation state prior (3)
             // FactorIndices = 83 + (3 + 3) * cur_est_idx 
@@ -205,15 +205,15 @@ int main(void)
                             << circle_generator.inputfm(t0 + ikey * dt).transpose() << std::endl;
             }
             Quadrotor::State m_state;
-            m_state.x = i_pose.translation();
+            m_state.p = i_pose.translation();
             opt_trj.push_back(m_state);
 
         }
 
         input = result.at<gtsam::Vector4>(U(cur_est_idx));
-        state_predicted.force_moment = input;
+        predicted_state.thrust_torque = input;
         
-        quad_.setState(state_predicted);
+        quad_.setState(predicted_state);
 
         input = result.at<gtsam::Vector4>(U(cur_est_idx + 1));
         quad_.stepODE(dt, input);
@@ -221,7 +221,7 @@ int main(void)
         gtsam::Vector3 err;
         err.Zero();
         quad_.renderHistoryOpt(opt_trj, err);
-        state_predicted = quad_.getState();
+        predicted_state = quad_.getState();
 
         FactorIndices marginalFactorsIndices;
         FactorIndices deletedFactorsIndices;
