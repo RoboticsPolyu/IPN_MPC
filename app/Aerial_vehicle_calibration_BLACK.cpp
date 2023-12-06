@@ -23,6 +23,7 @@ using symbol_shorthand::H; // Pose_B_M
 using symbol_shorthand::A; 
 using symbol_shorthand::B;
 
+
 typedef struct State
 {
     int            id;
@@ -30,17 +31,17 @@ typedef struct State
     gtsam::Pose3   pose;
     gtsam::Vector3 vel;
     gtsam::Vector3 omega;
-    gtsam::Vector4 actuator_output;
+    gtsam::Vector4 actuator_output; //RPM
 
 } State;
 
-typedef struct Uav_pwm
+typedef struct Actuator_control
 {
     int            id;
     double         timestamp;
     gtsam::Vector4 actuator_output;
 
-} Uav_pwm;
+} Actuator_control;
 
 // Pose slerp interpolation
 Pose3 interpolateRt(const::Pose3& T_l, const Pose3& T, double t) 
@@ -99,7 +100,7 @@ int main(void)
 
     std::vector<State>   Interp_states;
     std::vector<State>   Uav_states;
-    std::vector<Uav_pwm> Uav_pwms;
+    std::vector<Actuator_control> Uav_pwms;
 
 
     std::ifstream state_file;
@@ -128,7 +129,7 @@ int main(void)
 
     while (rpm_black_file >> pwm_t >> pwm1 >> pwm2 >> pwm3 >> pwm4)
     {
-        Uav_pwm _uav_pwm;
+        Actuator_control _uav_pwm;
         _uav_pwm.timestamp       = pwm_t;
         _uav_pwm.actuator_output = gtsam::Vector4(pwm1, pwm2, pwm3, pwm4);
         Uav_pwms.push_back(_uav_pwm);
@@ -136,7 +137,7 @@ int main(void)
 
     // while (actuator_black_file >> pwm_t >> pwm1 >> pwm2 >> pwm3 >> pwm4)
     // {
-    //     Uav_pwm _uav_pwm;
+    //     Actuator_control _uav_pwm;
     //     _uav_pwm.timestamp      = pwm_t;
     //     _uav_pwm.actuator_output = gtsam::Vector4(pwm1, pwm2, pwm3, pwm4);
     //     Uav_pwms.push_back(_uav_pwm);
@@ -266,11 +267,11 @@ int main(void)
 
         DynamcisCaliFactor_RS_AB dyn_err(X(idx), V(idx), S(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), P(0), K(0), M(0), H(0), D(0), A(0), B(0), Interp_states.at(idx).actuator_output, dt, quad_params.mass, dyn_noise);
         
-        gtsam::Vector12        dyn_e = dyn_err.evaluateError(Interp_states.at(idx).pose, vi, oi, Interp_states.at(idx+1).pose, vj, oj, IM, rot, p, kf, km, bTm, dk, ak, bk);
+        gtsam::Vector12 dyn_e = dyn_err.evaluateError(Interp_states.at(idx).pose, vi, oi, Interp_states.at(idx+1).pose, vj, oj, IM, rot, p, kf, km, bTm, dk, ak, bk);
         gtsam::Vector4 rpm_square = Interp_states.at(idx).actuator_output.cwiseAbs2();
         gtsam::Vector6 thrust_torque = dyn_err.Thrust_Torque(rpm_square, kf, km, p);
 
-        gtsam::Pose3          pose = result.at<gtsam::Pose3>(X(idx));
+        gtsam::Pose3 pose = result.at<gtsam::Pose3>(X(idx));
         gtsam::Vector3 dyn_pos_err = pose.rotation() * gtsam::Vector3(dyn_e(0), dyn_e(1), dyn_e(2)) / quad_params.mass;
 
         gtsam::Vector3 vel_body = pose.rotation().unrotate(vi);

@@ -65,7 +65,7 @@ namespace UAVFactor
         DynamcisCaliFactor_RS_AB() {}
         DynamcisCaliFactor_RS_AB(Key p_i, Key vel_i, Key omega_i, Key p_j, Key vel_j, Key omega_j, 
             Key im_key, Key rwg_key, Key p_key, Key kf_key, Key km_key, Key bTm_key, Key drag_key, Key A_key, Key B_key,
-            gtsam::Vector4 actuator_outputs, 
+            gtsam::Vector4 actuator_outputs,
             float dt, float mass, const SharedNoiseModel &model);
 
         virtual ~DynamcisCaliFactor_RS_AB()

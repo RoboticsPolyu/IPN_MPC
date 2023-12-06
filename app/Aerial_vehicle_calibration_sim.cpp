@@ -37,13 +37,13 @@ typedef struct State
 
 } State;
 
-typedef struct Uav_pwm
+typedef struct Actuator_control
 {
     int            id;
     double         timestamp;
     gtsam::Vector4 actuator_output;
 
-} Uav_pwm;
+} Actuator_control;
 
 // Pose slerp interpolation
 Pose3 interpolateRt(const::Pose3& T_l, const Pose3& T, double t) 
@@ -112,7 +112,7 @@ int main(void)
 
     std::vector<State>   Interp_states;
     std::vector<State>   Uav_states;
-    std::vector<Uav_pwm> Uav_pwms;
+    std::vector<Actuator_control> Uav_pwms;
 
     Quadrotor quad;
     Quadrotor::State state_0;
@@ -142,7 +142,7 @@ int main(void)
         // gtsam::Vector4 input_ = circle_generator.input(timestamp_cur);
         // gtsam::Vector4 thrust_moment4 = circle_generator.inputfm(timestamp_cur);
 
-        Uav_pwm _uav_pwm;
+        Actuator_control _uav_pwm;
         _uav_pwm.timestamp       = timestamp_cur;
         _uav_pwm.actuator_output = rand_actuator; // input_
         Uav_pwms.push_back(_uav_pwm);

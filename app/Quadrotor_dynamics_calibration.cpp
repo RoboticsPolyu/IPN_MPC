@@ -34,13 +34,13 @@ typedef struct State
 
 } State;
 
-typedef struct Uav_pwm
+typedef struct Actuator_control
 {
     int            id;
     double         timestamp;
     gtsam::Vector4 actuator_output;
 
-} Uav_pwm;
+} Actuator_control;
 
 // Pose slerp interpolation
 Pose3 interpolateRt(const::Pose3& T_l, const Pose3& T, double t) 
@@ -103,7 +103,7 @@ int main(void)
 
     std::vector<State>   Interp_states;
     std::vector<State>   Uav_states;
-    std::vector<Uav_pwm> Uav_pwms;
+    std::vector<Actuator_control> Uav_pwms;
 
 
     std::ifstream state_file;
@@ -147,7 +147,7 @@ int main(void)
 
     rpm_black_file >> pwm_t >> pwm1 >> pwm2 >> pwm3 >> pwm4;
 
-    Uav_pwm _uav_pwm;
+    Actuator_control _uav_pwm;
     pwm_t = pwm_t - DT * 1e6;
     _uav_pwm.timestamp       = pwm_t;
     _uav_pwm.actuator_output = gtsam::Vector4(pwm3*div, pwm1*div, pwm4*div, pwm2*div);
@@ -156,7 +156,7 @@ int main(void)
 
     while (rpm_black_file >> bak >> pwm1 >> pwm2 >> pwm3 >> pwm4)
     {
-        Uav_pwm _uav_pwm;
+        Actuator_control _uav_pwm;
         pwm_t                    = pwm_t + 5 * 1e6;
         _uav_pwm.timestamp       = pwm_t - DT;
         _uav_pwm.actuator_output = gtsam::Vector4(pwm3*div, pwm1*div, pwm4*div, pwm2*div);
@@ -168,7 +168,7 @@ int main(void)
     std::cout << "Uav_states pwm size: " << Uav_states.size() << std::endl;
     // while (actuator_black_file >> pwm_t >> pwm1 >> pwm2 >> pwm3 >> pwm4)
     // {
-    //     Uav_pwm _uav_pwm;
+    //     Actuator_control _uav_pwm;
     //     _uav_pwm.timestamp      = pwm_t;
     //     _uav_pwm.actuator_output = gtsam::Vector4(pwm1, pwm2, pwm3, pwm4);
     //     Uav_pwms.push_back(_uav_pwm);
@@ -182,7 +182,6 @@ int main(void)
             if(Uav_pwms[i].timestamp >= Uav_states[j].timestamp && Uav_pwms[i].timestamp < Uav_states[j+1].timestamp)
             {
                 double t = (Uav_pwms[i].timestamp - Uav_states[j].timestamp) / (Uav_states[j+1].timestamp - Uav_states[j].timestamp);
-
                 gtsam::Pose3 interp_pose = interpolateRt(Uav_states[j].pose, Uav_states[j+1].pose, t);
                 
                 _interp_state.actuator_output = Uav_pwms[i].actuator_output;

@@ -204,17 +204,11 @@ namespace UAVFactor
     // thrust_sum  = ct * sum{axis_i * actuator_i}
     // moments_sum = ct * sum{rotor_pos_i.cross(axis_i)} +- sum{km * axis_i}
     Vector DynamcisCaliFactor_RS::evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector3 &omega_i, 
-                             const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j, 
-                             const gtsam::Vector3 &rot_inertia, const gtsam::Rot3 &rwg, 
-                             const gtsam::Vector3 &rotor_pos, const double &ct, const double &km, const gtsam::Pose3& bTm,
-                             const gtsam::Vector3 &drag_k,
-                             boost::optional<Matrix &> H1, boost::optional<Matrix &> H2,
-                             boost::optional<Matrix &> H3, boost::optional<Matrix &> H4,
-                             boost::optional<Matrix &> H5, boost::optional<Matrix &> H6,
-                             boost::optional<Matrix &> H7, boost::optional<Matrix &> H8,
-                             boost::optional<Matrix &> H9, boost::optional<Matrix &> H10,
-                             boost::optional<Matrix &> H11, boost::optional<Matrix &> H12,
-                             boost::optional<Matrix &> H13) const
+        const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j, 
+        const gtsam::Vector3 &rot_inertia, const gtsam::Rot3 &rwg, const gtsam::Vector3 &rotor_pos, const double &ct, const double &km, const gtsam::Pose3& bTm, const gtsam::Vector3 &drag_k,
+        boost::optional<Matrix &> H1, boost::optional<Matrix &> H2, boost::optional<Matrix &> H3, 
+        boost::optional<Matrix &> H4, boost::optional<Matrix &> H5, boost::optional<Matrix &> H6,
+        boost::optional<Matrix &> H7, boost::optional<Matrix &> H8, boost::optional<Matrix &> H9, boost::optional<Matrix &> H10, boost::optional<Matrix &> H11, boost::optional<Matrix &> H12, boost::optional<Matrix &> H13) const
     {
         gtsam::Vector12 err;
         gtsam::Vector3 axis      = gtsam::Vector3(0, 0, 1);
@@ -226,11 +220,6 @@ namespace UAVFactor
         rk2 = gtsam::Vector3( 1, -1, 1).asDiagonal(); 
         rk3 = gtsam::Vector3(-1, -1, 1).asDiagonal();
         rk4 = gtsam::Vector3(-1,  1, 1).asDiagonal();
-
-        // rk1 = gtsam::Vector3( 1,  0, 1).asDiagonal(); 
-        // rk2 = gtsam::Vector3( 0,  1, 1).asDiagonal(); 
-        // rk3 = gtsam::Vector3(-1,  0, 1).asDiagonal();
-        // rk4 = gtsam::Vector3( 0, -1, 1).asDiagonal();
 
         gtsam::Vector3 rp1, rp2, rp3, rp4;
         rp1 = rk1 * rotor_pos;
