@@ -11,6 +11,12 @@ namespace middleware
         set_mode_client_ = nh_.serviceClient<mavros_msgs::SetMode      >("mavros/set_mode");
         state_sub_       = nh_.subscribe    <mavros_msgs::State        >("mavros/state", 10, &MavrosMiddleware::MavstateCb, this, ros::TransportHints().tcpNoDelay());
         ctrl_input_sub_  = nh_.subscribe    <IPN_MPC::INPUT            >("internal_ctrl_input", 100, &CtrlInputCb, this, ros::TransportHints().tcpNoDelay());
+
+        if(Connect())
+        {
+            OffboardHover();
+        }
+
     }
 
     bool MavrosMiddleware::Connect()
@@ -140,7 +146,7 @@ namespace middleware
             internal_ctrl_input_.control_mode = Ctrl_mode::none;
             
             EstThrustAccRatio();
-            
+
             ros::spinOnce();
             rate.sleep();
         }
