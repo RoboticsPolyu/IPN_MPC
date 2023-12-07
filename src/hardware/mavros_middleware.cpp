@@ -10,18 +10,23 @@ namespace middleware
         local_pos_pub_   = nh_.advertise    <geometry_msgs::PoseStamped>("mavros/setpoint_position/local", 10);
         set_mode_client_ = nh_.serviceClient<mavros_msgs::SetMode      >("mavros/set_mode");
         state_sub_       = nh_.subscribe    <mavros_msgs::State        >("mavros/state", 10, &MavrosMiddleware::MavstateCb, this, ros::TransportHints().tcpNoDelay());
-        ctrl_input_sub_  = nh_.subscribe    <IPN_MPC::INPUT            >("internal_ctrl_input", 100, &CtrlInputCb, this, ros::TransportHints().tcpNoDelay());
+        ctrl_input_sub_  = nh_.subscribe    <IPN_MPC::INPUT            >("internal_ctrl_input", 100, &MavrosMiddleware::CtrlInputCb, this, ros::TransportHints().tcpNoDelay());
 
         if(Connect())
         {
             OffboardHover();
         }
 
+        ROS_INFO("Collecting 5 second data for thrust ratio calibration.");
+        ros::Duration(5.0).sleep(); 
+        EstThrustAccRatio();
+
+        ROS_INFO("The thrust acc ratio initial estimation value is (%f)", thrust_acc_ratio_);
     }
 
     bool MavrosMiddleware::Connect()
     {
-        ros::Rate rate(100);
+        ros::Rate rate(100u);
         // wait for FCU connection
         while(ros::ok() && current_state_.connected)
         {
