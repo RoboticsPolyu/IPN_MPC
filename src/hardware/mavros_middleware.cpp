@@ -5,16 +5,27 @@ namespace middleware
     MavrosMiddleware::MavrosMiddleware(const ros::NodeHandle &nh, int takeoff_alt) 
         : nh_(nh), takeoff_altitude_(takeoff_alt)
     {        
-        arming_client_   = nh_.serviceClient<mavros_msgs::CommandBool  >("mavros/cmd/arming");
-        land_client_     = nh_.serviceClient<mavros_msgs::CommandTOL   >("mavros/cmd/land");
-        local_pos_pub_   = nh_.advertise    <geometry_msgs::PoseStamped>("mavros/setpoint_position/local", 10);
-        set_mode_client_ = nh_.serviceClient<mavros_msgs::SetMode      >("mavros/set_mode");
-        state_sub_       = nh_.subscribe    <mavros_msgs::State        >("mavros/state", 10, &MavrosMiddleware::MavstateCb, this, ros::TransportHints().tcpNoDelay());
-        ctrl_input_sub_  = nh_.subscribe    <IPN_MPC::INPUT            >("internal_ctrl_input", 100, &MavrosMiddleware::CtrlInputCb, this, ros::TransportHints().tcpNoDelay());
+        arming_client_   = nh_.serviceClient<mavros_msgs::CommandBool   >("mavros/cmd/arming");
+        land_client_     = nh_.serviceClient<mavros_msgs::CommandTOL    >("mavros/cmd/land");
+        bodyrate_pub_    = nh_.advertise    <mavros_msgs::AttitudeTarget>("command/bodyrate_command", 1);
+        local_pos_pub_   = nh_.advertise    <geometry_msgs::PoseStamped >("mavros/setpoint_position/local", 10);
+        set_mode_client_ = nh_.serviceClient<mavros_msgs::SetMode       >("mavros/set_mode");
+        mav_tt_sub_      = nh_.subscribe    <mavros_msgs::TrustMoments  >("trust_moments_px4", 100, &MavrosMiddleware::MavttCb, this, ros::TransportHints().tcpNoDelay());
+        state_sub_       = nh_.subscribe    <mavros_msgs::State         >("mavros/state", 10, &MavrosMiddleware::MavstateCb, this, ros::TransportHints().tcpNoDelay());
+        mav_imu_sub_     = nh_.subscribe    <sensor_msgs::Imu           >("mavros/imu/data", 100, &MavrosMiddleware::MavIMU, this, ros::TransportHints().tcpNoDelay());
+        ctrl_input_sub_  = nh_.subscribe    <IPN_MPC::INPUT             >("internal_ctrl_input", 100, &MavrosMiddleware::CtrlInputCb, this, ros::TransportHints().tcpNoDelay());
+
 
         if(Connect())
         {
-            OffboardHover();
+            if(OffboardHover())
+            {
+                return;
+            }
+        }
+        else
+        {
+            return;
         }
 
         ROS_INFO("Collecting 5 second data for thrust ratio calibration.");
@@ -130,12 +141,14 @@ namespace middleware
             switch (internal_ctrl_input_.control_mode)
             {
             case Ctrl_mode::pose:
+                pubPosYawCmd(internal_ctrl_input_);
                 break;
 
             case Ctrl_mode::att_thrust:
                 break;
 
             case Ctrl_mode::bodyrate_acc:
+                pubBodyrateCmd(internal_ctrl_input_);
                 break;
 
             case Ctrl_mode::bodyrate_thrust:
@@ -147,8 +160,6 @@ namespace middleware
             default:
                 break;
             }
-
-            internal_ctrl_input_.control_mode = Ctrl_mode::none;
             
             EstThrustAccRatio();
 
@@ -157,6 +168,29 @@ namespace middleware
         }
     }
 
+    void MavrosMiddleware::pubBodyrateCmd(const IPN_MPC::INPUT& input)
+    {
+        mavros_msgs::AttitudeTarget bodyrate_cmd;
+        bodyrate_cmd.body_rate.x = input.bodyrate_x;
+        bodyrate_cmd.body_rate.y = input.bodyrate_y;
+        bodyrate_cmd.body_rate.z = input.bodyrate_z;
+        bodyrate_cmd.thrust = input.acc_z* thrust_acc_ratio_;
+
+        bodyrate_pub_.publish(bodyrate_cmd);
+    }
+
+    void MavrosMiddleware::pubPosYawCmd(const IPN_MPC::INPUT& input)
+    {
+        geometry_msgs::PoseStamped control;
+        control.pose.position.x    = input.position_x;
+        control.pose.position.y    = input.position_y;
+        control.pose.position.z    = input.position_z;
+        control.pose.orientation.w = input.quad_w;
+        control.pose.orientation.x = input.quad_x;
+        control.pose.orientation.y = input.quad_y;
+        control.pose.orientation.z = input.quad_z;
+        local_pos_pub_.publish(control);
+    }
 
 } // namespace middleware
 

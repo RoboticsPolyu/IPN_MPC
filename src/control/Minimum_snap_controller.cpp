@@ -30,7 +30,7 @@ namespace Control
         gtsam::Vector3 eW = est_state.body_rate - des_state.rot.matrix().transpose()* est_state.rot.matrix() * des_state.body_rate;
 
         feed_output.body_rate =  controller_params_.ker * eR + des_state.body_rate;
-        // feed_output.moment = -controller_params_.ker * eR - controller_params_.kew * eW + gtsam::Vector3(des_state.thrust_torque[1], des_state.thrust_torque[2], des_state.thrust_torque[3]);
+        // feed_output.torque = -controller_params_.ker * eR - controller_params_.kew * eW + gtsam::Vector3(des_state.thrust_torque[1], des_state.thrust_torque[2], des_state.thrust_torque[3]);
 
         return feed_output;
     }

@@ -91,7 +91,6 @@ find_package(OsqpEigen REQUIRED)
 # Find yaml-cpp
 find_package(yaml-cpp)
 include_directories(${YAML_CPP_INCLUDE_DIRS})
-include_directories("/home/amov/Mav/devel/include")
 
 # OpenCV
 find_package( OpenCV REQUIRED )

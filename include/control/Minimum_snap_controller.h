@@ -31,7 +31,8 @@ namespace Control
         {
             double         acc_z;
             gtsam::Vector3 body_rate;
-
+            gtsam::Vector3 torque;
+            
             EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
         };
 
