@@ -189,6 +189,7 @@ namespace middleware
         control.pose.orientation.x = input.quad_x;
         control.pose.orientation.y = input.quad_y;
         control.pose.orientation.z = input.quad_z;
+        
         local_pos_pub_.publish(control);
     }
 
