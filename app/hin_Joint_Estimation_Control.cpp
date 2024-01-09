@@ -51,6 +51,11 @@ int main(void)
     double PRIOR_U_M2_COV        = FGO_config["PRIOR_U_M2_COV"].as<double>(); 
     double PRIOR_U_M3_COV        = FGO_config["PRIOR_U_M3_COV"].as<double>(); 
     
+    double high        = FGO_config["CLF_HIGH"].as<double>(); 
+    double low         = FGO_config["CLF_LOW"].as<double>(); 
+    double thr         = FGO_config["CLF_THR"].as<double>(); 
+    double alpha       = FGO_config["CLF_ALPHA"].as<double>(); 
+
     double INPUT_JERK_T          = FGO_config["INPUT_JERK_T"].as<double>(); 
     double INPUT_JERK_M          = FGO_config["INPUT_JERK_M"].as<double>(); 
 
@@ -87,6 +92,25 @@ int main(void)
     double MOVE_Y                = quad_config["MOVE_Y"].as<double>();
     double MOVE_Z                = quad_config["MOVE_Z"].as<double>();
 
+    double g_                   = quad_config["g"].as<double>();
+    double mass_                = quad_config["mass"].as<double>();
+    double kf_                  = quad_config["k_f"].as<double>(); //  xy-moment k-gain
+    double km_                  = quad_config["k_m"].as<double>(); // z-moment k-gain
+    double motor_time_constant_ = quad_config["time_constant"].as<double>();
+
+    double Ixx                  = quad_config["Ixx"].as<double>();
+    double Iyy                  = quad_config["Iyy"].as<double>();
+    double Izz                  = quad_config["Izz"].as<double>();
+    gtsam::Vector3 Inertia = Eigen::Vector3d(Ixx, Iyy, Izz);
+    
+    double rotor_px = 0.1;
+    double rotor_py = 0.1;
+    gtsam::Vector3 rotor_pos = gtsam::Vector3(rotor_px, rotor_py, 0);
+    
+    double DRAG_FORCE_X = quad_config["DRAG_FORCE_X"].as<double>();
+    double DRAG_FORCE_Y = quad_config["DRAG_FORCE_Y"].as<double>();
+    double DRAG_FORCE_Z = quad_config["DRAG_FORCE_Z"].as<double>();
+    gtsam::Vector3 drag_k = Eigen::Vector3d(DRAG_FORCE_X, DRAG_FORCE_Y, DRAG_FORCE_Z);
 
     std::ofstream JEC_log;
     std::string file_name = "../data/JPC_";
@@ -106,7 +130,7 @@ int main(void)
     
     auto input_jerk  = noiseModel::Diagonal::Sigmas(Vector4(INPUT_JERK_T, INPUT_JERK_M, INPUT_JERK_M, INPUT_JERK_M));
     auto input_noise = noiseModel::Diagonal::Sigmas(Vector4(PRIOR_U_F_COV, PRIOR_U_M1_COV, PRIOR_U_M2_COV, PRIOR_U_M3_COV));
-
+    auto clf_sigma   = noiseModel::Diagonal::Sigmas(Vector4(1.0, 1.0, 1.0, 1.0));
     auto dynamics_noise = noiseModel::Diagonal::Sigmas((Vector(12) << Vector3::Constant(DYNAMIC_P_COV), Vector3::Constant(0.0001), 
         Vector3::Constant(0.001), Vector3::Constant(0.001)).finished());
     
@@ -152,6 +176,14 @@ int main(void)
     gtsam::Vector3 vicon_measurement;
     gtsam::Vector4 rotor_input_bak;
     
+    double p_thrust_sigma = 0.010;
+    gtsam::Vector3 thrust_sigma(0.001, 0.001, 2* p_thrust_sigma);
+    // sigma = (rotor_p_x* 2* P_thrust_single_rotor, rotor_p_x* 2* P_thrust_single_rotor, k_m * 2 * P_thrust_single_rotor) 
+    gtsam::Vector3 moments_sigma(p_thrust_sigma * 2 * rotor_py, p_thrust_sigma * 2 * rotor_px, 0.01f * 2 * p_thrust_sigma);
+
+    auto dyn_noise = noiseModel::Diagonal::Sigmas((Vector(12) << thrust_sigma * 0.5f * dt * dt, Vector3::Constant(0.001 * dt), 
+                                                                   thrust_sigma * dt, moments_sigma * dt).finished());
+
     for(int traj_idx = 0; traj_idx < SIM_STEPS; traj_idx++)
     {
         double t0 = traj_idx* dt;
@@ -185,11 +217,14 @@ int main(void)
 
         for (int idx = 0; idx < OPT_LENS_TRAJ; idx++)
         {
-            DynamicsFactorTm dynamics_factor(X(idx), V(idx), S(idx), U(idx), X(idx + 1), V(idx + 1), S(idx + 1), dt, dynamics_noise);
+            DynamicFactor dynamics_factor(X(idx), V(idx), S(idx), X(idx + 1), V(idx + 1), S(idx + 1), U(idx), 
+                dt, mass_, Inertia, rotor_pos, drag_k, kf_, km_, dyn_noise);
             graph.add(dynamics_factor);
             
+            ControlLimitFactor control_limit_factor(U(idx), clf_sigma, low, high, thr, alpha);
+            graph.add(control_limit_factor);
+
             gtsam::Pose3 pose_idx(gtsam::Rot3::Expmap(circle_generator.theta(t0 + (idx + 1) * dt)), circle_generator.pos(t0 + (idx + 1) * dt));
-            
             gtsam::Vector3 vel_idx = circle_generator.vel(t0 + (idx + 1) * dt);
             gtsam::Vector3 omega_idx = circle_generator.omega(t0 + (idx + 1) * dt);
             
@@ -197,7 +232,7 @@ int main(void)
             initial_value.insert(V(idx + 1), vel_idx);
             initial_value.insert(S(idx + 1), omega_idx);
             
-            gtsam::Vector4 init_input = circle_generator.inputfm(t0 + idx * dt);
+            gtsam::Vector4 init_input = circle_generator.input(t0 + idx * dt);
             if(idx != 0)
             {
                 BetForceMoments bet_FM_factor(U(idx - 1), U(idx), input_jerk);
@@ -277,29 +312,24 @@ int main(void)
                 i_pose = result.at<Pose3>(X(ikey));
                 vel = result.at<Vector3>(V(ikey));
                 omega = result.at<Vector3>(S(ikey));
-                gtsam::Vector3 ref_omega = circle_generator.omega(t0 + ikey * dt);
                 gtsam::Pose3 ref_pose(gtsam::Rot3::Expmap(circle_generator.theta(t0 + ikey * dt)), circle_generator.pos(t0 + ikey * dt));
-                gtsam::Vector3 ref_vel = circle_generator.vel(t0 + ikey * dt);
+                gtsam::Vector3 ref_vel = circle_generator.vel(t0 + ikey * dt); 
+                gtsam::Vector3 ref_omega = circle_generator.omega(t0 + ikey * dt);
                 
-
+                
                 // std::cout << green << "OPT Translation: "
                 //         << i_pose.translation() << std::endl;
-                
                 // std::cout << "REF Translation: "
                 //         << ref_pose.translation() << std::endl;
-
                 // std::cout << "OPT    Rotation: "
                 //         << Rot3::Logmap(i_pose.rotation()).transpose() << std::endl;
                 // std::cout << "REF    Rotation: "
                 //         << Rot3::Logmap(ref_pose.rotation()).transpose() << std::endl;
-
                 // std::cout << "OPT         VEL: "
                 //         << vel.transpose() << std::endl;
-                //  //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
+                // //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
                 // std::cout << "REF         VEL: "
                 //         << ref_vel.transpose() << std::endl;
-
-                
                 // std::cout << "OPT       OMEGA: "
                 //         << omega.transpose() << std::endl;
                 //  //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
@@ -322,7 +352,9 @@ int main(void)
 
         input = result.at<gtsam::Vector4>(U(0));
 
-        quadrotor.setInput(input);
+        gtsam::Vector4 tt = quadrotor.InvCumputeRotorsVel(input);
+
+        // quadrotor.setInput(input);
 
         // std::cout << "planned input: " << input << std::endl;
         // gtsam::Vector4 actuator_outputs = quadrotor.CumputeRotorsVel();
@@ -344,7 +376,7 @@ int main(void)
         // quadrotor.setState(predicted_state);
 
         // rotor_input_bak = actuator_outputs;
-        std::cout << "RPM Input: " << quadrotor.CumputeRotorsVel().transpose() << std::endl;;
+        // input = quadrotor.InvCumputeRotorsVel(actuator_outputs);
         // input_bak = input;
 
         // std::cout << "actuator_outputs: " << actuator_outputs << std::endl;
@@ -355,7 +387,7 @@ int main(void)
         // input = result.at<gtsam::Vector4>(U(1));
         // quadrotor.stepODE(dt, result.at<gtsam::Vector4>(U(0)));
 
-        quadrotor.stepODE(dt, input); // for driver delay test
+        quadrotor.stepODE(dt, tt); // for driver delay test
 
         std::cout << "input: " << input << std::endl;
 
@@ -368,7 +400,7 @@ int main(void)
         gtsam::Rot3    tar_rotation     = gtsam::Rot3::Expmap(tar_theta);
         gtsam::Vector3 tar_vel          = circle_generator.vel(t0 + 1 * dt);
         gtsam::Vector3 tar_omega        = circle_generator.omega(t0 + 1 * dt);
-        gtsam::Vector4 ref_input        = circle_generator.inputfm(t0);
+        gtsam::Vector4 ref_input        = circle_generator.input(t0);
 
         gtsam::Vector3 err              = predicted_state.p - tar_position;
         gtsam::Vector3 pred_theta       = gtsam::Rot3::Logmap(predicted_state.rot);

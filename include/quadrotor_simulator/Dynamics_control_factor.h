@@ -53,7 +53,8 @@ namespace UAVFactor
 
         DynamicFactor() {}
         DynamicFactor(Key p_i, Key vel_i, Key omega_i, Key p_j, Key vel_j, Key omega_j, Key input_i,
-            float dt, float mass, gtsam::Vector3 inertia, gtsam::Vector3 rotor_pos, gtsam::Vector3 drag_k, const SharedNoiseModel &model);
+            float dt, float mass, gtsam::Vector3 inertia, gtsam::Vector3 rotor_pos, gtsam::Vector3 drag_k, 
+            double ctt, double kmm, const SharedNoiseModel &model);
 
         virtual ~DynamicFactor()
         {

@@ -8,13 +8,16 @@ namespace UAVFactor
          dt_(dt){};
    
    DynamicFactor::DynamicFactor(Key p_i, Key vel_i, Key omega_i, Key p_j, Key vel_j, Key omega_j, Key input_i,
-            float dt, float mass, gtsam::Vector3 inertia, gtsam::Vector3 rotor_pos, gtsam::Vector3 drag_k, const SharedNoiseModel &model)
+            float dt, float mass, gtsam::Vector3 inertia, gtsam::Vector3 rotor_pos, gtsam::Vector3 drag_k, 
+            double ctt, double kmm, const SharedNoiseModel &model)
             : Base(model, p_i, vel_i, omega_i, p_j, vel_j, omega_j, input_i)
             , dt_(dt)
             , mass_(mass)
             , rot_inertia_(inertia)
             , rotor_pos_(rotor_pos)
-            , drag_k_(drag_k){};
+            , drag_k_(drag_k)
+            , ct(ctt)
+            , km(kmm){};
 
 
    gtsam::Vector6 DynamicFactor::Thrust_Torque(const gtsam::Vector4 & rpm, const double & ct, const double & km, const gtsam::Vector3 & rotor_pos, gtsam::Matrix64 & Jac) const

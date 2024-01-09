@@ -163,6 +163,9 @@ target_link_libraries(Dynamics_factor_test gtsam quadrotor_dynamics ${Pangolin_L
 add_executable(Joint_Estimation_Control app/Joint_Estimation_Control.cpp)
 target_link_libraries(Joint_Estimation_Control gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
+add_executable(hin_Joint_Estimation_Control app/hin_Joint_Estimation_Control.cpp)
+target_link_libraries(hin_Joint_Estimation_Control gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+
 add_executable(Joint_Estimation_Control_iSAM app/Joint_Estimation_Control_iSAM.cpp)
 target_link_libraries(Joint_Estimation_Control_iSAM gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
