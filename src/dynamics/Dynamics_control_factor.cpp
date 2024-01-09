@@ -6,6 +6,259 @@ namespace UAVFactor
                                   Key p_j, Key vel_j, Key omega_j, float dt, const SharedNoiseModel &model)
        : Base(model, p_i, vel_i, omega_i, input_i, p_j, vel_j, omega_j),
          dt_(dt){};
+   
+   DynamicFactor::DynamicFactor(Key p_i, Key vel_i, Key omega_i, Key p_j, Key vel_j, Key omega_j, Key input_i,
+            float dt, float mass, gtsam::Vector3 inertia, gtsam::Vector3 rotor_pos, gtsam::Vector3 drag_k, const SharedNoiseModel &model)
+            : Base(model, p_i, vel_i, omega_i, p_j, vel_j, omega_j, input_i)
+            , dt_(dt)
+            , mass_(mass)
+            , rot_inertia_(inertia)
+            , rotor_pos_(rotor_pos)
+            , drag_k_(drag_k){};
+
+
+   gtsam::Vector6 DynamicFactor::Thrust_Torque(const gtsam::Vector4 & rpm, const double & ct, const double & km, const gtsam::Vector3 & rotor_pos, gtsam::Matrix64 & Jac) const
+   {   
+         gtsam::Vector4 rpm_square;
+
+         for(uint i = 0; i < 4u; i++)
+         {
+               double rel_pwm = rpm(i);
+               rpm_square(i) = rel_pwm * rel_pwm;
+         }
+
+         gtsam::Vector3 _thrust  = ct * axis;
+
+         gtsam::Vector3 rp1, rp2, rp3, rp4;
+         rp1 = rk1_ * rotor_pos;
+         gtsam::Vector3 _moment1 = - ct * axis_mat * rp1 + ct * km * axis; // moments of 1rd rotor
+         rp2 = rk2_ * rotor_pos;
+         gtsam::Vector3 _moment2 = - ct * axis_mat * rp2 - ct * km * axis; // moments of 2rd rotor
+         rp3 = rk3_ * rotor_pos;
+         gtsam::Vector3 _moment3 = - ct * axis_mat * rp3 + ct * km * axis; // moments of 3rd rotor
+         rp4 = rk4_ * rotor_pos;
+         gtsam::Vector3 _moment4 = - ct * axis_mat * rp4 - ct * km * axis; // moments of 4rd rotor
+
+         gtsam::Matrix64 effectiveness_matrix; 
+         effectiveness_matrix.setZero();
+
+         for(uint i = 0; i < 4u; i++)
+         {
+               effectiveness_matrix.block(0, i, 3, 1) = _thrust;
+         }
+
+         effectiveness_matrix.block(3, 0, 3, 1) = _moment1;
+         effectiveness_matrix.block(3, 1, 3, 1) = _moment2;
+         effectiveness_matrix.block(3, 2, 3, 1) = _moment3;
+         effectiveness_matrix.block(3, 3, 3, 1) = _moment4;
+
+         // std::cout << "effectiveness_matrix: \n" << effectiveness_matrix / ct << std::endl;
+         gtsam::Vector6 thrust_torque = effectiveness_matrix * rpm_square;
+
+         gtsam::Matrix44 _J;
+         _J.setZero();
+         _J.diagonal() << rpm;
+
+         Jac = effectiveness_matrix* 2 * _J;
+
+         return thrust_torque;
+   }
+
+   gtsam::Vector6 DynamicFactor::Thrust_Torque(const gtsam::Vector4 & rpm_square, const double & ct, const double & km, const gtsam::Vector3 & rotor_pos, gtsam::Vector3 & A) const
+   {   
+        gtsam::Vector3 _thrust  = ct * axis;
+
+        gtsam::Vector3 rp1, rp2, rp3, rp4;
+        rp1 = rk1_ * rotor_pos;
+        gtsam::Vector3 _moment1 = - ct * axis_mat * rp1 + ct * km * axis; // moments of 1rd rotor
+        rp2 = rk2_ * rotor_pos;
+        gtsam::Vector3 _moment2 = - ct * axis_mat * rp2 - ct * km * axis; // moments of 2rd rotor
+        rp3 = rk3_ * rotor_pos;
+        gtsam::Vector3 _moment3 = - ct * axis_mat * rp3 + ct * km * axis; // moments of 3rd rotor
+        rp4 = rk4_ * rotor_pos;
+        gtsam::Vector3 _moment4 = - ct * axis_mat * rp4 - ct * km * axis; // moments of 4rd rotor
+
+        gtsam::Matrix64 effectiveness_matrix; 
+        effectiveness_matrix.setZero();
+
+        for(uint i = 0; i < 4u; i++)
+        {
+            effectiveness_matrix.block(0, i, 3, 1) = _thrust;
+        }
+
+        effectiveness_matrix.block(3, 0, 3, 1) = _moment1;
+        effectiveness_matrix.block(3, 1, 3, 1) = _moment2;
+        effectiveness_matrix.block(3, 2, 3, 1) = _moment3;
+        effectiveness_matrix.block(3, 3, 3, 1) = _moment4;
+
+        // std::cout << "effectiveness_matrix: \n" << effectiveness_matrix / ct << std::endl;
+        gtsam::Vector6 thrust_torque = effectiveness_matrix * rpm_square;
+
+        gtsam::Matrix33 F_mat;
+        F_mat.setZero();
+        gtsam::Vector3 f_v(thrust_torque[2], thrust_torque[2], 0);
+        F_mat.diagonal() << f_v;
+        gtsam::Vector3 torque_bias_mass = F_mat* A;
+        thrust_torque.tail(3) = thrust_torque.tail(3) - torque_bias_mass;
+        return thrust_torque;
+   }
+
+   Vector DynamicFactor::evaluateError(
+         const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector3 &omega_i, 
+         const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j,
+         const gtsam::Vector4& input_i,
+         boost::optional<Matrix &> H1, boost::optional<Matrix &> H2,
+         boost::optional<Matrix &> H3, boost::optional<Matrix &> H4,
+         boost::optional<Matrix &> H5, boost::optional<Matrix &> H6,
+         boost::optional<Matrix &> H7) const
+   {
+         gtsam::Vector12 err;
+         gtsam::Matrix64 J_tt_rpm;
+
+         gtsam::Vector6 thrust_torque = Thrust_Torque(input_i, ct, km, rotor_pos_, J_tt_rpm);
+         
+         Matrix36 jac_t_posei, jac_t_posej;
+         Matrix36 jac_r_posei, jac_r_posej;
+
+         const Point3 p_w_mi = pos_i.translation(jac_t_posei);
+         const Rot3   r_w_mi = pos_i.rotation(jac_r_posei);
+         const Point3 p_w_mj = pos_j.translation(jac_t_posej);
+         const Rot3   r_w_mj = pos_j.rotation(jac_r_posej);
+
+         double dtt = dt_* dt_;
+         double Ix = rot_inertia_.x();
+         double Iy = rot_inertia_.y();
+         double Iz = rot_inertia_.z();
+         gtsam::Matrix3 J, J_inv;
+         J     << Ix,      0, 0, 0, Iy,      0, 0, 0, Iz;
+         J_inv << 1.0f/Ix, 0, 0, 0, 1.0f/Iy, 0, 0, 0, 1.0f/ Iz;
+         gtsam::Matrix33 _unrbi_matrix = r_w_mi.inverse().matrix();
+         
+         // position rotation velocity angular_speed error
+         gtsam::Matrix33 J_rwg, J_pe_roti, J_ve_rot1, J_dv_rit, J_dv_v;
+         // J_rerr_rbj, J_rbi;
+         gtsam::Matrix33 J_ri, J_rj, J_dr;
+         
+
+         gtsam::Vector3  pos_err = mass_ * r_w_mi.unrotate(p_w_mj - vel_i * dt_ + 0.5f * gI_ * dtt - p_w_mi, J_pe_roti) - 0.5f* thrust_torque.head(3)* dtt;
+         // gtsam::Vector3  rot_err = Rot3::Logmap(r_w_mi.between(r_w_mj, J_ri, J_rj), J_dr) - 0.5f * (omega_i + omega_j) * dt_; 
+         // This would cause the heavy fluctuation of omega
+
+         gtsam::Vector3  rot_err = Rot3::Logmap(r_w_mi.between(r_w_mj, J_ri, J_rj), J_dr) - omega_i * dt_; 
+
+         gtsam::Matrix3 drag_matrix;
+         drag_matrix.setZero();
+         drag_matrix.diagonal() << drag_k_;        
+
+         gtsam::Vector3  vel_err = mass_ * r_w_mi.unrotate(vel_j - vel_i + gI_ * dt_, J_ve_rot1) - thrust_torque.head(3) * dt_ - 
+            mass_ * drag_matrix * r_w_mi.unrotate(vel_i, J_dv_rit, J_dv_v) * dt_; // - dT * dt_;
+
+         gtsam::Vector3  asp_err = 
+         J * (omega_j - omega_i) + skewSymmetric(omega_i) * J * omega_i * dt_ - thrust_torque.tail(3) * dt_;
+         
+         Matrix126 J_e_pi, J_e_posej;
+         
+         if (H1)
+         {
+               Matrix33 Jac_perr_p = - mass_* _unrbi_matrix;
+               Matrix33 Jac_perr_r =   mass_* J_pe_roti;
+               Matrix33 Jac_rerr_r =   J_dr * J_ri;
+               Matrix33 Jac_verr_r =   mass_* J_ve_rot1 - mass_ * drag_matrix * J_dv_rit * dt_; // - A_mat * J_da_ri * dt_;
+
+               Matrix36 Jac_perr_posei = Jac_perr_p * jac_t_posei + Jac_perr_r * jac_r_posei;
+               Matrix36 Jac_rerr_posei = Jac_rerr_r * jac_r_posei;
+               Matrix36 Jac_verr_posei = Jac_verr_r * jac_r_posei;
+
+               J_e_pi.setZero();
+               J_e_pi.block(0, 0, 3, 6) = Jac_perr_posei;
+               J_e_pi.block(3, 0, 3, 6) = Jac_rerr_posei;
+               J_e_pi.block(6, 0, 3, 6) = Jac_verr_posei;
+
+               *H1 = J_e_pi;
+         }
+
+         if (H2)
+         {
+               Matrix123 J_e_v;
+               J_e_v.setZero();
+               Matrix33 Jac_perr_veli  = - mass_* _unrbi_matrix * dt_;
+               Matrix33 Jac_verr_v     = - mass_* _unrbi_matrix;
+               J_e_v.block(0, 0, 3, 3) =   Jac_perr_veli;
+               J_e_v.block(6, 0, 3, 3) =   Jac_verr_v - mass_ * drag_matrix * dt_ * J_dv_v;
+
+               *H2 = J_e_v;
+         }
+
+         if (H3)
+         {
+               Matrix123 J_e_omage;
+               J_e_omage.setZero();
+               double a = Iz - Iy;
+               double b = Ix - Iz;
+               double c = Iy - Ix;
+               
+               Matrix3 d_omega;
+               d_omega <<  0,              a * omega_i[2], a * omega_i[1],
+                           b * omega_i[2], 0,              b * omega_i[0],
+                           c * omega_i[1], c * omega_i[0], 0;
+
+               Matrix33 Jac_r_omega        = - gtsam::I_3x3 * dt_; // - 0.5f * gtsam::I_3x3 * dt_; // SO3::ExpmapDerivative(omega_i * dt_) * dt_;
+               Matrix33 Jac_omega_omega    = - J + d_omega* dt_;
+               J_e_omage.block(3, 0, 3, 3) = Jac_r_omega;
+               J_e_omage.block(9, 0, 3, 3) = Jac_omega_omega;
+
+               *H3 = J_e_omage;
+         }
+
+         if (H4)
+         {
+               J_e_posej.setZero();
+               J_e_posej.block(0, 0, 3, 6) = mass_* _unrbi_matrix* jac_t_posej;
+               J_e_posej.block(3, 0, 3, 6) = J_dr * J_rj * jac_r_posej;
+               *H4 = J_e_posej; 
+         }
+
+         if (H5)
+         {
+               Matrix123 J_e_vj;
+               J_e_vj.setZero();
+               J_e_vj.block(6, 0, 3, 3) = mass_* _unrbi_matrix;
+               *H5 = J_e_vj;
+         }
+
+         if (H6)
+         {
+               Matrix123 J_e_omegaj;
+               J_e_omegaj.setZero();
+               // J_e_omegaj.block(3, 0, 3, 3) = - 0.5f * gtsam::I_3x3 * dt_;
+               J_e_omegaj.block(9, 0, 3, 3) = J;
+               *H6 = J_e_omegaj;
+         }
+
+         Matrix126 J_e_thrust_moments;
+         Matrix123 J_moments;
+
+         J_e_thrust_moments.setZero();
+         J_e_thrust_moments.block(6, 0, 3, 3) = - I_3x3 * dt_; // - J_dT_T * dt_;
+         J_e_thrust_moments.block(9, 3, 3, 3) = - I_3x3 * dt_; 
+
+         J_e_thrust_moments.block(0, 0, 3, 3) = - I_3x3 * dtt* 0.5f;
+
+         J_moments.setZero();
+         J_moments.block(9, 0, 3, 3) = - I_3x3 * dt_;
+
+         if (H7)
+         {
+            *H7 = J_e_thrust_moments* J_tt_rpm;
+         }
+
+         err.head(3)           = pos_err;
+         err.block(3, 0, 3, 1) = rot_err;
+         err.block(6, 0, 3, 1) = vel_err;
+         err.tail(3)           = asp_err;
+
+         return err;
+   };
 
    Vector DynamicsFactor::evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, 
                                         const gtsam::Vector3 &omega_i, const gtsam::Vector4 &input_i,

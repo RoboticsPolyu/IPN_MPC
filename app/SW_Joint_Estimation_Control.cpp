@@ -128,8 +128,11 @@ int main(void)
     std::default_random_engine meas_vy_gen;
     std::default_random_engine meas_vz_gen;
 
+    std::default_random_engine meas_lidar_gen;
+
     std::normal_distribution<double> position_noise(POS_MEAS_MEAN, POS_MEAS_COV);
     std::normal_distribution<double> velocity_noise(0, VEL_MEAS_COV);
+    std::normal_distribution<double> lidar_noise(0, 0.003);
 
     Features landmarkk; 
     Landmarks env(MAP_X, MAP_Y, MAP_Z, MAP_CENTER_X, MAP_CENTER_Y, MAP_CENTER_Z, LANDMARKS_SIZE);
@@ -170,6 +173,8 @@ int main(void)
 
         gtsam::Vector3 pos_noise     = gtsam::Vector3(position_noise(meas_x_gen), position_noise(meas_y_gen), position_noise(meas_z_gen));
         gtsam::Vector3 vel_noise_add = gtsam::Vector3(velocity_noise(meas_vx_gen), velocity_noise(meas_vy_gen), velocity_noise(meas_vz_gen));
+        gtsam::Vector6 lidar_noise_add;
+        lidar_noise_add << lidar_noise(meas_lidar_gen), lidar_noise(meas_lidar_gen), lidar_noise(meas_lidar_gen), lidar_noise(meas_lidar_gen), lidar_noise(meas_lidar_gen), lidar_noise(meas_lidar_gen);
         
         vicon_measurement      = predicted_state.p + pos_noise;
         gtsam::Vector3 vel_add = predicted_state.v + vel_noise_add;
@@ -266,8 +271,10 @@ int main(void)
                     
                     if(idx > 0)
                     {
-                        auto bet_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.001), Vector3::Constant(0.001)).finished());
-                        graph.add(gtsam::BetweenFactor<gtsam::Pose3>(X(idx-1), X(idx), lidar_measures[idx], bet_noise));
+                        auto bet_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.003), Vector3::Constant(0.003)).finished());
+
+                        graph.add(gtsam::BetweenFactor<gtsam::Pose3>(X(idx-1), X(idx), lidar_measures[idx].compose(gtsam::Pose3(gtsam::Rot3::Expmap(lidar_noise_add.tail(3)),
+                         gtsam::Vector3(lidar_noise_add.head(3)))), bet_noise));
                     }
 
                     initial_value.insert(X(idx), gtsam::Pose3(measurements[idx].rot, measurements[idx].p) );

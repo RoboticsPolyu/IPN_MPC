@@ -11,10 +11,11 @@ namespace QuadrotorSim_SO3
     Quadrotor::Quadrotor(void)
     {
         YAML::Node quad_config = YAML::LoadFile("../config/quadrotor.yaml");  
-        g_    = quad_config["g"].as<double>();
-        mass_ = quad_config["mass"].as<double>();
-        kf_   = quad_config["k_f"].as<double>(); //  xy-moment k-gain
-        km_   = quad_config["k_m"].as<double>(); // z-moment k-gain
+        g_                   = quad_config["g"].as<double>();
+        mass_                = quad_config["mass"].as<double>();
+        kf_                  = quad_config["k_f"].as<double>(); //  xy-moment k-gain
+        km_                  = quad_config["k_m"].as<double>(); // z-moment k-gain
+        motor_time_constant_ = quad_config["time_constant"].as<double>();
 
         double Ixx = quad_config["Ixx"].as<double>();
         double Iyy = quad_config["Iyy"].as<double>();
@@ -23,7 +24,6 @@ namespace QuadrotorSim_SO3
 
         prop_radius_         = 0.062;
         arm_length_          = 0.26;
-        motor_time_constant_ = 1.0 / 30;
         min_rpm_             = 1200;
         max_rpm_             = 35000;
         esc_factor_          = 1;
@@ -76,8 +76,7 @@ namespace QuadrotorSim_SO3
             vnorm.normalize();
         }
 
-        Eigen::Vector3d drag_force = 
-            - state_.rot.matrix() * Eigen::Matrix3d(drag_force_params_.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
+        Eigen::Vector3d drag_force = - state_.rot.matrix() * Eigen::Matrix3d(drag_force_params_.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
         Eigen::Vector3d v_dot      = - Eigen::Vector3d(0, 0, g_) + state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ 
                                     + external_force_ / mass_ + drag_force;
 
@@ -164,7 +163,7 @@ namespace QuadrotorSim_SO3
 
         for (int i = 0; i < 4; i++)
         {
-            dxdt[18 + i] = (thrust_torque_[i] - state_.thrust_torque[i]) / 0.01f;
+            dxdt[18 + i] = (thrust_torque_[i] - state_.thrust_torque[i]) / motor_time_constant_;
         }
 
         for (int i = 0; i < 22; ++i)
@@ -192,7 +191,7 @@ namespace QuadrotorSim_SO3
         }
 
         // float sin_force = 0.1* sin()
-        state_.thrust_torque[0] = state_.thrust_torque[0];
+        // state_.thrust_torque[0] = state_.thrust_torque[0];
 
         for (int i = 0; i < 4; i++)
         {
@@ -235,7 +234,6 @@ namespace QuadrotorSim_SO3
 
         // printCurState();
     }
-
 
     Eigen::Matrix4d Quadrotor::ComputeEffectivenessMatrix()
     {

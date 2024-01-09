@@ -159,9 +159,12 @@ int main(void)
         if(traj_idx == 0)
         {
             predicted_state.p            = circle_generator.pos(t0);
+        //     predicted_state.rot          = gtsam::Rot3::identity(); // gtsam::Rot3::Expmap(circle_generator.theta(t0));
+        //     predicted_state.v            = gtsam::Vector3::Zero();  // circle_generator.vel(t0);
+        //     predicted_state.body_rate    = gtsam::Vector3::Zero(); // circle_generator.omega(t0);
             predicted_state.rot          = gtsam::Rot3::Expmap(circle_generator.theta(t0));
             predicted_state.v            = circle_generator.vel(t0);
-            predicted_state.body_rate        = circle_generator.omega(t0);
+            predicted_state.body_rate    = circle_generator.omega(t0);
             predicted_state.thrust_torque = circle_generator.inputfm(t0);
             quadrotor.setState(predicted_state);
         }
@@ -313,33 +316,39 @@ int main(void)
 
         input = result.at<gtsam::Vector4>(U(0));
 
-        quadrotor.setInput(input);
+        // quadrotor.setInput(input);
 
-        std::cout << "planned input: " << input << std::endl;
-        gtsam::Vector4 actuator_outputs = quadrotor.CumputeRotorsVel();
+        // std::cout << "planned input: " << input << std::endl;
+        // gtsam::Vector4 actuator_outputs = quadrotor.CumputeRotorsVel();
 
-        float  Tc = 0.001f;
-        float  T  = 0.01f;
-        float  a1, a2;
-        double fc = 1/ (2* M_PI* Tc);
-        a1        = 1.0 / (1+ 2* M_PI* fc* T);
-        a2        = 2* M_PI* fc* T/ (1+ 2* M_PI* fc* T);
+        // float  Tc = 0.100f;
+        // float  T  = 0.01f;
+        // float  a1, a2;
+        // double fc = 1/ (2* M_PI* Tc);
+        // a1        = 1.0 / (1+ 2* M_PI* fc* T);
+        // a2        = 2* M_PI* fc* T/ (1+ 2* M_PI* fc* T);
         
-        if(traj_idx != 0)
-        {
-            actuator_outputs = a1* rotor_input_bak + a2* actuator_outputs;
-        }
+        // if(traj_idx != 0)
+        // {
+        //     actuator_outputs = a1* rotor_input_bak + a2* actuator_outputs;
+        // }
 
-        rotor_input_bak = actuator_outputs;
-        input = quadrotor.InvCumputeRotorsVel(actuator_outputs);
+        // predicted_state.thrust_torque = input_bak;
+        // predicted_state.timestamp = t0 + dt;
+        // quadrotor.setState(predicted_state);
 
-        std::cout << "actuator_outputs: " << actuator_outputs << std::endl;
-        predicted_state.thrust_torque = input;
-        predicted_state.timestamp = t0 + dt;
-        quadrotor.setState(predicted_state);
+        // rotor_input_bak = actuator_outputs;
+        // input = quadrotor.InvCumputeRotorsVel(actuator_outputs);
+        // input_bak = input;
+
+        // std::cout << "actuator_outputs: " << actuator_outputs << std::endl;
+        // predicted_state.thrust_torque = input;
+        // predicted_state.timestamp = t0 + dt;
+        // quadrotor.setState(predicted_state);
         
-        input = result.at<gtsam::Vector4>(U(1));
+        // input = result.at<gtsam::Vector4>(U(1));
         // quadrotor.stepODE(dt, result.at<gtsam::Vector4>(U(0)));
+
         quadrotor.stepODE(dt, input); // for driver delay test
 
         std::cout << "input: " << input << std::endl;

@@ -45,6 +45,61 @@ namespace UAVFactor
     };
 
 
+    class GTSAM_EXPORT DynamicFactor : public NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, 
+        gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector4>
+    {
+        public:
+        typedef boost::shared_ptr<DynamicFactor> shared_ptr;
+
+        DynamicFactor() {}
+        DynamicFactor(Key p_i, Key vel_i, Key omega_i, Key p_j, Key vel_j, Key omega_j, Key input_i,
+            float dt, float mass, gtsam::Vector3 inertia, gtsam::Vector3 rotor_pos, gtsam::Vector3 drag_k, const SharedNoiseModel &model);
+
+        virtual ~DynamicFactor()
+        {
+        }
+
+
+        Vector evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector3 &omega_i, 
+                             const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j,
+                             const gtsam::Vector4 &input_i,
+                             boost::optional<Matrix &> H1 = boost::none, boost::optional<Matrix &> H2 = boost::none,
+                             boost::optional<Matrix &> H3 = boost::none, boost::optional<Matrix &> H4 = boost::none,
+                             boost::optional<Matrix &> H5 = boost::none, boost::optional<Matrix &> H6 = boost::none,
+                             boost::optional<Matrix &> H7 = boost::none) const;
+        
+        gtsam::Vector6 Thrust_Torque(const gtsam::Vector4 & rpm, const double & ct, const double & km, const gtsam::Vector3 & rotor_pos, gtsam::Matrix64 & Jac) const;
+        gtsam::Vector6 Thrust_Torque(const gtsam::Vector4 & rpm_square, const double & ct, const double & km, const gtsam::Vector3 & rotor_pos, gtsam::Vector3 & A) const;
+
+    private: 
+        typedef DynamicFactor This;
+        typedef NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3,
+            gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector4>
+            Base;
+        
+        float          dt_;
+        float          mass_;
+        gtsam::Vector4 actuator_outputs_;
+
+        gtsam::Vector3 gI_ = gtsam::Vector3(0, 0, 9.81); // gravity
+        
+        // !!! Check the order of PWM
+        const gtsam::Matrix3 rk1_ = gtsam::Vector3( 1,  1, 1).asDiagonal(); 
+        const gtsam::Matrix3 rk2_ = gtsam::Vector3( 1, -1, 1).asDiagonal(); 
+        const gtsam::Matrix3 rk3_ = gtsam::Vector3(-1, -1, 1).asDiagonal();
+        const gtsam::Matrix3 rk4_ = gtsam::Vector3(-1,  1, 1).asDiagonal();
+        const gtsam::Vector3 axis = gtsam::Vector3(0, 0, 1);
+        const gtsam::Matrix3 axis_mat = gtsam::skewSymmetric(axis);
+        
+        gtsam::Vector3 rot_inertia_, rotor_pos_, drag_k_;
+        double ct, km;
+
+    public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    };
+
+
     /* position velocity rotation angular_velocity control_input */
     class GTSAM_EXPORT DynamicsFactor : public NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector4,
                                                                  gtsam::Pose3, gtsam::Vector3, gtsam::Vector3>
