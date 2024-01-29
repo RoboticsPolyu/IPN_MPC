@@ -84,9 +84,9 @@ include_directories(${ARMADILLO_INCLUDE_DIRS})
 find_package(Pangolin 0.8 REQUIRED)
 include_directories(${Pangolin_INCLUDE_DIRS})
 
-# Find OSQP library and headers
-find_package(osqp REQUIRED)
-find_package(OsqpEigen REQUIRED)
+# # Find OSQP library and headers
+# find_package(osqp REQUIRED)
+# find_package(OsqpEigen REQUIRED)
 
 # Find yaml-cpp
 find_package(yaml-cpp)
@@ -96,6 +96,11 @@ include_directories(${YAML_CPP_INCLUDE_DIRS})
 find_package( OpenCV REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 
+find_library(REALSENSE2_FOUND realsense2 HINTS ${LIBRARY_DIR} REQUIRED)
+if(NOT REALSENSE2_FOUND)
+    SET(REALSENSE2_FOUND "realsense2")
+    message(WARN "Failed to find_library(realsense2)")
+endif()
 
 set(WIO_SOURCE
     src/wio/wio_factor.cpp
@@ -128,7 +133,7 @@ add_library(quadrotor_dynamics
             src/dynamics/Quadrotor_SO3.cpp
             src/trajectory_generator/Trajectory_generator.cpp)
 
-target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES} PRIVATE osqp::osqp OsqpEigen::OsqpEigen )
+target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES} PRIVATE )
 
 if(BUILD_HARDWARE)
 add_library(hardware_lib 
@@ -196,12 +201,16 @@ target_link_libraries(Traj_load_run_px4 gtsam quadrotor_dynamics ${Pangolin_LIBR
 
 if(BUILD_HARDWARE)
 
-add_executable(Orin_rotor_angular_speed app/Orin_rotor_angular_speed.cpp)
-target_link_libraries(Orin_rotor_angular_speed ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})    
+# add_executable(Orin_rotor_angular_speed app/Orin_rotor_angular_speed.cpp)
+# target_link_libraries(Orin_rotor_angular_speed ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})    
 
 add_executable(Orin_rsm_uart app/Orin_rsm_uart.cpp)
 add_dependencies(Orin_rsm_uart ${YAML_CPP_LIBRARIES} hardware_lib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(Orin_rsm_uart hardware_lib ${catkin_LIBRARIES})   
+
+add_executable(rs-setting-app app/rs-setting-app.cpp)
+include_directories(rs-setting-app ${ADDITIONAL_INCLUDE_DIRS})
+target_link_libraries(rs-setting-app ${REALSENSE2_FOUND} ${YAML_CPP_LIBRARIES})
 
 add_executable(Orin_board_can app/Orin_board_can.cpp)
 add_dependencies(Orin_board_can ${YAML_CPP_LIBRARIES} hardware_lib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
