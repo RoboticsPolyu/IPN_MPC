@@ -20,15 +20,15 @@ namespace UAVFactor
         boost::optional<Matrix &> H7, boost::optional<Matrix &> H8,
         boost::optional<Matrix &> H9) const
     {
-        // wTm_i = wTbi * bTm
-        // wTm_j = wTbj * bTm
+        // wTm_i = wTbi * ITb
+        // wTm_j = wTbj * ITb
 
         gtsam::Vector12 err;
         // gtsam::Matrix6 Jac_wTmi_wTbi, Jac_wTmi_bTm;
         // gtsam::Matrix6 Jac_wTmj_wTbj, Jac_wTmj_bTm;
 
-        // gtsam::Pose3 wTmi = pos_i.compose(bTm, Jac_wTmi_wTbi, Jac_wTmi_bTm);
-        // gtsam::Pose3 wTmj = pos_j.compose(bTm, Jac_wTmj_wTbj, Jac_wTmj_bTm);
+        // gtsam::Pose3 wTmi = pos_i.compose(ITb, Jac_wTmi_wTbi, Jac_wTmi_bTm);
+        // gtsam::Pose3 wTmj = pos_j.compose(ITb, Jac_wTmj_wTbj, Jac_wTmj_bTm);
 
         Matrix36 jac_t_posei, jac_t_posej;
         Matrix36 jac_r_posei, jac_r_posej;
@@ -206,7 +206,7 @@ namespace UAVFactor
     Vector DynamcisCaliFactor_RS::evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector3 &omega_i, 
         const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j, 
         const gtsam::Vector3 &rot_inertia, const gtsam::Rot3 &rwg, const gtsam::Vector3 &rotor_pos, const double &ct, const double &km, 
-        const gtsam::Pose3& bTm, const gtsam::Vector3 &drag_k,
+        const gtsam::Pose3& ITb, const gtsam::Vector3 &drag_k,
         boost::optional<Matrix &> H1, boost::optional<Matrix &> H2, boost::optional<Matrix &> H3, 
         boost::optional<Matrix &> H4, boost::optional<Matrix &> H5, boost::optional<Matrix &> H6,
         boost::optional<Matrix &> H7, boost::optional<Matrix &> H8, boost::optional<Matrix &> H9, 
@@ -262,8 +262,8 @@ namespace UAVFactor
         gtsam::Matrix6 Jac_posei, Jac_i_bTm;
         gtsam::Matrix6 Jac_posej, Jac_j_bTm;
 
-        gtsam::Pose3 w_T_mi = pos_i.compose(bTm, Jac_posei, Jac_i_bTm);
-        gtsam::Pose3 w_T_mj = pos_j.compose(bTm, Jac_posej, Jac_j_bTm);
+        gtsam::Pose3 w_T_mi = pos_i.compose(ITb, Jac_posei, Jac_i_bTm);
+        gtsam::Pose3 w_T_mj = pos_j.compose(ITb, Jac_posej, Jac_j_bTm);
 
         const Point3 p_w_mi = w_T_mi.translation(jac_t_posei);
         const Rot3   r_w_mi = w_T_mi.rotation(jac_r_posei);
@@ -602,7 +602,7 @@ namespace UAVFactor
 
     Vector DynamcisCaliFactor_RS_AB::evaluateError(
         const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector3 &omega_i, const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j, const gtsam::Vector3 &rot_inertia, const gtsam::Rot3 &rwg, 
-        const gtsam::Vector3 &rotor_pos, const double &ct, const double &km, const gtsam::Pose3& bTm,
+        const gtsam::Vector3 &rotor_pos, const double &ct, const double &km, const gtsam::Pose3& ITb,
         const gtsam::Vector3 &drag_k, const gtsam::Vector3 &A, const gtsam::Vector3 &B, 
         boost::optional<Matrix &> H1, boost::optional<Matrix &> H2,
         boost::optional<Matrix &> H3, boost::optional<Matrix &> H4,
@@ -631,8 +631,8 @@ namespace UAVFactor
         gtsam::Matrix6 Jac_posei, Jac_i_bTm;
         gtsam::Matrix6 Jac_posej, Jac_j_bTm;
 
-        gtsam::Pose3 w_T_mi = pos_i.compose(bTm, Jac_posei, Jac_i_bTm);
-        gtsam::Pose3 w_T_mj = pos_j.compose(bTm, Jac_posej, Jac_j_bTm);
+        gtsam::Pose3 w_T_mi = pos_i.compose(ITb, Jac_posei, Jac_i_bTm);
+        gtsam::Pose3 w_T_mj = pos_j.compose(ITb, Jac_posej, Jac_j_bTm);
 
         const Point3 p_w_mi = w_T_mi.translation(jac_t_posei);
         const Rot3   r_w_mi = w_T_mi.rotation(jac_r_posei);
@@ -663,32 +663,41 @@ namespace UAVFactor
         gtsam::Vector3  _gI_updated = rwg.rotate(gI_, J_rwg);
         gtsam::Matrix33 J_ri, J_rj, J_dr;
         
+        gtsam::Vector3 b_v_i = vel_i + r_w_mi.rotate(gtsam::skewSymmetric(omega_i)* ITb.translation());
+        gtsam::Vector3 b_v_j = vel_j + r_w_mj.rotate(gtsam::skewSymmetric(omega_j)* ITb.translation());
 
-        gtsam::Vector3  pos_err = mass_ * r_w_mi.unrotate(p_w_mj - vel_i * dt_ + 0.5f * _gI_updated * dtt - p_w_mi, J_pe_roti) - 0.5f* thrust_torque.head(3)* dtt;
+        gtsam::Matrix33 J_obi_rbI, J_omega_i, J_obj_rbI, J_omega_j;
+
+        gtsam::Vector3 b_omega_i = ITb.rotation().unrotate(omega_i, J_obi_rbI, J_omega_i);
+        gtsam::Vector3 b_omega_j = ITb.rotation().unrotate(omega_j, J_obj_rbI, J_omega_j);
+
+        gtsam::Vector3  pos_err = mass_ * r_w_mi.unrotate(p_w_mj - b_v_i * dt_ + 0.5f * _gI_updated * dtt - p_w_mi, J_pe_roti) - 0.5f* thrust_torque.head(3)* dtt;
         // gtsam::Vector3  rot_err = Rot3::Logmap(r_w_mi.between(r_w_mj, J_ri, J_rj), J_dr) - 0.5f * (omega_i + omega_j) * dt_; 
         // This would cause the heavy fluctuation of omega
 
-        gtsam::Vector3  rot_err = Rot3::Logmap(r_w_mi.between(r_w_mj, J_ri, J_rj), J_dr) - omega_i * dt_; 
+        gtsam::Vector3  rot_err = Rot3::Logmap(r_w_mi.between(r_w_mj, J_ri, J_rj), J_dr) - b_omega_i * dt_; 
 
         gtsam::Matrix3 drag_matrix;
         drag_matrix.setZero();
         drag_matrix.diagonal() << drag_k;        
 
-        gtsam::Vector3  vel_err = mass_ * r_w_mi.unrotate(vel_j - vel_i + _gI_updated * dt_, J_ve_rot1) - thrust_torque.head(3) * dt_ - mass_ * drag_matrix * r_w_mi.unrotate(vel_i, J_dv_rit, J_dv_v) * dt_; // - dT * dt_;
+        gtsam::Vector3  vel_err = mass_ * r_w_mi.unrotate(b_v_j - b_v_i + _gI_updated * dt_, J_ve_rot1) - thrust_torque.head(3) * dt_ 
+            - mass_ * drag_matrix * r_w_mi.unrotate(b_v_i, J_dv_rit, J_dv_v) * dt_; // - dT * dt_;
 
-        // gtsam::Vector3  asp_err = J * (omega_j - omega_i) + skewSymmetric(omega_i)*J*omega_i*dt_ - thrust_torque.tail(3) * dt_ - A_mat * r_w_mi.unrotate(vel_i, J_da_ri, J_da_v) * dt_ - B_mat * omega_i * dt_;
+        // gtsam::Vector3  asp_err = J * (omega_j - omega_i) + skewSymmetric(omega_i)*J*omega_i*dt_ - thrust_torque.tail(3) * dt_ - A_mat * r_w_mi.unrotate(b_v_i, J_da_ri, J_da_v) * dt_ - B_mat * omega_i * dt_;
 
         gtsam::Vector3 torque_gyroscopic;
         
         gtsam::Matrix _torque_gyro_k = (actuator_outputs_[0] - actuator_outputs_[1] + actuator_outputs_[2] - actuator_outputs_[3]) * axis_mat;
 
-        torque_gyroscopic = - A_mat * _torque_gyro_k * omega_i;
+        torque_gyroscopic = - A_mat * _torque_gyro_k * b_omega_i;
 
         gtsam::Vector3 torque_bias_mass = F_mat* A;
 
-        gtsam::Vector3  asp_err = 
-        J * (omega_j - omega_i) + skewSymmetric(omega_i) * J * omega_i * dt_ - thrust_torque.tail(3) * dt_ + torque_bias_mass * dt_ - B_mat * omega_i * dt_;
-        //torque_gyroscopic * dt_ - B_mat * omega_i * dt_;
+        gtsam::Vector3  asp_err = J * (b_omega_j - b_omega_i) + skewSymmetric(b_omega_i) * J * b_omega_i * dt_ 
+            - thrust_torque.tail(3) * dt_ + torque_bias_mass * dt_ - B_mat * omega_i * dt_;
+            //  - B_mat * b_omega_i * dt_
+            //torque_gyroscopic * dt_ 
         
         Matrix126 J_e_pi, J_e_posej;
         
@@ -732,9 +741,9 @@ namespace UAVFactor
             double c = Iy - Ix;
             
             Matrix3 d_omega;
-            d_omega <<  0,              a * omega_i[2], a * omega_i[1],
-                        b * omega_i[2], 0,              b * omega_i[0],
-                        c * omega_i[1], c * omega_i[0], 0;
+            d_omega <<  0,              a * b_omega_i[2], a * b_omega_i[1],
+                        b * b_omega_i[2], 0,              b * b_omega_i[0],
+                        c * b_omega_i[1], c * b_omega_i[0], 0;
 
             Matrix33 Jac_r_omega        = - gtsam::I_3x3 * dt_; // - 0.5f * gtsam::I_3x3 * dt_; // SO3::ExpmapDerivative(omega_i * dt_) * dt_;
             Matrix33 Jac_omega_omega    = - J + d_omega* dt_;
@@ -742,7 +751,7 @@ namespace UAVFactor
             J_e_omage.block(9, 0, 3, 3) = Jac_omega_omega - A_mat * _torque_gyro_k * dt_
              - B_mat * dt_;
 
-            *H3 = J_e_omage;
+            *H3 = J_e_omage* J_omega_i;
         }
 
         if (H4)
@@ -767,27 +776,30 @@ namespace UAVFactor
             J_e_omegaj.setZero();
             // J_e_omegaj.block(3, 0, 3, 3) = - 0.5f * gtsam::I_3x3 * dt_;
             J_e_omegaj.block(9, 0, 3, 3) = J;
-            *H6 = J_e_omegaj;
+            *H6 = J_e_omegaj* J_omega_j;
         }
 
+
+        // inertia of moment
         if (H7)
         {
             Matrix123 J_e_iofm;
             J_e_iofm.setZero();
-            double wx = omega_i.x(), wy = omega_i.y(), wz = omega_i.z();
+            double wx = b_omega_i.x(), wy = b_omega_i.y(), wz = b_omega_i.z();
 
             gtsam::Matrix3 Jac_jb;
             Jac_jb  <<    0,           -1.0f* wy* wz, 1.0f* wy* wz,
                           1.0f* wx* wz, 0,           -1.0f* wx* wz,
                         - 1.0f* wx* wy, 1.0f* wx* wy, 0;
 
-            gtsam::Vector3 delta_omega = omega_j - omega_i;
+            gtsam::Vector3 delta_omega = b_omega_j - b_omega_i;
             gtsam::Matrix3 _omega = delta_omega.asDiagonal();
             J_e_iofm.block(9, 0, 3, 3) = _omega + Jac_jb* dt_;
 
             *H7 = J_e_iofm;
         }
 
+        // rwg
         if (H8)
         {
             Matrix123 J_e_rwg;
@@ -891,6 +903,7 @@ namespace UAVFactor
             *H11 = J_e_thrust_moments * J_km;
         }
 
+        // Ibm
         if (H12)
         {
             Matrix126 J_e_bTm;
@@ -898,13 +911,14 @@ namespace UAVFactor
             *H12 = J_e_pi * Jac_i_bTm + J_e_posej * Jac_j_bTm;
         }
 
+        // drag
         if (H13)
         {
             Matrix123 J_drag_k;
             J_drag_k.setZero();
             gtsam::Matrix3 _J_drag;
             _J_drag.setZero();
-            _J_drag.diagonal() << r_w_mi.unrotate(vel_i);
+            _J_drag.diagonal() << r_w_mi.unrotate(b_v_i);
             J_drag_k.block(6, 0, 3, 3) = - mass_ * _J_drag * dt_;
 
             *H13 = J_drag_k;
@@ -916,7 +930,7 @@ namespace UAVFactor
             J_e_A.setZero();
             gtsam::Matrix3 Jac_A;
             Jac_A.setZero();
-            // Jac_A.diagonal() << - _torque_gyro_k * omega_i * dt_;// - r_w_mi.unrotate(vel_i) * dt_;
+            // Jac_A.diagonal() << - _torque_gyro_k * omega_i * dt_;// - r_w_mi.unrotate(b_v_i) * dt_;
             Jac_A = F_mat * dt_;
             J_e_A.block(9, 0, 3, 3) = Jac_A;
             *H14 = J_e_A;
@@ -930,7 +944,7 @@ namespace UAVFactor
             J_e_B.setZero();
             gtsam::Matrix3 Jac_B;
             Jac_B.setZero();
-            Jac_B.diagonal() << - omega_i * dt_;
+            Jac_B.diagonal() << - b_omega_i * dt_;
             J_e_B.block(9, 0, 3, 3) = Jac_B;
 
             // J_e_B.block(6, 0, 3, 3) = - J_dT_B * dt_;

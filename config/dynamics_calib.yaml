@@ -8,8 +8,8 @@ ENABLE_DRAG: TRUE
 ENABLE_I:    TRUE
 
 ROOT_PATH: /Users/ypwen/IPN/IPN_MPC/data/blackbird/ampersand/yawForward/maxSpeed2p0
-POSE_FILE: /Users/ypwen/IPN/IPN_MPC/data/quad13/pose_2023-10-19-11-31-36.txt
-RSM_FILE: /Users/ypwen/IPN/IPN_MPC/data/quad13/rsm_2023-10-19-11-31-36.txt
+POSE_FILE: /Users/ypwen/IPN/IPN_MPC/data/quad13/pose_2024-02-21-13-45-50.txt
+RSM_FILE: /Users/ypwen/IPN/IPN_MPC/data/quad13/rsm_2024-02-21-13-45-50.txt
 # ROOT_PATH: /Users/ypwen/IPN/IPN_MPC/data/blackbird/ampersand/yawConstant/maxSpeed3p0
 # /Users/ypwen/IPN/IPN_MPC/data/blackbird/pacasso/yawForward/maxSpeed4p0
 

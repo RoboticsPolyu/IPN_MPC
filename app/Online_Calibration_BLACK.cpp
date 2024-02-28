@@ -1,6 +1,7 @@
 #include "calibration/Calibration_factor.h"
 #include "quadrotor_simulator/Dynamics_params.h"
-
+#include <gtsam/nonlinear/ISAM2.h>
+#include <gtsam_unstable/nonlinear/IncrementalFixedLagSmoother.h>
 #include <yaml-cpp/yaml.h>
 
 using namespace gtsam;
@@ -52,6 +53,8 @@ Pose3 interpolateRt(const::Pose3& T_l, const Pose3& T, double t)
 
 int main(void)
 {        
+    Values result;
+
     DynamicsParams quad_params;
     double      dt         = 0.01f;
     quad_params.mass       = 0.915f;
@@ -96,12 +99,18 @@ int main(void)
     file_name.append("debug");
     file_name.append("_log.txt");
     calib_log.open(file_name);
-    
 
     std::vector<State>   Interp_states;
     std::vector<State>   Uav_states;
     std::vector<Quad_pwm> Uav_pwms;
 
+    printf("Using ISAM2\n");
+    gtsam::ISAM2Params parameters;
+    parameters.relinearizeThreshold = 0.01;
+    parameters.relinearizeSkip = 100;
+    gtsam::ISAM2 isam2(parameters);
+
+    gtsam::IncrementalFixedLagSmoother smoother(200.0, gtsam::ISAM2Params());
 
     std::ifstream state_file;
     std::string state_file_path = file_path + std::string("/state_black.txt");
@@ -127,7 +136,6 @@ int main(void)
         Uav_states.push_back(_state);
     }
 
-    // while (rpm_black_file >> pwm_t >> pwm1 >> pwm2 >> pwm3 >> pwm4)
     while (rpm_black_file >> pwm_t >> pwm1 >> pwm2 >> pwm3 >> pwm4)
     {
         Quad_pwm _uav_pwm;
@@ -177,8 +185,11 @@ int main(void)
     NonlinearFactorGraph dyn_factor_graph;
     Values initial_value_dyn;
     dyn_factor_graph.empty();
+    
 
-    for(uint32_t idx = DATASET_S; idx < DATASET_LENS; idx++)
+    int window_size = 100;
+    
+    for(uint32_t idx = DATASET_S; idx < DATASET_S + window_size; idx++)
     {   
         gtsam::Vector3 vel;
         gtsam::Vector3 omega;
@@ -189,7 +200,7 @@ int main(void)
         initial_value_dyn.insert(V(idx), Interp_states.at(idx).vel);
         initial_value_dyn.insert(S(idx), Interp_states.at(idx).body_rate);
 
-        if( idx == DATASET_LENS-1)
+        if( idx == DATASET_S + window_size - 1)
         {
             dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx+1), Interp_states.at(idx+1).pose,  vicon_noise));
 
@@ -197,8 +208,6 @@ int main(void)
             initial_value_dyn.insert(V(idx+1), Interp_states.at(idx+1).vel);
             initial_value_dyn.insert(S(idx+1), Interp_states.at(idx+1).body_rate);
         }
-        
-
         // pose, velocity, angular speed, pose, velocity, angular speed, inertial of moments, rot of g, position of rotot, kf, km        
         DynamcisCaliFactor_RS_AB dynamicsCalibFactor(X(idx), V(idx), S(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), P(0), K(0), M(0), H(0), D(0), A(0), B(0), Interp_states.at(idx).actuator_output, dt, quad_params.mass, dyn_noise);
         dyn_factor_graph.add(dynamicsCalibFactor);
@@ -211,7 +220,7 @@ int main(void)
     initial_value_dyn.insert(H(0), gtsam::Pose3::identity());
     gtsam::Vector3 rotor_p(rotor_px, rotor_py, 0);
     initial_value_dyn.insert(P(0), rotor_p);
-    gtsam::Vector3 drag_k(-0.1f, -0.1f, -0.1f);
+    gtsam::Vector3 drag_k(0.000f, 0.000f, 0.000f);
     gtsam::Vector3 A_k(0.000f, 0.000f, 0.000f);
     gtsam::Vector3 B_k(0.000f, 0.000f, 0.000f);
     initial_value_dyn.insert(D(0), drag_k);
@@ -224,7 +233,7 @@ int main(void)
     }
 
     // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(H(0), gtsam::Pose3::identity(), bm_nosie));
-    // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Rot3>(R(0), gtsam::Rot3::identity(), gr_noise));
+    dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Rot3>(R(0), gtsam::Rot3::identity(), gr_noise));
     dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(P(0), rotor_p, rp_noise)); 
     // dyn_factor_graph.add(gtsam::PriorFactor<double>(M(0), 0.0025f, km_noise));
     // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(A(0), gtsam::Vector3::Zero(), im_noise));   
@@ -233,68 +242,92 @@ int main(void)
     {
         dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(D(0), gtsam::Vector3::Zero(), im_noise)); 
     }
-    
-
-    gtsam::LevenbergMarquardtParams parameters;
-    parameters.absoluteErrorTol = 1e-8;
-    parameters.relativeErrorTol = 1e-8;
-    parameters.maxIterations    = 500;
-    parameters.verbosity        = gtsam::NonlinearOptimizerParams::ERROR;
-    parameters.verbosityLM      = gtsam::LevenbergMarquardtParams::SUMMARY;
-    std::cout << "###################### init contoller optimizer ######################" << std::endl;
-    LevenbergMarquardtOptimizer optimizer(dyn_factor_graph, initial_value_dyn, parameters);
-    std::cout << "###################### begin optimize ######################" << std::endl;
-    Values result = optimizer.optimize();
-    
-
-    gtsam::Vector3  IM = result.at<gtsam::Vector3>(J(0));
-    gtsam::Rot3    rot = result.at<gtsam::Rot3>(R(0));
-    gtsam::Vector3   p = result.at<gtsam::Vector3>(P(0));
-    double          kf = result.at<double>(K(0));
-    double          km = result.at<double>(M(0)); 
-    gtsam::Pose3   bTm = result.at<gtsam::Pose3>(H(0)); 
-    gtsam::Vector3  dk = result.at<gtsam::Vector3>(D(0));
-    gtsam::Vector3  ak = result.at<gtsam::Vector3>(A(0));
-    gtsam::Vector3  bk = result.at<gtsam::Vector3>(B(0));
 
 
-    for(uint32_t idx = DATASET_S; idx < DATASET_LENS; idx++)
-    {
-        gtsam::Pose3    pi = result.at<gtsam::Pose3>(X(idx));
-        gtsam::Vector3  vi = result.at<gtsam::Vector3>(V(idx));
-        gtsam::Vector3  vj = result.at<gtsam::Vector3>(V(idx+1));
-        gtsam::Vector3  oi = result.at<gtsam::Vector3>(S(idx));
-        gtsam::Vector3  oj = result.at<gtsam::Vector3>(S(idx+1));
+    for(uint32_t idx = DATASET_S + window_size; idx < DATASET_LENS; idx++)
+    {   
+        gtsam::Vector3 vel;
+        gtsam::Vector3 omega;
 
-        DynamcisCaliFactor_RS_AB dyn_err(X(idx), V(idx), S(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), P(0), K(0), M(0), H(0), D(0), A(0), B(0), Interp_states.at(idx).actuator_output, dt, quad_params.mass, dyn_noise);
+        dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx+1), Interp_states.at(idx+1).pose, vicon_noise));
+
+        initial_value_dyn.insert(X(idx+1), Interp_states.at(idx+1).pose);
+        initial_value_dyn.insert(V(idx+1), Interp_states.at(idx+1).vel);
+        initial_value_dyn.insert(S(idx+1), Interp_states.at(idx+1).body_rate);
+
+        // pose, velocity, angular speed, pose, velocity, angular speed, inertial of moments, rot of g, position of rotot, kf, km        
+        DynamcisCaliFactor_RS_AB dynamicsCalibFactor(X(idx), V(idx), S(idx), X(idx+1), V(idx+1), S(idx+1), J(0), R(0), P(0), K(0), M(0), H(0), D(0), A(0), B(0), Interp_states.at(idx).actuator_output, dt, quad_params.mass, dyn_noise);
+        dyn_factor_graph.add(dynamicsCalibFactor);
+
+        // gtsam::LevenbergMarquardtParams parameters;
+        // parameters.absoluteErrorTol = 1e-8;
+        // parameters.relativeErrorTol = 1e-8;
+        // parameters.maxIterations    = 500;
+        // parameters.verbosity        = gtsam::NonlinearOptimizerParams::ERROR;
+        // parameters.verbosityLM      = gtsam::LevenbergMarquardtParams::SUMMARY;
+        // std::cout << "###################### init contoller optimizer ######################" << std::endl;
+
+        // smoother.update(dyn_factor_graph, initial_value_dyn);
+        isam2.update(dyn_factor_graph, initial_value_dyn);
+        result = isam2.calculateEstimate();
         
-        gtsam::Vector12 dyn_e = dyn_err.evaluateError(Interp_states.at(idx).pose, vi, oi, Interp_states.at(idx+1).pose, vj, oj, IM, rot, p, kf, km, bTm, dk, ak, bk);
-        gtsam::Vector4 rpm_square = Interp_states.at(idx).actuator_output.cwiseAbs2();
-        gtsam::Vector6 thrust_torque = dyn_err.Thrust_Torque(rpm_square, kf, km, p);
+        // smoother.calculateEstimate();
 
-        gtsam::Pose3 pose = result.at<gtsam::Pose3>(X(idx));
-        gtsam::Vector3 dyn_pos_err = pose.rotation() * gtsam::Vector3(dyn_e(0), dyn_e(1), dyn_e(2)) / quad_params.mass;
+        // reset the graph
+        dyn_factor_graph.resize(0);
+        initial_value_dyn.clear();
+          
+        // LevenbergMarquardtOptimizer optimizer(dyn_factor_graph, initial_value_dyn, parameters);
+        // std::cout << "###################### begin optimize ######################" << std::endl;
+        // Values result = optimizer.optimize();
+    
+        gtsam::Vector3  IM = result.at<gtsam::Vector3>(J(0));
+        gtsam::Rot3    rot = result.at<gtsam::Rot3>(R(0));
+        gtsam::Vector3   p = result.at<gtsam::Vector3>(P(0));
+        double          kf = result.at<double>(K(0));
+        double          km = result.at<double>(M(0)); 
+        gtsam::Pose3   bTm = result.at<gtsam::Pose3>(H(0)); 
+        gtsam::Vector3  dk = result.at<gtsam::Vector3>(D(0));
+        gtsam::Vector3  ak = result.at<gtsam::Vector3>(A(0));
+        gtsam::Vector3  bk = result.at<gtsam::Vector3>(B(0));
 
-        gtsam::Vector3 vel_body = pose.rotation().unrotate(vi);
 
-        calib_log << std::setprecision(19) << Interp_states.at(idx).timestamp << std::setprecision(5) 
-            << " " << dyn_pos_err(0) << " " << dyn_pos_err(1) << " " << dyn_pos_err(2) << " " << dyn_e(3) << " " << dyn_e(4) << " " << dyn_e(5) << " " << dyn_e(6) << " " << dyn_e(7) << " " << dyn_e(8) << " " << dyn_e(9) << " " << dyn_e(10) << " " << dyn_e(11) 
-            << " " << thrust_torque(0)<< " " << thrust_torque(1) << " " << thrust_torque(2) << " " << thrust_torque(3) << " " << thrust_torque(4) << " " << thrust_torque(5) 
-            << " " << vel_body(0) << " " << vel_body(1) << " " << vel_body(2) << " " << oi(0) << " " << oi(1) << " " << oi(2) << std::endl; // << " " << Interp_states.at(idx).actuator_output(0) << " " << Interp_states.at(idx).actuator_output(1) << " " << Interp_states.at(idx).actuator_output(2) << " " << Interp_states.at(idx).actuator_output(3) << " " << pi.translation().x() << " " << pi.translation().y() << " " << pi.translation().z() << " " << pi.rotation().xyz().x() << " " << pi.rotation().xyz().y() << " " << pi.rotation().xyz().z() << "\n";
+    // for(uint32_t idx = DATASET_S; idx < DATASET_LENS; idx++)
+    // {
+    //     gtsam::Pose3    pi = result.at<gtsam::Pose3>(X(idx));
+    //     gtsam::Vector3  vi = result.at<gtsam::Vector3>(V(idx));
+    //     gtsam::Vector3  vj = result.at<gtsam::Vector3>(V(idx+1));
+    //     gtsam::Vector3  oi = result.at<gtsam::Vector3>(S(idx));
+    //     gtsam::Vector3  oj = result.at<gtsam::Vector3>(S(idx+1));
 
+    //     DynamcisCaliFactor_RS_AB dyn_err(X(idx), V(idx), S(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), P(0), K(0), M(0), H(0), D(0), A(0), B(0), Interp_states.at(idx).actuator_output, dt, quad_params.mass, dyn_noise);
+        
+    //     gtsam::Vector12 dyn_e = dyn_err.evaluateError(Interp_states.at(idx).pose, vi, oi, Interp_states.at(idx+1).pose, vj, oj, IM, rot, p, kf, km, bTm, dk, ak, bk);
+    //     gtsam::Vector4 rpm_square = Interp_states.at(idx).actuator_output.cwiseAbs2();
+    //     gtsam::Vector6 thrust_torque = dyn_err.Thrust_Torque(rpm_square, kf, km, p);
+
+    //     gtsam::Pose3 pose = result.at<gtsam::Pose3>(X(idx));
+    //     gtsam::Vector3 dyn_pos_err = pose.rotation() * gtsam::Vector3(dyn_e(0), dyn_e(1), dyn_e(2)) / quad_params.mass;
+
+    //     gtsam::Vector3 vel_body = pose.rotation().unrotate(vi);
+
+    //     calib_log << std::setprecision(19) << Interp_states.at(idx).timestamp << std::setprecision(5) << " " << dyn_pos_err(0) << " " << dyn_pos_err(1) << " " << dyn_pos_err(2) << " " << dyn_e(3) << " " << dyn_e(4) << " " << dyn_e(5) << " " << dyn_e(6) << " " << dyn_e(7) << " " << dyn_e(8) << " " << dyn_e(9) << " " << dyn_e(10) << " " << dyn_e(11) << " " << thrust_torque(0)<< " " << thrust_torque(1) << " " << thrust_torque(2) << " " << thrust_torque(3) << " " << thrust_torque(4) << " " << thrust_torque(5) << " " << vel_body(0) << " " << vel_body(1) << " " << vel_body(2) << " " << oi(0) << " " << oi(1) << " " << oi(2) << " " << Interp_states.at(idx).actuator_output(0) << " " << Interp_states.at(idx).actuator_output(1) << " " << Interp_states.at(idx).actuator_output(2) << " " << Interp_states.at(idx).actuator_output(3) << " " << pi.translation().x() << " " << pi.translation().y() << " " << pi.translation().z() << " " << pi.rotation().xyz().x() << " " << pi.rotation().xyz().y() << " " << pi.rotation().xyz().z() <<
+    //     "\n";
+
+    // }
+
+
+    // std::cout << "Inertial of moment:" << IM.transpose() << "\n";
+    // std::cout << "Gravity Rot:     " << rot.rpy().transpose() << "\n";
+    // std::cout << "Rotor p:         " << p.transpose() << "\n";
+        std::cout << "Kf:              " << kf << "\n";
+        std::cout << "Km:              " << km << std::endl;
+    // std::cout << "bTm t:         " << bTm.translation().transpose() << "\n";
+    // std::cout << "bTm r:          " << bTm.rotation().rpy().transpose() << "\n";
+    // std::cout << "drag k:         " << dk.transpose() << "\n";
+    // std::cout << "A k:         " << ak.transpose() << "\n";
+    // std::cout << "B k:         " << bk.transpose() << "\n";
     }
-
-
-    std::cout << "Inertial of moment:" << IM.transpose() << "\n";
-    std::cout << "Gravity Rot:     " << rot.rpy().transpose() << "\n";
-    std::cout << "Rotor p:         " << p.transpose() << "\n";
-    std::cout << "Kf:              " << kf << "\n";
-    std::cout << "Km:              " << km << std::endl;
-    std::cout << "bTm t:         " << bTm.translation().transpose() << "\n";
-    std::cout << "bTm r:          " << bTm.rotation().rpy().transpose() << "\n";
-    std::cout << "drag k:         " << dk.transpose() << "\n";
-    std::cout << "A k:         " << ak.transpose() << "\n";
-    std::cout << "B k:         " << bk.transpose() << "\n";
 
     return 0;
 }

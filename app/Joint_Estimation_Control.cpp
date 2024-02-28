@@ -53,6 +53,7 @@ int main(void)
     
     double INPUT_JERK_T          = FGO_config["INPUT_JERK_T"].as<double>(); 
     double INPUT_JERK_M          = FGO_config["INPUT_JERK_M"].as<double>(); 
+    double INPUT_JERK_M3         = FGO_config["INPUT_JERK_M3"].as<double>(); 
 
     uint64_t SIM_STEPS           = FGO_config["SIM_STEPS"].as<uint64_t>();
 
@@ -104,7 +105,7 @@ int main(void)
     parameters.verbosity        = gtsam::NonlinearOptimizerParams::ERROR;
     parameters.verbosityLM      = gtsam::LevenbergMarquardtParams::SUMMARY;
     
-    auto input_jerk  = noiseModel::Diagonal::Sigmas(Vector4(INPUT_JERK_T, INPUT_JERK_M, INPUT_JERK_M, INPUT_JERK_M));
+    auto input_jerk  = noiseModel::Diagonal::Sigmas(Vector4(INPUT_JERK_T, INPUT_JERK_M, INPUT_JERK_M, INPUT_JERK_M3));
     auto input_noise = noiseModel::Diagonal::Sigmas(Vector4(PRIOR_U_F_COV, PRIOR_U_M1_COV, PRIOR_U_M2_COV, PRIOR_U_M3_COV));
 
     auto dynamics_noise = noiseModel::Diagonal::Sigmas((Vector(12) << Vector3::Constant(DYNAMIC_P_COV), Vector3::Constant(0.0001), 

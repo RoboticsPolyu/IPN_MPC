@@ -267,8 +267,8 @@ namespace Trajectory
         K1 << dynamics_params_.k_f, dynamics_params_.k_f, dynamics_params_.k_f, dynamics_params_.k_f,
               dx0 * dynamics_params_.k_f, - dx0 * dynamics_params_.k_f, - dx0 * dynamics_params_.k_f,   dx0 * dynamics_params_.k_f,
             - dx1 * dynamics_params_.k_f, - dx1 * dynamics_params_.k_f,   dx0 * dynamics_params_.k_f,   dx0 * dynamics_params_.k_f,
-              dynamics_params_.k_m * dynamics_params_.k_f, - dynamics_params_.k_m * dynamics_params_.k_f, dynamics_params_.k_m * dynamics_params_.k_f, - dynamics_params_.k_m * dynamics_params_.k_f;
-              
+              dynamics_params_.k_m,       - dynamics_params_.k_m,         dynamics_params_.k_m,        - dynamics_params_.k_m;
+
         gtsam::Vector4 input;
 
         input = K1.inverse() * Tmb;

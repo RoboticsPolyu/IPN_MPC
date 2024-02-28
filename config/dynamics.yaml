@@ -4,7 +4,7 @@ ROTOR_P_Y: 0.10
 
 # Dataset segment 
 DATASET_S: 2000
-DATASET_L: 25000
+DATASET_L: 2000
 
 # Thrust sigma of z-axis direction
 P_T_SIGMA: 0.1
@@ -25,8 +25,8 @@ INERTIA_IZ: 0.0060
 DT:  0 # 1100 # ms
 
 
-ENABLE_I:    FALSE
-ENABLE_H:    FALSE
+ENABLE_I:    TRUE
+ENABLE_H:    TRUE
 
 # Data file path
 ROOT_PATH: ../data/blackbird/ampersand/yawConstant/maxSpeed3p0
@@ -34,7 +34,7 @@ ROOT_PATH: ../data/blackbird/ampersand/yawConstant/maxSpeed3p0
 # ROOT_PATH: /Users/ypwen/IPN/IPN_MPC/data/blackbird/pacasso/yawForward/maxSpeed4p0
 
 
-POSE_FILE: /Users/ypwen/IPN/IPN_MPC/data/quad13/pose_2023-10-29-00-44-03.txt
-RSM_FILE: /Users/ypwen/IPN/IPN_MPC/data/quad13/rsm_2023-10-29-00-44-03.txt
+POSE_FILE: /Users/ypwen/IPN/IPN_MPC/data/quad13/pose_2024-02-21-13-45-50.txt
+RSM_FILE: /Users/ypwen/IPN/IPN_MPC/data/quad13/rsm_2024-02-21-13-45-50.txt
 
 LOG_FILE: /Users/ypwen/Chao/2023-10-29-00-44-03/log_2_2023-10-21-21-45-16.ulg

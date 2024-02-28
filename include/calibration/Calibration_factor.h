@@ -59,7 +59,7 @@ namespace UAVFactor
 
     class GTSAM_EXPORT DynamcisCaliFactor_RS_AB : public NoiseModelFactor15<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector3, gtsam::Rot3, gtsam::Vector3, double, double, gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector3>
     {
-            public:
+        public:
         typedef boost::shared_ptr<DynamcisCaliFactor_RS> shared_ptr;
 
         DynamcisCaliFactor_RS_AB() {}

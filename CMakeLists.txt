@@ -191,6 +191,9 @@ target_link_libraries(Aerial_vehicle_calibration_NBEM quadrotor_dynamics ${Pango
 add_executable(Motor_calibration app/Motor_calibration.cpp)
 target_link_libraries(Motor_calibration quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
+add_executable(Online_Calibration_BLACK app/Online_Calibration_BLACK.cpp)
+target_link_libraries(Online_Calibration_BLACK quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+
 
 if(BUILD_WITH_ROS)
 

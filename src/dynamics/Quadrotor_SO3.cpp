@@ -139,7 +139,7 @@ namespace QuadrotorSim_SO3
             vnorm.normalize();
         }
 
-        Eigen::Vector3d drag_force = - est_state.rot.matrix() * Eigen::Matrix3d(drag_force_params_.asDiagonal()) * est_state.rot.matrix().transpose() * est_state.v;
+        Eigen::Vector3d drag_force = est_state.rot.matrix() * Eigen::Matrix3d(drag_force_params_.asDiagonal()) * est_state.rot.matrix().transpose() * est_state.v;
         
         Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) + est_state.rot.rotate(gtsam::Vector3(0, 0, thrust / mass_)) +
                                 external_force_ / mass_ + drag_force / mass_;
@@ -251,7 +251,8 @@ namespace QuadrotorSim_SO3
               dx0 * kf_, - dx0 * kf_, - dx0 * kf_,   dx0 * kf_,
             - dx1 * kf_, - dx1 * kf_,   dx0 * kf_,   dx0 * kf_,
               km_ * kf_, - km_ * kf_,   km_ * kf_, - km_ * kf_;
-
+        
+        std::cout << "effectivenessMatrix: " << effectivenessMatrix / kf_ << std::endl;
         return effectivenessMatrix;
     }
 

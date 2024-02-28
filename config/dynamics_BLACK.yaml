@@ -1,10 +1,10 @@
 # Rotor's postion 
-ROTOR_P_X: 0.10
-ROTOR_P_Y: 0.10
+ROTOR_P_X: 0.11
+ROTOR_P_Y: 0.11
 
 # Dataset segment 
 DATASET_S: 2000
-DATASET_L: 4000
+DATASET_L: 12000
 
 # Thrust sigma of z-axis direction
 P_T_SIGMA: 0.1
@@ -18,14 +18,17 @@ ENABLE_DRAG: TRUE
 # INERTIA_IY: 0.049
 # INERTIA_IZ: 0.069
 
-INERTIA_IX: 0.0036
-INERTIA_IY: 0.0036
-INERTIA_IZ: 0.0060
+
+INERTIA_IX: 0.005
+INERTIA_IY: 0.005
+INERTIA_IZ: 0.007
 
 
 ENABLE_I:    TRUE
 
 # Data file path
-ROOT_PATH: ../data/blackbird/ampersand/yawConstant/maxSpeed3p0
+# ROOT_PATH: ../data/blackbird/ampersand/yawConstant/maxSpeed3p0
+ROOT_PATH: ../data/blackbird/pacasso/yawForward/maxSpeed4p0
+
 # ROOT_PATH: /Users/ypwen/IPN/IPN_MPC/data/blackbird/ampersand/yawForward/maxSpeed2p0
 # ROOT_PATH: /Users/ypwen/IPN/IPN_MPC/data/blackbird/pacasso/yawForward/maxSpeed4p0

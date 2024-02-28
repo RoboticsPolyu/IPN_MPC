@@ -14,7 +14,7 @@ namespace UAVFactor
         double Ixx          = 2.64e-3;
         double Iyy          = 2.64e-3;
         double Izz          = 4.96e-3;
-        double k_f          = 8.98132e-9;
+        double k_f          = 2.0e-8;
         double prop_radius_ = 0.062;
         double k_m          = 0.01302; //1.169* 10e-10 0.01302
         float  min_rpm      = 1200;

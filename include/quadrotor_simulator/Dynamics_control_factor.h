@@ -167,6 +167,36 @@ namespace UAVFactor
     };
 
 
+    class GTSAM_EXPORT DynamicsFactorTGyro : public NoiseModelFactor5<gtsam::Pose3, gtsam::Vector3, gtsam::Vector4, gtsam::Pose3, gtsam::Vector3>
+    {
+    public:
+        typedef boost::shared_ptr<DynamicsFactorTGyro> shared_ptr;
+
+        DynamicsFactorTGyro() {}
+        DynamicsFactorTGyro(Key p_i, Key vel_i, Key input_i, Key p_j, Key vel_j, float dt, const SharedNoiseModel &model);
+
+        virtual ~DynamicsFactorTGyro()
+        {
+        }
+
+        Vector evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector4 &input_i,
+                             const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, 
+                             boost::optional<Matrix &> H1 = boost::none, boost::optional<Matrix &> H2 = boost::none,
+                             boost::optional<Matrix &> H3 = boost::none, boost::optional<Matrix &> H4 = boost::none,
+                             boost::optional<Matrix &> H5 = boost::none) const;
+
+    private:
+        typedef DynamicsFactorTGyro This;
+        typedef NoiseModelFactor5<gtsam::Pose3, gtsam::Vector3, gtsam::Vector4, gtsam::Pose3, gtsam::Vector3>
+            Base;
+
+        DynamicsParams dynamics_params_;
+        
+        float dt_;
+    };
+
+
+
     /*thrust's x and y components are nozero */
     class GTSAM_EXPORT DynamicsFactorFullTM : public NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector6, 
         gtsam::Pose3, gtsam::Vector3, gtsam::Vector3>

@@ -53,7 +53,7 @@ int main(void)
 {        
     DynamicsParams quad_params;
     double      dt         = 0.01f;
-    quad_params.mass       = 0.928f; // Big 949g small 920g
+    quad_params.mass       = 1.04f; // Big 949g small 920g
     quad_params.Ixx        = 4.9* 1e-2;
     quad_params.Iyy        = 4.9* 1e-2;
     quad_params.Izz        = 6.9* 1e-2;
@@ -130,7 +130,7 @@ int main(void)
     _state.pose        = gtsam::Pose3(rx_pi, gtsam::Vector3(0,0,0)) * _state.pose * gtsam::Pose3(rx_pi, gtsam::Vector3(0,0,0)) * gtsam::Pose3(rz_pi4, gtsam::Vector3(0,0,0));
     Uav_states.push_back(_state);
 
-    float dt_v = 3.430857152425035 * 1e-3;
+    float dt_v = 3.36* 1e-3; // 3.430857152425035 * 1e-3;
 
     while (state_file >> gt_t >> gt_x >> gt_y >> gt_z >> gt_qx >> gt_qy >> gt_qz >> gt_qw >> bak >> bak >> bak)
     {
@@ -145,27 +145,27 @@ int main(void)
         Uav_states.push_back(_state);
     }
 
-    rpm_black_file >> pwm_t >> pwm1 >> pwm2 >> pwm3 >> pwm4;
+    rpm_black_file >> pwm_t >> pwm1 >> pwm3 >> pwm2 >> pwm4;
 
     Actuator_control _uav_pwm;
     pwm_t = pwm_t - DT * 1e6;
     _uav_pwm.timestamp       = pwm_t;
-    _uav_pwm.actuator_output = gtsam::Vector4(pwm3*div, pwm1*div, pwm4*div, pwm2*div);
+    _uav_pwm.actuator_output = gtsam::Vector4(pwm1*div, pwm2*div, pwm3*div, pwm4*div);
     std::cout << "RSM: " << _uav_pwm.actuator_output.transpose() << std::endl;
     Uav_pwms.push_back(_uav_pwm);
 
-    while (rpm_black_file >> bak >> pwm1 >> pwm2 >> pwm3 >> pwm4)
+    while (rpm_black_file >> pwm_t >> pwm1 >> pwm3 >> pwm2 >> pwm4)
     {
         Actuator_control _uav_pwm;
-        pwm_t                    = pwm_t + 5 * 1e6;
-        _uav_pwm.timestamp       = pwm_t - DT;
-        _uav_pwm.actuator_output = gtsam::Vector4(pwm3*div, pwm1*div, pwm4*div, pwm2*div);
+        // pwm_t                    = pwm_t + 10 * 1e6;
+        _uav_pwm.timestamp       = pwm_t;
+        _uav_pwm.actuator_output = gtsam::Vector4(pwm1*div, pwm2*div, pwm3*div, pwm4*div);
         std::cout << "RSM: " << _uav_pwm.actuator_output.transpose() << std::endl;
         Uav_pwms.push_back(_uav_pwm);
     }
 
     std::cout << "Uav pwm size: " << Uav_pwms.size() << std::endl;
-    std::cout << "Uav_states pwm size: " << Uav_states.size() << std::endl;
+    std::cout << "Uav_states size: " << Uav_states.size() << std::endl;
     // while (actuator_black_file >> pwm_t >> pwm1 >> pwm2 >> pwm3 >> pwm4)
     // {
     //     Actuator_control _uav_pwm;
@@ -175,7 +175,7 @@ int main(void)
     // }
 
     State _interp_state;
-    for(int i = 0; i < Uav_pwms.size()-2; i = i + 2)
+    for(int i = 0; i < Uav_pwms.size()-2; i = i + 1)
     {
         for(int j = 2; j < Uav_states.size() -3; j++)
         {
@@ -202,13 +202,13 @@ int main(void)
         }
     }
 
-std::cout << "Interp_states  size: " << Interp_states.size() << std::endl;
+    std::cout << "Interp_states  size: " << Interp_states.size() << std::endl;
 
     NonlinearFactorGraph dyn_factor_graph;
     Values initial_value_dyn;
     dyn_factor_graph.empty();
 
-    for(uint32_t idx = DATASET_S; idx < DATASET_S + DATASET_LENS/2; idx++)
+    for(uint32_t idx = DATASET_S; idx < DATASET_S + DATASET_LENS; idx++)
     {   
         gtsam::Vector3 vel;
         gtsam::Vector3 omega;
@@ -220,7 +220,7 @@ std::cout << "Interp_states  size: " << Interp_states.size() << std::endl;
         initial_value_dyn.insert(V(idx), Interp_states.at(idx).vel);
         initial_value_dyn.insert(S(idx), Interp_states.at(idx).omega);
 
-        if( idx == DATASET_S + DATASET_LENS/2 - 1)
+        if( idx == DATASET_S + DATASET_LENS - 1)
         {
             dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx+1), Interp_states.at(idx+1).pose,  vicon_noise));
             // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx+1), Interp_states.at(idx+1).omega, gr_noise));
@@ -294,7 +294,7 @@ std::cout << "Interp_states  size: " << Interp_states.size() << std::endl;
     gtsam::Vector3  bk = result.at<gtsam::Vector3>(B(0));
 
 
-    for(uint32_t idx = DATASET_S; idx < DATASET_S + DATASET_LENS/2; idx++)
+    for(uint32_t idx = DATASET_S; idx < DATASET_S + DATASET_LENS; idx++)
     {
         gtsam::Pose3    pi = result.at<gtsam::Pose3>(X(idx));
         gtsam::Vector3  vi = result.at<gtsam::Vector3>(V(idx));
@@ -315,8 +315,17 @@ std::cout << "Interp_states  size: " << Interp_states.size() << std::endl;
 
         gtsam::Vector3 vel_body = pose.rotation().unrotate(vi);
 
-        calib_log << std::setprecision(19) << Interp_states.at(idx).timestamp << std::setprecision(5) << " " << dyn_pos_err(0) << " " << dyn_pos_err(1) << " " << dyn_pos_err(2) << " " << dyn_e(3) << " " << dyn_e(4) << " " << dyn_e(5) << " " << dyn_e(6) << " " << dyn_e(7) << " " << dyn_e(8) << " " << dyn_e(9) << " " << dyn_e(10) << " " << dyn_e(11) << " " << thrust_torque(0)<< " " << thrust_torque(1) << " " << thrust_torque(2) << " " << thrust_torque(3) << " " << thrust_torque(4) << " " << thrust_torque(5) << " " << vel_body(0) << " " << vel_body(1) << " " << vel_body(2) << " " << Interp_states.at(idx).omega.x() << " " << Interp_states.at(idx).omega.y() << " " << Interp_states.at(idx).omega.z() << " " << Interp_states.at(idx).actuator_output(0) << " " << oi(1) << " " << oi(2) << " " << oi(3) << " " << pi.translation().x() << " " << pi.translation().y() << " " << pi.translation().z() << " " << pi.rotation().xyz().x() << " " << pi.rotation().xyz().y() << " " << pi.rotation().xyz().z() <<
-        "\n";
+        calib_log << std::setprecision(19) << Interp_states.at(idx).timestamp << std::setprecision(5) 
+        << " " << dyn_pos_err(0) << " " << dyn_pos_err(1) << " " << dyn_pos_err(2) << " " << dyn_e(3) << " " << dyn_e(4) << " " << dyn_e(5) << " " << dyn_e(6) 
+        << " " << dyn_e(7) << " " << dyn_e(8) << " " << dyn_e(9) << " " << dyn_e(10) << " " << dyn_e(11) 
+        << " " << thrust_torque(0)<< " " << thrust_torque(1) << " " << thrust_torque(2) << " " << thrust_torque(3) << " " << thrust_torque(4) << " " << thrust_torque(5) 
+        << " " << vel_body(0) << " " << vel_body(1) << " " << vel_body(2) 
+        << " " << Interp_states.at(idx).omega.x() << " " << Interp_states.at(idx).omega.y() << " " << Interp_states.at(idx).omega.z() 
+        // << " " << Interp_states.at(idx).actuator_output(0) 
+        // << " " << oi(1) << " " << oi(2) << " " << oi(3) 
+        // << " " << pi.translation().x() << " " << pi.translation().y() << " " << pi.translation().z() 
+        //<< " " << pi.rotation().xyz().x() << " " << pi.rotation().xyz().y() << " " << pi.rotation().xyz().z() 
+        << "\n";
 
     }
 

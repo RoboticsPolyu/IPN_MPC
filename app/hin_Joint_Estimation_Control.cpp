@@ -29,7 +29,7 @@ int main(void)
     
 
     // Configuration file 
-    YAML::Node FGO_config        = YAML::LoadFile("../config/factor_graph.yaml");  
+    YAML::Node FGO_config        = YAML::LoadFile("../config/factor_graph_hin.yaml");  
     double PRI_VICON_COV         = FGO_config["PRI_VICON_COV"].as<double>();
     double PRI_VICON_VEL_COV     = FGO_config["PRI_VICON_VEL_COV"].as<double>();   
     double CONTROL_P_COV_X       = FGO_config["CONTROL_P_COV_X"].as<double>();
@@ -65,7 +65,10 @@ int main(void)
     
     uint16_t WINDOW_SIZE         = FGO_config["WINDOW_SIZE"].as<uint16_t>();
 
-    
+    double DRAG_FORCE_X = FGO_config["DRAG_FORCE_X"].as<double>();
+    double DRAG_FORCE_Y = FGO_config["DRAG_FORCE_Y"].as<double>();
+    double DRAG_FORCE_Z = FGO_config["DRAG_FORCE_Z"].as<double>();
+
     YAML::Node quad_config  = YAML::LoadFile("../config/quadrotor.yaml"); 
 
     double RADIUS                = quad_config["RADIUS"].as<double>();
@@ -103,13 +106,15 @@ int main(void)
     double Izz                  = quad_config["Izz"].as<double>();
     gtsam::Vector3 Inertia = Eigen::Vector3d(Ixx, Iyy, Izz);
     
-    double rotor_px = 0.1;
-    double rotor_py = 0.1;
+    double rotor_px = 0.1f;
+    double rotor_py = 0.1f;
+
     gtsam::Vector3 rotor_pos = gtsam::Vector3(rotor_px, rotor_py, 0);
     
-    double DRAG_FORCE_X = quad_config["DRAG_FORCE_X"].as<double>();
-    double DRAG_FORCE_Y = quad_config["DRAG_FORCE_Y"].as<double>();
-    double DRAG_FORCE_Z = quad_config["DRAG_FORCE_Z"].as<double>();
+    // double DRAG_FORCE_X = quad_config["DRAG_FORCE_X"].as<double>();
+    // double DRAG_FORCE_Y = quad_config["DRAG_FORCE_Y"].as<double>();
+    // double DRAG_FORCE_Z = quad_config["DRAG_FORCE_Z"].as<double>();
+    
     gtsam::Vector3 drag_k = Eigen::Vector3d(DRAG_FORCE_X, DRAG_FORCE_Y, DRAG_FORCE_Z);
 
     std::ofstream JEC_log;
@@ -118,8 +123,12 @@ int main(void)
     file_name.append("_log.txt");
     JEC_log.open(file_name);
 
-    double dt = 0.001f, radius = RADIUS, linear_vel = LINEAR_VEL;
-    circle_generator circle_generator(radius, linear_vel, dt);
+    // double dt = 0.001f, radius = RADIUS, linear_vel = LINEAR_VEL;
+    // circle_generator circle_generator(radius, linear_vel, dt);
+
+    double dt = 0.001, radius = RADIUS, linear_vel = 5.0, acc = 0.05;
+    // circle_generator circle_generator(radius, linear_vel, dt);
+    cir_conacc_generator circle_generator(radius, linear_vel, acc, dt);
 
     gtsam::LevenbergMarquardtParams parameters;
     parameters.absoluteErrorTol = 1e-8;
@@ -176,12 +185,12 @@ int main(void)
     gtsam::Vector3 vicon_measurement;
     gtsam::Vector4 rotor_input_bak;
     
-    double p_thrust_sigma = 0.010;
-    gtsam::Vector3 thrust_sigma(0.001, 0.001, 2* p_thrust_sigma);
+    double p_thrust_sigma = 0.10;
+    gtsam::Vector3 thrust_sigma(0.01, 0.01, p_thrust_sigma);
     // sigma = (rotor_p_x* 2* P_thrust_single_rotor, rotor_p_x* 2* P_thrust_single_rotor, k_m * 2 * P_thrust_single_rotor) 
-    gtsam::Vector3 moments_sigma(p_thrust_sigma * 2 * rotor_py, p_thrust_sigma * 2 * rotor_px, 0.01f * 2 * p_thrust_sigma);
+    gtsam::Vector3 moments_sigma(p_thrust_sigma * 2 * rotor_py, p_thrust_sigma * 2 * rotor_px, 0.013f * 2 * p_thrust_sigma);
 
-    auto dyn_noise = noiseModel::Diagonal::Sigmas((Vector(12) << thrust_sigma * 0.5f * dt * dt, Vector3::Constant(0.001 * dt), 
+    auto dyn_noise = noiseModel::Diagonal::Sigmas((Vector(12) << thrust_sigma * 0.5f * dt * dt, Vector3::Constant(0.01 * dt), 
                                                                    thrust_sigma * dt, moments_sigma * dt).finished());
 
     for(int traj_idx = 0; traj_idx < SIM_STEPS; traj_idx++)
@@ -191,9 +200,9 @@ int main(void)
         if(traj_idx == 0)
         {
             predicted_state.p            = circle_generator.pos(t0);
-        //     predicted_state.rot          = gtsam::Rot3::identity(); // gtsam::Rot3::Expmap(circle_generator.theta(t0));
-        //     predicted_state.v            = gtsam::Vector3::Zero();  // circle_generator.vel(t0);
-        //     predicted_state.body_rate    = gtsam::Vector3::Zero(); // circle_generator.omega(t0);
+            // predicted_state.rot          = gtsam::Rot3::identity(); // gtsam::Rot3::Expmap(circle_generator.theta(t0));
+            // predicted_state.v            = gtsam::Vector3::Zero();  // circle_generator.vel(t0);
+            // predicted_state.body_rate    = gtsam::Vector3::Zero(); // circle_generator.omega(t0);
             predicted_state.rot          = gtsam::Rot3::Expmap(circle_generator.theta(t0));
             predicted_state.v            = circle_generator.vel(t0);
             predicted_state.body_rate    = circle_generator.omega(t0);
@@ -352,6 +361,11 @@ int main(void)
 
         input = result.at<gtsam::Vector4>(U(0));
 
+        for(int j = 0; j < 4; j++)
+        {
+            if(input[j] < 0)
+                return 0;
+        }
         gtsam::Vector4 tt = quadrotor.InvCumputeRotorsVel(input);
 
         // quadrotor.setInput(input);
@@ -389,7 +403,7 @@ int main(void)
 
         quadrotor.stepODE(dt, tt); // for driver delay test
 
-        std::cout << "input: " << input << std::endl;
+        std::cout << "RPM Input [ " << traj_idx << " ]" << input.transpose() << std::endl;
 
         predicted_state = quadrotor.getState();
         gtsam::Pose3 predicted_pose = gtsam::Pose3(predicted_state.rot, predicted_state.p);

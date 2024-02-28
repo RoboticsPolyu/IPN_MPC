@@ -162,7 +162,7 @@ int main(void)
         result.print("Current estimate: ");
 
         std::vector<Quadrotor::State> opt_trj;
-        gtsam::Pose3 i_pose;
+        gtsam::Pose3   i_pose;
         gtsam::Vector3 vel;
         gtsam::Vector3 omega;
         gtsam::Vector4 input;
@@ -223,30 +223,31 @@ int main(void)
         quad_.renderHistoryOpt(opt_trj, err);
         predicted_state = quad_.getState();
 
-        FactorIndices marginalFactorsIndices;
-        FactorIndices deletedFactorsIndices;
-        if(cur_est_idx <= opt_lens_traj)
-        {
-            deletedFactorsIndices.push_back(0 + cur_est_idx* 4);
-            deletedFactorsIndices.push_back(1 + cur_est_idx* 4);
-            deletedFactorsIndices.push_back(2 + cur_est_idx* 4);
-            // deletedFactorsIndices.push_back(3 + cur_est_idx* 4);
-        }
-        else
-        {
-        //     deletedFactorsIndices.push_back(); 
-        //     deletedFactorsIndices.push_back(); 
-        //     deletedFactorsIndices.push_back();    
-        }
+        // FactorIndices marginalFactorsIndices;
+        // FactorIndices deletedFactorsIndices;
+        // if(cur_est_idx <= opt_lens_traj)
+        // {
+        //     deletedFactorsIndices.push_back(0 + cur_est_idx* 4);
+        //     deletedFactorsIndices.push_back(1 + cur_est_idx* 4);
+        //     deletedFactorsIndices.push_back(2 + cur_est_idx* 4);
+        //     // deletedFactorsIndices.push_back(3 + cur_est_idx* 4);
+        // }
+        // else
+        // {
+        // //     deletedFactorsIndices.push_back(); 
+        // //     deletedFactorsIndices.push_back(); 
+        // //     deletedFactorsIndices.push_back();    
+        // }
 
-        cur_est_idx++;
-        FastList<Key> leafKeys;
-        leafKeys.push_back(X(cur_est_idx - 1));
-        leafKeys.push_back(V(cur_est_idx - 1));
-        leafKeys.push_back(S(cur_est_idx - 1));
-        leafKeys.push_back(U(cur_est_idx - 1));
+        // cur_est_idx++;
+        // FastList<Key> leafKeys;
+        // leafKeys.push_back(X(cur_est_idx - 1));
+        // leafKeys.push_back(V(cur_est_idx - 1));
+        // leafKeys.push_back(S(cur_est_idx - 1));
+        // leafKeys.push_back(U(cur_est_idx - 1));
 
-        isam.marginalizeLeaves(leafKeys, marginalFactorsIndices, deletedFactorsIndices);
+        // isam.marginalizeLeaves(leafKeys, marginalFactorsIndices, deletedFactorsIndices);
+
 
         newFactors.resize(0);
         newValues.clear();
