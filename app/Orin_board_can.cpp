@@ -37,11 +37,11 @@ float convert_gyro(uint16_t input)
 {
         if(input > 32768)
         {
-                return -(65536 - input)*2000.0/32768.0;
+                return -(65536 - input)*1000.0/32768.0;
         }
         else
         {
-                return input*2000.0/32768.0;
+                return input*1000.0/32768.0;
 
         }
 }
@@ -50,15 +50,15 @@ float convert_gyro(uint16_t input)
 int main(int argc, char **argv)
 {
 	YAML::Node RSM_config  = YAML::LoadFile("../config/rsm_uart.yaml");  
-    std::string dev_name   = RSM_config["dev_name"].as<std::string>();
+  std::string dev_name   = RSM_config["dev_name"].as<std::string>();
 	std::string rsm_topic_name = RSM_config["rsm_topic_name"].as<std::string>();
 	std::string imu_topic_name = RSM_config["imu_topic_name"].as<std::string>();
 
 	ros::init(argc, argv, "RotorSpeedNode");
 
-    ros::NodeHandle node;
+  ros::NodeHandle node;
 
-    ros::Publisher rotor_rsm_pub = node.advertise<IPN_MPC::Rsm>(rsm_topic_name, 1000);
+  ros::Publisher rotor_rsm_pub = node.advertise<IPN_MPC::Rsm>(rsm_topic_name, 1000);
 	ros::Publisher rotor_imu_pub = node.advertise<IPN_MPC::IMU>(imu_topic_name, 1000);
 
 	int s; 
@@ -135,7 +135,7 @@ int main(int argc, char **argv)
 			rotor_rsm_pub.publish(rsm_msg);
 			count++;
 		}
-		else if(frame.can_id == 0x12) // 1000hz
+		else if(frame.can_id == 0x12) // 200hz
 		{
 			acc_x = frame.data[1]; acc_x |= frame.data[0] << 8;
 			acc_y = frame.data[3]; acc_y |= frame.data[2] << 8;
@@ -148,7 +148,7 @@ int main(int argc, char **argv)
 			ROS_DEBUG("ACC ID: %d\r\n", acc_id);
 
 		}
-		else if(frame.can_id == 0x13) // 1000hz
+		else if(frame.can_id == 0x13) // 200hz
 		{
 			gyro_x = frame.data[1]; gyro_x |= frame.data[0] << 8;
 			gyro_y = frame.data[3]; gyro_y |= frame.data[2] << 8;
