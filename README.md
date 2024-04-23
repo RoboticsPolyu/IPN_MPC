@@ -52,8 +52,8 @@ SW_Joint_Estimation_Control
 ### Position tracking
 
 <center class="half">
-<img src="img/Paths_of_MPC_and_JPCM.png" width="50%" />
-<img src="img/Control_input.png" width="50%" />
+<img src="img/Paths_of_MPC_and_JPCM.png" width="45%" />
+<img src="img/Control_input.png" width="45%" />
 </center>
 
 The paths of MPC and JPCM (linear speed = 5m/s, radius = 1.5m). The red solid line and blue solid line represent the tracking path based on MPC and the tracking path based on JPCM, respectively.
