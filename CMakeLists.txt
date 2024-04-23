@@ -8,8 +8,6 @@ option(BUILD_WITH_ROS    "Enable Ros Support" OFF)
 
 set(wio_factor_version 1.0)
 set(wio_factor_soversion 1.0)
-set(abb_wrapper_version 1.0)
-set(abb_wrapper_soversion 1.0)
 
 set(DEFAULT_BUILD_TYPE "Release")
 if (NOT CMAKE_BUILD_TYPE)
@@ -77,24 +75,20 @@ include_directories(${GTSAM_INCLUDE_DIR})
 include_directories(include)
 
 # Armadillo
-find_package(Armadillo REQUIRED)
-include_directories(${ARMADILLO_INCLUDE_DIRS})
+# find_package(Armadillo REQUIRED)
+# include_directories(${ARMADILLO_INCLUDE_DIRS})
 
 # Pangolin
 find_package(Pangolin 0.8 REQUIRED)
 include_directories(${Pangolin_INCLUDE_DIRS})
 
 # Find OSQP library and headers
-find_package(osqp REQUIRED)
-find_package(OsqpEigen REQUIRED)
+# find_package(osqp REQUIRED)
+# find_package(OsqpEigen REQUIRED)
 
 # Find yaml-cpp
 find_package(yaml-cpp)
 include_directories(${YAML_CPP_INCLUDE_DIRS})
-
-# OpenCV
-find_package( OpenCV REQUIRED )
-include_directories( ${OpenCV_INCLUDE_DIRS} )
 
 
 set(WIO_SOURCE
@@ -128,7 +122,7 @@ add_library(quadrotor_dynamics
             src/dynamics/Quadrotor_SO3.cpp
             src/trajectory_generator/Trajectory_generator.cpp)
 
-target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES} PRIVATE osqp::osqp OsqpEigen::OsqpEigen )
+target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
 if(BUILD_HARDWARE)
 add_library(hardware_lib 
@@ -139,20 +133,22 @@ add_library(hardware_lib
 target_link_libraries(hardware_lib PUBLIC ${YAML_CPP_LIBRARIES})
 endif(BUILD_HARDWARE)
 
+
+# add_executable(wheel_imu_factor app/test_wheel_imu_factor.cpp)
+# target_link_libraries(wheel_imu_factor gtsam wio_factor_lib)
+
+# add_executable(wheel_imu_pim app/test_wheel_imu_pim.cpp)
+# target_link_libraries(wheel_imu_pim gtsam wio_factor_lib)
+
+# add_executable(wheel_imu_error app/test_wheel_imu_error.cpp)
+# target_link_libraries(wheel_imu_error gtsam wio_factor_lib)
+
+# add_executable(wheel_imu_isam app/wheel_imu_isam.cpp)
+# target_link_libraries(wheel_imu_isam gtsam gtsam_unstable wio_factor_lib)
+
+# Simulation of JPCM
 add_executable(test_dynamics src/test_dynamics/test_dynamics.cpp)
 target_link_libraries(test_dynamics gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})
-
-add_executable(wheel_imu_factor app/test_wheel_imu_factor.cpp)
-target_link_libraries(wheel_imu_factor gtsam wio_factor_lib)
-
-add_executable(wheel_imu_pim app/test_wheel_imu_pim.cpp)
-target_link_libraries(wheel_imu_pim gtsam wio_factor_lib)
-
-add_executable(wheel_imu_error app/test_wheel_imu_error.cpp)
-target_link_libraries(wheel_imu_error gtsam wio_factor_lib)
-
-add_executable(wheel_imu_isam app/wheel_imu_isam.cpp)
-target_link_libraries(wheel_imu_isam gtsam gtsam_unstable wio_factor_lib)
 
 add_executable(simple_circle_motion_test app/circle_trajectory_test.cpp)
 target_link_libraries(simple_circle_motion_test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES})
