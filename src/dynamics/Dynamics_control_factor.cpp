@@ -67,9 +67,12 @@ namespace UAVFactor
          return thrust_torque;
    }
 
-   DynamicsFactorTGyro::DynamicsFactorTGyro(Key p_i, Key vel_i, Key input_i, Key p_j, Key vel_j, float dt, const SharedNoiseModel &model)
-          : Base(model, p_i, vel_i, input_i, p_j, vel_j),
-         dt_(dt){};
+   DynamicsFactorTGyro::DynamicsFactorTGyro(Key p_i, Key vel_i, Key input_i, Key p_j, Key vel_j, float dt, double mass, gtsam::Vector3 drag_k, const SharedNoiseModel &model)
+          : Base(model, p_i, vel_i, input_i, p_j, vel_j)
+          , dt_(dt)
+          , mass_(mass)
+          , drag_k_(drag_k)
+          {};
 
 
    Vector DynamicsFactorTGyro::evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector4 &input_i,
@@ -77,111 +80,103 @@ namespace UAVFactor
                              boost::optional<Matrix &> H1, boost::optional<Matrix &> H2, boost::optional<Matrix &> H3, boost::optional<Matrix &> H4, boost::optional<Matrix &> H5) const
    {
       gtsam::Vector9 err;
+      
       Matrix36 jac_t_posei, jac_t_posej;
       Matrix36 jac_r_posei, jac_r_posej;
 
-      const Point3 p_w_i  = pos_i.translation(jac_t_posei);
-      const Rot3   r_w_bi = pos_i.rotation(jac_r_posei);
-      const Point3 p_w_j  = pos_j.translation(jac_t_posej);
-      const Rot3   r_w_bj = pos_j.rotation(jac_r_posej);
+      const Point3 p_w_mi = pos_i.translation(jac_t_posei);
+      const Rot3   r_w_mi = pos_i.rotation(jac_r_posei);
+      const Point3 p_w_mj = pos_j.translation(jac_t_posej);
+      const Rot3   r_w_mj = pos_j.rotation(jac_r_posej);
 
-      // force and moment
+      double dtt = dt_* dt_;
+      gtsam::Matrix33 _unrbi_matrix = r_w_mi.inverse().matrix();
+      
+      // position rotation velocity angular_speed error
+      gtsam::Matrix33 J_rwg, J_pe_roti, J_ve_rot1, J_dv_rit, J_dv_v;
+      // J_rerr_rbj, J_rbi;
+      gtsam::Matrix33 J_ri, J_rj, J_dr;
+      
 
-      // position rotation velocity error
-      gtsam::Vector3 p_err = p_w_j - p_w_i - vel_i * dt_ - 
-         0.5* (-gtsam::Vector3(0, 0, dynamics_params_.g) + r_w_bi.rotate(gtsam::Vector3(0, 0, input_i[0] / dynamics_params_.mass)))*
-         dt_* dt_;
-      // std::cout << "p_1:" << p_w_i << std::endl;
-      // std::cout << "p_2:" << p_w_j << std::endl;
-      // std::cout << "v_1:" << vel_i << std::endl;
-      // std::cout << "p_error:" << p_err << std::endl;
+      gtsam::Vector3  pos_err = mass_ * r_w_mi.unrotate(p_w_mj - vel_i * dt_ + 0.5f * gI_ * dtt - p_w_mi, J_pe_roti) - 0.5f* gtsam::Vector3(0,0,1)*input_i(0)* dtt;
+      // gtsam::Vector3  rot_err = Rot3::Logmap(r_w_mi.between(r_w_mj, J_ri, J_rj), J_dr) - 0.5f * (omega_i + omega_j) * dt_; 
+      // This would cause the heavy fluctuation of omega
 
-      gtsam::Vector3 omega_i = input_i.tail(3);
-      gtsam::Matrix33 J_rerr_rbj, J_rbi;
-      gtsam::Vector3 rot_err = Rot3::Logmap(r_w_bj.between(r_w_bi.compose(Rot3::Expmap(omega_i * dt_), J_rbi), J_rerr_rbj));
-      gtsam::Vector3 vel_err = vel_j - (vel_i + (-gtsam::Vector3(0, 0, dynamics_params_.g) + r_w_bi.rotate(gtsam::Vector3(0, 0, input_i[0] / dynamics_params_.mass))) * dt_);
+      gtsam::Vector3  rot_err = Rot3::Logmap(r_w_mi.between(r_w_mj, J_ri, J_rj), J_dr) - input_i.tail(3) * dt_; 
 
+      gtsam::Matrix3 drag_matrix;
+      drag_matrix.setZero();
+      drag_matrix.diagonal() << drag_k_;        
 
+      gtsam::Vector3  vel_err = mass_ * r_w_mi.unrotate(vel_j - vel_i + gI_ * dt_, J_ve_rot1) - gtsam::Vector3(0,0,1)*input_i(0) * dt_ - 
+         drag_matrix * r_w_mi.unrotate(vel_i, J_dv_rit, J_dv_v) * dt_; // - dT * dt_;
+
+      
+      Matrix96 J_e_pi, J_e_posej;
+      
       if (H1)
       {
-         Matrix33 Jac_perr_p = - Matrix33::Identity();
-         Matrix33 Jac_perr_r = r_w_bi.matrix()* gtsam::skewSymmetric(gtsam::Vector3(0, 0, input_i[0] / dynamics_params_.mass))
-            * dt_* dt_ * 0.5f;
-         Matrix33 Jac_rerr_r = J_rbi; // Matrix33::Identity() - skewSymmetric(omega_i) * dt_;
-         Matrix33 Jac_verr_r = r_w_bi.matrix() * skewSymmetric(gtsam::Vector3(0, 0, input_i[0] / dynamics_params_.mass)) * dt_;
+            Matrix33 Jac_perr_p = - mass_* _unrbi_matrix;
+            Matrix33 Jac_perr_r =   mass_* J_pe_roti;
+            Matrix33 Jac_rerr_r =   J_dr * J_ri;
+            Matrix33 Jac_verr_r =   mass_* J_ve_rot1 - drag_matrix * J_dv_rit * dt_; // - A_mat * J_da_ri * dt_;
 
-         Matrix36 Jac_perr_posei = Jac_perr_p * jac_t_posei + Jac_perr_r * jac_r_posei;
-         Matrix36 Jac_rerr_posei = Jac_rerr_r * jac_r_posei;
-         Matrix36 Jac_verr_posei = Jac_verr_r * jac_r_posei;
-         // std::cout << Jac_perr_posei << std::endl;
-         // std::cout << Jac_rerr_posei << std::endl;
-         // std::cout << Jac_verr_posei << std::endl;
+            Matrix36 Jac_perr_posei = Jac_perr_p * jac_t_posei + Jac_perr_r * jac_r_posei;
+            Matrix36 Jac_rerr_posei = Jac_rerr_r * jac_r_posei;
+            Matrix36 Jac_verr_posei = Jac_verr_r * jac_r_posei;
 
-         Matrix96 J_e_pi;
-         J_e_pi.setZero();
-         J_e_pi.block(0, 0, 3, 6) = Jac_perr_posei;
-         J_e_pi.block(3, 0, 3, 6) = Jac_rerr_posei;
-         J_e_pi.block(6, 0, 3, 6) = Jac_verr_posei;
+            J_e_pi.setZero();
+            J_e_pi.block(0, 0, 3, 6) = Jac_perr_posei;
+            J_e_pi.block(3, 0, 3, 6) = Jac_rerr_posei;
+            J_e_pi.block(6, 0, 3, 6) = Jac_verr_posei;
 
-         *H1 = J_e_pi;
-
-         // std::cout << "*H1: \n" << *H1 << std::endl;
+            *H1 = J_e_pi;
       }
-      
+
       if (H2)
       {
-         Matrix93 J_e_v;
-         J_e_v.setZero();
-         Matrix33 Jac_perr_veli  = - Matrix33::Identity() * dt_;
-         Matrix33 Jac_verr_v     = - Matrix33::Identity();
-         J_e_v.block(0, 0, 3, 3) =   Jac_perr_veli;
-         J_e_v.block(6, 0, 3, 3) =   Jac_verr_v;
-         
-         *H2 = J_e_v;
-         // std::cout << "*H2: \n" << *H2 << std::endl;
-      }
+            Matrix93 J_e_v;
+            J_e_v.setZero();
+            Matrix33 Jac_perr_veli  = - mass_* _unrbi_matrix * dt_;
+            Matrix33 Jac_verr_v     = - mass_* _unrbi_matrix;
+            J_e_v.block(0, 0, 3, 3) =   Jac_perr_veli;
+            J_e_v.block(6, 0, 3, 3) =   Jac_verr_v - drag_matrix * dt_ * J_dv_v;
 
-      if (H3)
-      {
-         Matrix94 J_e_input;
-         J_e_input.setZero();
-         Matrix94 _B;
-         _B.setZero();
-         
-         _B.block(6, 0, 3, 1) = r_w_bi.matrix() * gtsam::Vector3(0, 0, 1.0f / dynamics_params_.mass) * dt_;
-         _B.block(6, 1, 3, 3) = SO3::ExpmapDerivative(omega_i * dt_) * dt_;
-
-         J_e_input = - _B;
-         J_e_input.block(0, 0, 3, 1) = - r_w_bi.matrix() * gtsam::Vector3(0, 0, 1.0f / dynamics_params_.mass) * dt_ * dt_ * 0.5;
-         *H3 = J_e_input;
-         // std::cout << "*H4: \n" << *H4 << std::endl;
+            *H2 = J_e_v;
       }
 
       if (H4)
       {
-         Matrix96 J_e_posej;
-         J_e_posej.setZero();
-         J_e_posej.block(0, 0, 3, 6) = jac_t_posej;
-         J_e_posej.block(3, 0, 3, 6) = J_rerr_rbj * jac_r_posej;
-
-         *H4 = J_e_posej;
-         // std::cout << "*H5: \n" << *H5 << std::endl;
+            J_e_posej.setZero();
+            J_e_posej.block(0, 0, 3, 6) = mass_* _unrbi_matrix* jac_t_posej;
+            J_e_posej.block(3, 0, 3, 6) = J_dr * J_rj * jac_r_posej;
+            *H4 = J_e_posej; 
       }
+
       if (H5)
       {
-         Matrix93 J_e_vj;
-         J_e_vj.setZero();
-         J_e_vj.block(6, 0, 3, 3) = Matrix33::Identity();
-         *H5 = J_e_vj;
-         // std::cout << "*H6: \n" << *H6 << std::endl;
+            Matrix93 J_e_vj;
+            J_e_vj.setZero();
+            J_e_vj.block(6, 0, 3, 3) = mass_* _unrbi_matrix;
+            *H5 = J_e_vj;
       }
 
-      err.head(3) = p_err;
+      if (H3)
+      {
+         Matrix94 J_T_gyro;
+         J_T_gyro.setZero();
+         J_T_gyro.block(3, 1, 3, 3) = - gtsam::I_3x3 * dt_;
+         J_T_gyro.block(6, 0, 3, 1) = - gtsam::Vector3(0,0,1)* dt_;
+
+         *H3 = J_T_gyro;
+      }
+
+      err.head(3)           = pos_err;
       err.block(3, 0, 3, 1) = rot_err;
       err.block(6, 0, 3, 1) = vel_err;
-      // std::cout << "factor error: " << err.transpose() << std::endl;
-      return err;
 
+
+      return err;
 
    }
 

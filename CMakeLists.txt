@@ -21,7 +21,7 @@ if (NOT CMAKE_BUILD_TYPE)
             "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif ()
 
-set(CMAKE_CXX_FLAGS "-std=c++14 -g -Wall")
+set(CMAKE_CXX_FLAGS "-std=c++14 -pg -g -Wall")
 
 if(APPLE)
     set(ENV{CC} "/usr/local/opt/llvm/bin/clang-8")

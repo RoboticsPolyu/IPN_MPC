@@ -107,13 +107,10 @@ int main(void)
 
 
     std::ifstream state_file;
-    std::string state_file_path = file_path + std::string("/state_black.txt");
     state_file.open(pose_file);
     std::ifstream actuator_black_file;
-    std::string actuator_file_path = file_path + std::string("/interp_actuator_black.txt");
     actuator_black_file.open(rsm_file);
     std::ifstream rpm_black_file;
-    std::string rpm_file_path = file_path + std::string("/rpm_black.txt");
     rpm_black_file.open(rsm_file);
 
     double div = 200.0*60.0/16384.0;
@@ -307,6 +304,12 @@ int main(void)
         gtsam::Vector12     dyn_e = dyn_err.evaluateError(Interp_states.at(idx).pose, vi, oi, Interp_states.at(idx+1).pose, vj, oj, IM, rot, p, kf, km, bTm, dk, ak, bk);
         gtsam::Vector4 rpm_square = Interp_states.at(idx).actuator_output.cwiseAbs2();
         gtsam::Vector6 thrust_torque = dyn_err.Thrust_Torque(rpm_square, kf, km, p, ak);
+        
+        gtsam::Matrix3 drag_matrix;
+        drag_matrix.setZero();
+        drag_matrix.diagonal() << dk;  
+
+        gtsam::Vector3 drag_force = - quad_params.mass * drag_matrix * pi.rotation().unrotate(vi) * dt;
 
         gtsam::Pose3          pose = result.at<gtsam::Pose3>(X(idx));
         gtsam::Vector3 dyn_pos_err = pose.rotation() * gtsam::Vector3(dyn_e(0), dyn_e(1), dyn_e(2)) / quad_params.mass;
@@ -321,7 +324,8 @@ int main(void)
         << " " << thrust_torque(0)<< " " << thrust_torque(1) << " " << thrust_torque(2) << " " << thrust_torque(3) << " " << thrust_torque(4) << " " << thrust_torque(5) 
         << " " << vel_body(0) << " " << vel_body(1) << " " << vel_body(2) 
         << " " << Interp_states.at(idx).omega.x() << " " << Interp_states.at(idx).omega.y() << " " << Interp_states.at(idx).omega.z() 
-        // << " " << Interp_states.at(idx).actuator_output(0) 
+        << " " << drag_force(0) << " " << drag_force(1) << " " << drag_force(2) 
+         // << " " << Interp_states.at(idx).actuator_output(0) 
         // << " " << oi(1) << " " << oi(2) << " " << oi(3) 
         // << " " << pi.translation().x() << " " << pi.translation().y() << " " << pi.translation().z() 
         //<< " " << pi.rotation().xyz().x() << " " << pi.rotation().xyz().y() << " " << pi.rotation().xyz().z() 

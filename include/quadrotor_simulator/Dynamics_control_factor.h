@@ -173,7 +173,7 @@ namespace UAVFactor
         typedef boost::shared_ptr<DynamicsFactorTGyro> shared_ptr;
 
         DynamicsFactorTGyro() {}
-        DynamicsFactorTGyro(Key p_i, Key vel_i, Key input_i, Key p_j, Key vel_j, float dt, const SharedNoiseModel &model);
+        DynamicsFactorTGyro(Key p_i, Key vel_i, Key input_i, Key p_j, Key vel_j, float dt, double mass_, gtsam::Vector3 drag_k, const SharedNoiseModel &model);
 
         virtual ~DynamicsFactorTGyro()
         {
@@ -192,6 +192,12 @@ namespace UAVFactor
 
         DynamicsParams dynamics_params_;
         
+        gtsam::Vector3 drag_k_;
+        
+        double mass_;
+        
+        gtsam::Vector3 gI_ = gtsam::Vector3(0, 0, 9.81); // gravity
+
         float dt_;
     };
 
