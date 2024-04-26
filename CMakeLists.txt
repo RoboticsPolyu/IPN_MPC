@@ -199,6 +199,10 @@ if(BUILD_WITH_ROS)
 add_executable(Traj_load_run_px4 app/Traj_load_run_px4.cpp)
 target_link_libraries(Traj_load_run_px4 gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})   
 
+add_executable(Test_Thrust_cmd app/Test_Thrust_cmd.cpp)
+target_link_libraries(Test_Thrust_cmd gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})   
+
+
 if(BUILD_HARDWARE)
 
 # add_executable(Orin_rotor_angular_speed app/Orin_rotor_angular_speed.cpp)

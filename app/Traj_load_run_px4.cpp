@@ -61,9 +61,14 @@ int main(int argc, char **argv)
     traj_file.open(file_name);
     traj_state trj_state;
     std::vector<traj_state> trajs;
-    double t, p_x, p_y, p_z, q_w, q_x, q_y, q_z, v_x, v_y, v_z, w_x, w_y, w_z, a_x, a_y, a_z, a_rot_x, a_rot_y, a_rot_z, u1, u2, u3, u4;
-    while(traj_file >> t >> p_x >> p_y >> p_z >> q_w >> q_x >> q_y >> q_z >> v_x >> v_y >> v_z >> w_x >> w_y >> w_z >> 
-        a_x >> a_y >> a_z >> a_rot_x >> a_rot_y >> a_rot_z >> u1 >> u2 >> u3 >> u4)
+    double t, p_x, p_y, p_z, q_w, q_x, q_y, q_z, 
+        v_x, v_y, v_z, w_x, w_y, w_z, 
+        a_x, a_y, a_z, a_rot_x, a_rot_y, a_rot_z, 
+        u1, u2, u3, u4;
+    while(traj_file >> t >> p_x >> p_y >> p_z >> q_w >> q_x >> q_y >> q_z >> 
+        v_x >> v_y >> v_z >> w_x >> w_y >> w_z >> 
+        a_x >> a_y >> a_z >> a_rot_x >> a_rot_y >> a_rot_z >> 
+        u1 >> u2 >> u3 >> u4)
     {
         trj_state.t        = t;
         trj_state.pos      = gtsam::Vector3(p_x, p_y, p_z);
@@ -89,7 +94,8 @@ int main(int argc, char **argv)
 
     ROS_INFO("Send a few setpoints before starting");
 
-    for(int i = 100; ros::ok() && i > 0; --i){
+    for(int i = 100; ros::ok() && i > 0; --i)
+    {
       // execute motion 
         local_pos_pub.publish(control);
         ros::spinOnce();
@@ -133,13 +139,13 @@ int main(int argc, char **argv)
                 {
                     ROS_INFO("Vehicle armed");
                 }
-		else
-		{
-		    std::cout << "Try to arm";
-		}
-		last_request = ros::Time::now();
-		std::cout << "current state: " << current_state.armed << std::endl;
-	    }
+                else
+                {
+                    std::cout << "Try to arm";
+                }
+                last_request = ros::Time::now();
+                std::cout << "current state: " << current_state.armed << std::endl;
+	        }
         }
         
         //	std::cout << "Publish control " << std::endl;
@@ -177,10 +183,10 @@ int main(int argc, char **argv)
         control.pose.position.x    = trj_state.pos.x();
         control.pose.position.y    = trj_state.pos.y();
         control.pose.position.z    = trj_state.pos.z();
-        control.pose.orientation.w = trj_state.rotation.w();
-        control.pose.orientation.x = trj_state.rotation.x();
-        control.pose.orientation.y = trj_state.rotation.y();
-        control.pose.orientation.z = trj_state.rotation.z();
+//        control.pose.orientation.w = trj_state.rotation.w();
+//        control.pose.orientation.x = trj_state.rotation.x();
+//        control.pose.orientation.y = trj_state.rotation.y();
+//        control.pose.orientation.z = trj_state.rotation.z();
         std::cout << "Position control: " << index << " " << control.pose.position.x << " " << control.pose.position.y << " " << control.pose.position.z << std::endl;
         local_pos_pub.publish(control);
         ros::spinOnce();
