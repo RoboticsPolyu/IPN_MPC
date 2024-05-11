@@ -96,6 +96,10 @@ include_directories(${YAML_CPP_INCLUDE_DIRS})
 find_package( OpenCV REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 
+if(BUILD_HARDWARE)
+include_directories("/home/amov/Fast250/devel/include")
+endif(BUILD_HARDWARE)
+
 find_library(REALSENSE2_FOUND realsense2 HINTS ${LIBRARY_DIR} REQUIRED)
 if(NOT REALSENSE2_FOUND)
     SET(REALSENSE2_FOUND "realsense2")
@@ -198,6 +202,9 @@ if(BUILD_WITH_ROS)
 
 add_executable(Traj_load_run_px4 app/Traj_load_run_px4.cpp)
 target_link_libraries(Traj_load_run_px4 gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})   
+
+add_executable(Traj_load_run_px4ctrl app/Traj_load_run_px4ctrl.cpp)
+target_link_libraries(Traj_load_run_px4ctrl gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})  
 
 add_executable(Test_Thrust_cmd app/Test_Thrust_cmd.cpp)
 target_link_libraries(Test_Thrust_cmd gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})   

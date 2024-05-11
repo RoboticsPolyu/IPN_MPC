@@ -110,7 +110,7 @@ int main(int argc, char **argv)
 			return 1;
 		}
 
-		if(frame.can_id == 0x11) // 100hz
+		if(frame.can_id == 0x11) // 1000hz
 		{
 			rotor1_speed = frame.data[1];rotor1_speed |= frame.data[0] << 8;
 			rotor2_speed = frame.data[3];rotor2_speed |= frame.data[2] << 8;
@@ -122,7 +122,7 @@ int main(int argc, char **argv)
 			ROS_DEBUG("Rotor3 speed: %d\r\n", rotor3_speed);
 			ROS_DEBUG("Rotor4 speed: %d\r\n", rotor4_speed);
 
-			if(count % 100 == 0)
+			if(count % 1000 == 0)
 			{
 				ROS_INFO("Rotor speed - [%d] - [%d] - [%d] - [%d] ", rotor1_speed, rotor2_speed, rotor3_speed, rotor4_speed);
 			}
@@ -162,8 +162,6 @@ int main(int argc, char **argv)
 
 			if(count_imu % 1000 == 0)
 			{
-				float acc1, acc2, acc3, gy1, gy2, gy3;
-
 				ROS_INFO("Acc - [%f] - [%f] - [%f] - Gyro - [%f] - [%f] - [%f]", convert_acc(acc_x), convert_acc(acc_y), convert_acc(acc_z), convert_gyro(gyro_x), convert_gyro(gyro_y), convert_gyro(gyro_z) );
 			}
 
