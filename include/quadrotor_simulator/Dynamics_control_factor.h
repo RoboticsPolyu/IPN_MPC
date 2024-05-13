@@ -166,7 +166,9 @@ namespace UAVFactor
         float dt_;
     };
 
-
+    /*
+    * MPC based FGO, generating Thrust and gyro
+    */
     class GTSAM_EXPORT DynamicsFactorTGyro : public NoiseModelFactor5<gtsam::Pose3, gtsam::Vector3, gtsam::Vector4, gtsam::Pose3, gtsam::Vector3>
     {
     public:
@@ -200,8 +202,6 @@ namespace UAVFactor
 
         float dt_;
     };
-
-
 
     /*thrust's x and y components are nozero */
     class GTSAM_EXPORT DynamicsFactorFullTM : public NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector6, 
@@ -259,7 +259,7 @@ namespace UAVFactor
             Base;
     };
 
-
+    
     class GTSAM_EXPORT ControlLimitFactor : public NoiseModelFactor1<gtsam::Vector4>
     {
     public:
