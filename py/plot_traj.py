@@ -15,7 +15,7 @@ font = {'family' : 'Times New Roman',
 
 plt.rc('font', **font)
 
-file = '/home/amov/IPN_MPC/data/traj/Traj_for_dyn2.txt'
+file = '../data/Traj/Traj_mahua.txt'
 
 data = np.loadtxt(file)
 
