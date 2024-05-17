@@ -70,15 +70,46 @@ int main(int argc, char **argv)
         trj_state.vel      = gtsam::Vector3(v_x, v_y, v_z);
         trj_state.acc      = gtsam::Vector3(a_x, a_y, a_z);
 
+        std::cout << w_x << " " << w_y << " " << w_z << std::endl;
+
+        trj_state.angular_speed = gtsam::Vector3(w_x, w_y, w_z);
         trajs.push_back(trj_state);
     }
 
     std::cout << "Traj size: [" << trajs.size() << " ], " << file_name << std::endl;
     quadrotor_msgs::PositionCommand msg;
-    int index = trajs.size();
-    while(index-- && ros::ok())
+    if(trajs.size() <= 0)
     {
-        trj_state          = trajs[trajs.size() - index];
+	    return;
+    }
+    
+    trj_state          = trajs[0];
+    msg.position.x     = trj_state.pos.x();
+    msg.position.y     = trj_state.pos.y();
+    msg.position.z     = trj_state.pos.z();
+
+    msg.velocity.x     = trj_state.vel.x();
+    msg.velocity.y     = trj_state.vel.y();
+    msg.velocity.z     = trj_state.vel.z();
+
+    msg.acceleration.x = trj_state.acc.x();
+    msg.acceleration.y = trj_state.acc.y();
+    msg.acceleration.z = trj_state.acc.z();
+
+    msg.kx[0]          = trj_state.angular_speed.x();
+    msg.kx[1]          = trj_state.angular_speed.y();
+    msg.kx[2]          = trj_state.angular_speed.z();
+    
+    msg.yaw            = fromQuaternion2yaw(trj_state.rotation);
+
+    local_cmd_pub.publish(msg);
+    
+	ros::Duration(3.0).sleep();
+
+    int index = 0;
+    while(index < trajs.size() && ros::ok())
+    {
+        trj_state          = trajs[index];
         msg.position.x     = trj_state.pos.x();
         msg.position.y     = trj_state.pos.y();
         msg.position.z     = trj_state.pos.z();
@@ -91,11 +122,16 @@ int main(int argc, char **argv)
         msg.acceleration.y = trj_state.acc.y();
         msg.acceleration.z = trj_state.acc.z();
         
-        msg.yaw            = fromQuaternion2yaw(trj_state.rotation);
+        msg.kx[0]          = trj_state.angular_speed.x();
+        msg.kx[1]          = trj_state.angular_speed.y();
+        msg.kx[2]          = trj_state.angular_speed.z();
 
+        msg.yaw            = fromQuaternion2yaw(trj_state.rotation);
+        std::cout << "des_p:" << trj_state.pos.transpose() << std::endl;
         local_cmd_pub.publish(msg);
         ros::spinOnce();
         rate.sleep();
+        index++;
     }
 
     return 0;

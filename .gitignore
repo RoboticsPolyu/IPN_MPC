@@ -3,3 +3,4 @@ cmake-build-debug/**
 .DS_Store
 .idea/**
 .vscode/**
+bash/*.bag
