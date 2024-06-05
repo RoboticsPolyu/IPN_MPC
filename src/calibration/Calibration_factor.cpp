@@ -624,7 +624,7 @@ namespace UAVFactor
         }
 
         gtsam::Vector6 thrust_torque = Thrust_Torque(rpm_square, ct, km, rotor_pos);
-        
+
         Matrix36 jac_t_posei, jac_t_posej;
         Matrix36 jac_r_posei, jac_r_posej;
 
@@ -666,6 +666,8 @@ namespace UAVFactor
         gtsam::Vector3 b_v_i = vel_i + r_w_mi.rotate(gtsam::skewSymmetric(omega_i)* ITb.translation());
         gtsam::Vector3 b_v_j = vel_j + r_w_mj.rotate(gtsam::skewSymmetric(omega_j)* ITb.translation());
 
+        double HVT = (b_v_i.x()* b_v_i.x() + b_v_i.y()* b_v_i.y());
+
         gtsam::Matrix33 J_obi_rbI, J_omega_i, J_obj_rbI, J_omega_j;
 
         gtsam::Vector3 b_omega_i = ITb.rotation().unrotate(omega_i, J_obi_rbI, J_omega_i);
@@ -682,6 +684,7 @@ namespace UAVFactor
         drag_matrix.diagonal() << drag_k;        
 
         gtsam::Vector3  vel_err = mass_ * r_w_mi.unrotate(b_v_j - b_v_i + _gI_updated * dt_, J_ve_rot1) - thrust_torque.head(3) * dt_ 
+            - A.z() * HVT *  dt_ * gtsam::Vector3(0,0,1)
             - mass_ * drag_matrix * r_w_mi.unrotate(b_v_i, J_dv_rit, J_dv_v) * dt_; // - dT * dt_;
 
         // gtsam::Vector3  asp_err = J * (omega_j - omega_i) + skewSymmetric(omega_i)*J*omega_i*dt_ - thrust_torque.tail(3) * dt_ - A_mat * r_w_mi.unrotate(b_v_i, J_da_ri, J_da_v) * dt_ - B_mat * omega_i * dt_;
@@ -696,8 +699,7 @@ namespace UAVFactor
 
         gtsam::Vector3  asp_err = J * (b_omega_j - b_omega_i) + skewSymmetric(b_omega_i) * J * b_omega_i * dt_ 
             - thrust_torque.tail(3) * dt_ + torque_bias_mass * dt_ - B_mat * omega_i * dt_;
-            //  - B_mat * b_omega_i * dt_
-            //torque_gyroscopic * dt_ 
+            // torque_gyroscopic * dt_ 
         
         Matrix126 J_e_pi, J_e_posej;
         
@@ -924,6 +926,7 @@ namespace UAVFactor
             *H13 = J_drag_k;
         }
 
+        // HoG and HVT Coeff
         if (H14)
         {
             Matrix123 J_e_A;
@@ -933,9 +936,11 @@ namespace UAVFactor
             // Jac_A.diagonal() << - _torque_gyro_k * omega_i * dt_;// - r_w_mi.unrotate(b_v_i) * dt_;
             Jac_A = F_mat * dt_;
             J_e_A.block(9, 0, 3, 3) = Jac_A;
+            J_e_A(8, 2) = - HVT *  dt_;
             *H14 = J_e_A;
         }
 
+        // Viscous impact
         if (H15)
         {
             Matrix123 J_e_B;

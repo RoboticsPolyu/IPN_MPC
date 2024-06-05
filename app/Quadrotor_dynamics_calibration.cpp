@@ -53,7 +53,7 @@ int main(void)
 {        
     DynamicsParams quad_params;
     double      dt         = 0.01f;
-    quad_params.mass       = 1.04f; // Big 949g small 920g
+    quad_params.mass       = 0.949f; // Big 949g small 920g
     quad_params.Ixx        = 4.9* 1e-2;
     quad_params.Iyy        = 4.9* 1e-2;
     quad_params.Izz        = 6.9* 1e-2;
@@ -65,6 +65,7 @@ int main(void)
     YAML::Node CAL_config = YAML::LoadFile("../config/dynamics.yaml");  
     double     rotor_px   = CAL_config["ROTOR_P_X"].as<double>();
     double     rotor_py   = CAL_config["ROTOR_P_Y"].as<double>();
+    double        mass    = CAL_config["MASS"].as<double>();
     uint16_t DATASET_S    = CAL_config["DATASET_S"].as<uint16_t>();
     uint16_t DATASET_LENS = CAL_config["DATASET_L"].as<uint16_t>();
     double p_thrust_sigma = CAL_config["P_T_SIGMA"].as<double>();
@@ -75,11 +76,14 @@ int main(void)
     bool enable_drag      = CAL_config["ENABLE_DRAG"].as<bool>();
     bool enable_inertia   = CAL_config["ENABLE_I"].as<bool>();
     bool enable_h         = CAL_config["ENABLE_H"].as<bool>();
+    bool ENABLE_COG       = CAL_config["ENABLE_COG"].as<bool>();
+    bool ENABLE_VISCOUS   = CAL_config["ENABLE_VISCOUS"].as<bool>();
     quad_params.Ixx       = CAL_config["INERTIA_IX"].as<double>();
     quad_params.Iyy       = CAL_config["INERTIA_IY"].as<double>();
     quad_params.Izz       = CAL_config["INERTIA_IZ"].as<double>();
     float DT              = CAL_config["DT"].as<double>();
-
+    quad_params.mass      = mass;
+    
     gtsam::Vector3 thrust_sigma(unmodel_thrust_sigma, unmodel_thrust_sigma, 2* p_thrust_sigma);
     // sigma = (rotor_p_x* 2* P_thrust_single_rotor, rotor_p_x* 2* P_thrust_single_rotor, k_m * 2 * P_thrust_single_rotor) 
     gtsam::Vector3 moments_sigma(p_thrust_sigma * 2 * rotor_py, p_thrust_sigma * 2 * rotor_px, 0.01f * 2 * p_thrust_sigma);
@@ -155,9 +159,9 @@ int main(void)
     {
         Actuator_control _uav_pwm;
         // pwm_t                    = pwm_t + 10 * 1e6;
-        _uav_pwm.timestamp       = pwm_t;
+        _uav_pwm.timestamp       = pwm_t - DT * 1e6;
         _uav_pwm.actuator_output = gtsam::Vector4(pwm1*div, pwm2*div, pwm3*div, pwm4*div);
-        std::cout << "RSM: " << _uav_pwm.actuator_output.transpose() << std::endl;
+        // std::cout << "RSM: " << _uav_pwm.actuator_output.transpose() << std::endl;
         Uav_pwms.push_back(_uav_pwm);
     }
 
@@ -260,12 +264,21 @@ int main(void)
     dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(P(0), rotor_p, rp_noise)); 
     // dyn_factor_graph.add(gtsam::PriorFactor<double>(M(0), 0.000573188719099, km_noise));
 
-    // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(A(0), gtsam::Vector3(0.004, 0, 0), im_noise));   
-    dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(B(0), gtsam::Vector3::Zero(), im_noise)); 
+    // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(A(0), gtsam::Vector3(0.004, 0, 0), im_noise));
+    if(!ENABLE_VISCOUS)   
+    {
+        dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(B(0), gtsam::Vector3::Zero(), im_noise)); 
+    }
+
     //dyn_factor_graph.add(gtsam::PriorFactor<double)(M(0), 0.000573188719099, )
     if(!enable_drag)
     {
         dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(D(0), gtsam::Vector3::Zero(), im_noise)); 
+    }
+
+    if(!ENABLE_COG)
+    {
+        dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(A(0), gtsam::Vector3::Zero(), im_noise)); 
     }
 
     gtsam::LevenbergMarquardtParams parameters;
@@ -309,7 +322,7 @@ int main(void)
         drag_matrix.setZero();
         drag_matrix.diagonal() << dk;  
 
-        gtsam::Vector3 drag_force = - quad_params.mass * drag_matrix * pi.rotation().unrotate(vi) * dt;
+        gtsam::Vector3 drag_force = - quad_params.mass * drag_matrix * pi.rotation().unrotate(vi);
 
         gtsam::Pose3          pose = result.at<gtsam::Pose3>(X(idx));
         gtsam::Vector3 dyn_pos_err = pose.rotation() * gtsam::Vector3(dyn_e(0), dyn_e(1), dyn_e(2)) / quad_params.mass;
@@ -317,19 +330,15 @@ int main(void)
         // pi = Interp_states.at(idx).pose;
 
         gtsam::Vector3 vel_body = pose.rotation().unrotate(vi);
+        float hor_thrust = 0.001 * (vi.x()* vi.x() + vi.y()* vi.y());
 
-        calib_log << std::setprecision(19) << Interp_states.at(idx).timestamp << std::setprecision(5) 
+        calib_log << std::setprecision(19) << Interp_states.at(idx).timestamp / 1e9 << std::setprecision(5) 
         << " " << dyn_pos_err(0) << " " << dyn_pos_err(1) << " " << dyn_pos_err(2) << " " << dyn_e(3) << " " << dyn_e(4) << " " << dyn_e(5) << " " << dyn_e(6) 
         << " " << dyn_e(7) << " " << dyn_e(8) << " " << dyn_e(9) << " " << dyn_e(10) << " " << dyn_e(11) 
         << " " << thrust_torque(0)<< " " << thrust_torque(1) << " " << thrust_torque(2) << " " << thrust_torque(3) << " " << thrust_torque(4) << " " << thrust_torque(5) 
         << " " << vel_body(0) << " " << vel_body(1) << " " << vel_body(2) 
         << " " << Interp_states.at(idx).omega.x() << " " << Interp_states.at(idx).omega.y() << " " << Interp_states.at(idx).omega.z() 
-        << " " << drag_force(0) << " " << drag_force(1) << " " << drag_force(2) 
-         // << " " << Interp_states.at(idx).actuator_output(0) 
-        // << " " << oi(1) << " " << oi(2) << " " << oi(3) 
-        // << " " << pi.translation().x() << " " << pi.translation().y() << " " << pi.translation().z() 
-        //<< " " << pi.rotation().xyz().x() << " " << pi.rotation().xyz().y() << " " << pi.rotation().xyz().z() 
-        << "\n";
+        << " " << drag_force(0) << " " << drag_force(1) << " " << drag_force(2) << " " << hor_thrust << std::endl;
 
     }
 

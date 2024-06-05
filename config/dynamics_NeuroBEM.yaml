@@ -2,11 +2,9 @@
 ROTOR_P_X: 0.076
 ROTOR_P_Y: 0.10
 
-MASS: 0.949
-
 # Dataset segment 
 DATASET_S: 2000
-DATASET_L: 2000
+DATASET_L: 14000
 
 # Thrust sigma of z-axis direction
 P_T_SIGMA: 0.1
@@ -20,19 +18,21 @@ ENABLE_DRAG: TRUE
 # INERTIA_IY: 0.049
 # INERTIA_IZ: 0.069
 
-INERTIA_IX: 0.0036
-INERTIA_IY: 0.0036
-INERTIA_IZ: 0.0060
+INERTIA_IX: 0.00103
+INERTIA_IY: 0.000714
+INERTIA_IZ: 0.001
 
-DT:  500 # 1100 # ms
+DT:  0 # 1100 # ms
 
 ENABLE_COG: TRUE
 
 ENABLE_VISCOUS: FALSE
 
-ENABLE_I:    TRUE
+ENABLE_I:    FALSE
 
 ENABLE_H:    TRUE
+
+EXPAN_P_SIGMA: 0
 
 # Data file path
 ROOT_PATH: ../data/blackbird/ampersand/yawConstant/maxSpeed3p0

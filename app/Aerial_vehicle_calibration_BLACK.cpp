@@ -73,6 +73,8 @@ int main(void)
     std::string file_path = CAL_config["ROOT_PATH"].as<std::string>();
     bool enable_drag      = CAL_config["ENABLE_DRAG"].as<bool>();
     bool enable_inertia   = CAL_config["ENABLE_I"].as<bool>();
+    bool ENABLE_COG       = CAL_config["ENABLE_COG"].as<bool>();
+    bool ENABLE_VISCOUS   = CAL_config["ENABLE_VISCOUS"].as<bool>();
     quad_params.Ixx       = CAL_config["INERTIA_IX"].as<double>();
     quad_params.Iyy       = CAL_config["INERTIA_IY"].as<double>();
     quad_params.Izz       = CAL_config["INERTIA_IZ"].as<double>();
@@ -223,12 +225,18 @@ int main(void)
         dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(J(0), gtsam::Vector3(quad_params.Ixx, quad_params.Iyy, quad_params.Izz), im_noise));
     }
 
-    // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(H(0), gtsam::Pose3::identity(), bm_nosie));
-    // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Rot3>(R(0), gtsam::Rot3::identity(), gr_noise));
+    if(!ENABLE_COG)
+    {
+        dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(A(0), gtsam::Vector3::Zero(), im_noise)); 
+    }
+
+    if(!ENABLE_VISCOUS)   
+    {
+        dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(B(0), gtsam::Vector3::Zero(), im_noise)); 
+    }
+
     dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(P(0), rotor_p, rp_noise)); 
-    // dyn_factor_graph.add(gtsam::PriorFactor<double>(M(0), 0.0025f, km_noise));
-    // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(A(0), gtsam::Vector3::Zero(), im_noise));   
-    // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(B(0), gtsam::Vector3::Zero(), im_noise)); 
+
     if(!enable_drag)
     {
         dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(D(0), gtsam::Vector3::Zero(), im_noise)); 
@@ -272,16 +280,31 @@ int main(void)
         gtsam::Vector4 rpm_square = Interp_states.at(idx).actuator_output.cwiseAbs2();
         gtsam::Vector6 thrust_torque = dyn_err.Thrust_Torque(rpm_square, kf, km, p);
 
+        gtsam::Matrix3 drag_matrix;
+        drag_matrix.setZero();
+        drag_matrix.diagonal() << dk;  
+
+        gtsam::Vector3 drag_force = quad_params.mass * drag_matrix * pi.rotation().unrotate(vi);
+
         gtsam::Pose3 pose = result.at<gtsam::Pose3>(X(idx));
         gtsam::Vector3 dyn_pos_err = pose.rotation() * gtsam::Vector3(dyn_e(0), dyn_e(1), dyn_e(2)) / quad_params.mass;
 
         gtsam::Vector3 vel_body = pose.rotation().unrotate(vi);
 
-        calib_log << std::setprecision(19) << Interp_states.at(idx).timestamp << std::setprecision(5) 
-            << " " << dyn_pos_err(0) << " " << dyn_pos_err(1) << " " << dyn_pos_err(2) << " " << dyn_e(3) << " " << dyn_e(4) << " " << dyn_e(5) << " " << dyn_e(6) << " " << dyn_e(7) << " " << dyn_e(8) << " " << dyn_e(9) << " " << dyn_e(10) << " " << dyn_e(11) 
-            << " " << thrust_torque(0)<< " " << thrust_torque(1) << " " << thrust_torque(2) << " " << thrust_torque(3) << " " << thrust_torque(4) << " " << thrust_torque(5) 
-            << " " << vel_body(0) << " " << vel_body(1) << " " << vel_body(2) << " " << oi(0) << " " << oi(1) << " " << oi(2) << std::endl; // << " " << Interp_states.at(idx).actuator_output(0) << " " << Interp_states.at(idx).actuator_output(1) << " " << Interp_states.at(idx).actuator_output(2) << " " << Interp_states.at(idx).actuator_output(3) << " " << pi.translation().x() << " " << pi.translation().y() << " " << pi.translation().z() << " " << pi.rotation().xyz().x() << " " << pi.rotation().xyz().y() << " " << pi.rotation().xyz().z() << "\n";
+        float hor_thrust = ak.z() * (vi.x()* vi.x() + vi.y()* vi.y());
 
+        // calib_log << std::setprecision(19) << Interp_states.at(idx).timestamp << std::setprecision(5) 
+        //     << " " << dyn_pos_err(0) << " " << dyn_pos_err(1) << " " << dyn_pos_err(2) << " " << dyn_e(3) << " " << dyn_e(4) << " " << dyn_e(5) << " " << dyn_e(6) << " " << dyn_e(7) << " " << dyn_e(8) << " " << dyn_e(9) << " " << dyn_e(10) << " " << dyn_e(11) 
+        //     << " " << thrust_torque(0)<< " " << thrust_torque(1) << " " << thrust_torque(2) << " " << thrust_torque(3) << " " << thrust_torque(4) << " " << thrust_torque(5) 
+        //     << " " << vel_body(0) << " " << vel_body(1) << " " << vel_body(2) << " " << oi(0) << " " << oi(1) << " " << oi(2) << " " << hor_thrust << std::endl; // << " " << Interp_states.at(idx).actuator_output(0) << " " << Interp_states.at(idx).actuator_output(1) << " " << Interp_states.at(idx).actuator_output(2) << " " << Interp_states.at(idx).actuator_output(3) << " " << pi.translation().x() << " " << pi.translation().y() << " " << pi.translation().z() << " " << pi.rotation().xyz().x() << " " << pi.rotation().xyz().y() << " " << pi.rotation().xyz().z() << "\n";
+
+        calib_log << std::setprecision(19) << Interp_states.at(idx).timestamp << std::setprecision(5) 
+        << " " << dyn_pos_err(0) << " " << dyn_pos_err(1) << " " << dyn_pos_err(2) << " " << dyn_e(3) << " " << dyn_e(4) << " " << dyn_e(5) << " " << dyn_e(6) 
+        << " " << dyn_e(7) << " " << dyn_e(8) << " " << dyn_e(9) << " " << dyn_e(10) << " " << dyn_e(11) 
+        << " " << thrust_torque(0)<< " " << thrust_torque(1) << " " << thrust_torque(2) << " " << thrust_torque(3) << " " << thrust_torque(4) << " " << thrust_torque(5) 
+        << " " << vel_body(0) << " " << vel_body(1) << " " << vel_body(2) 
+        << " " << Interp_states.at(idx).body_rate.x() << " " << Interp_states.at(idx).body_rate.y() << " " << Interp_states.at(idx).body_rate.z() 
+        << " " << drag_force(0) << " " << drag_force(1) << " " << drag_force(2) << " " << hor_thrust << std::endl;
     }
 
 
