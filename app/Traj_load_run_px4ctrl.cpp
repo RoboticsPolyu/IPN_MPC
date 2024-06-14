@@ -76,14 +76,15 @@ int main(int argc, char **argv)
         trajs.push_back(trj_state);
     }
 
-    std::cout << "Traj size: [" << trajs.size() << " ], " << file_name << std::endl;
-    quadrotor_msgs::PositionCommand msg;
+    std::cout << " -- Traj size: [ " << trajs.size() << " ], " << file_name << std::endl;
     if(trajs.size() <= 0)
     {
-	    return;
+	    return -1;
     }
     
+    quadrotor_msgs::PositionCommand msg;
     trj_state          = trajs[0];
+    msg.header.seq     = trj_state.t / 0.01f;
     msg.position.x     = trj_state.pos.x();
     msg.position.y     = trj_state.pos.y();
     msg.position.z     = trj_state.pos.z();
@@ -106,10 +107,11 @@ int main(int argc, char **argv)
     
 	ros::Duration(3.0).sleep();
 
-    int index = 0;
+    size_t index = 0;
     while(index < trajs.size() && ros::ok())
     {
         trj_state          = trajs[index];
+        msg.header.seq     = trj_state.t / 0.01f;
         msg.position.x     = trj_state.pos.x();
         msg.position.y     = trj_state.pos.y();
         msg.position.z     = trj_state.pos.z();
