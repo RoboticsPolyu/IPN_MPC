@@ -1,0 +1,5 @@
+Log file created at: 2023/09/03 10:02:03
+Running on machine: peyang.local
+Running duration (h:mm:ss): 0:00:07
+Log line format: [IWEF]yyyymmdd hh:mm:ss.uuuuuu threadid file:line] msg
+I20230903 10:02:03.573621 4850204 Aerial_vehicle_calibration_NBEM.cpp:200] Inertial of moment:0.00249999     0.0021 0.00429994

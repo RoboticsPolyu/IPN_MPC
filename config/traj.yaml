@@ -1,8 +1,13 @@
-#file_name: /home/amov/IPN_MPC/data/traj/Traj.txt
-file_name: /home/amov/IPN_MPC/data/traj/Traj_gerono_radius_15_vs_2.txt
-#file_name: /home/amov/IPN_MPC/data/traj/Traj_wobbly_radius1.5_vs_4.txt
-#file_name: /home/amov/IPN_MPC/data/traj/Traj_vert_osc.txt
+file_name: /home/amov/IPN_MPC/data/Traj/Gerono/Traj_gerono_radius_150_scale_2.txt
+#file_name: /home/amov/IPN_MPC/data/Traj/Gerono/Traj_gerono_radius_150_scale_3.txt
+#file_name: /home/amov/IPN_MPC/data/Traj/Gerono/Traj_gerono_radius_150_scale_4.txt
+#file_name: /home/amov/IPN_MPC/data/Traj/Gerono/Traj_gerono_radius_1.5_vs_2.txt
 
-#file_name: /home/amov/IPN_MPC/data/traj/Traj_for_dyn.txt
+#file_name: /home/amov/IPN_MPC/data/Traj/Traj_vert_osc.txt
+#file_name: /home/amov/IPN_MPC/data/Traj/Traj_mahua.txt
+
+# Wobbly
+#file_name: /home/amov/IPN_MPC/data/Traj/Wobbly/Traj_wobbly_radius_1.5_vs_1.txt
+#file_name: /home/amov/IPN_MPC/data/Traj/Wobbly/Traj_wobbly_radius_1.5_vs_4.txt
 
 control_freq: 100

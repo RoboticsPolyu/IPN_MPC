@@ -1,7 +1,7 @@
 build/**
 cmake-build-debug/**
 .DS_Store
-data/**
 .idea/**
 .vscode/**
 py/figures/**
+bash/*.bag

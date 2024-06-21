@@ -1,0 +1,3 @@
+thrust: 0.1
+control_freq: 100
+test_time: 10 # second

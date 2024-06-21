@@ -32,15 +32,14 @@ float convert_acc(uint16_t input)
 
 float convert_gyro(uint16_t input)
 {
-        if(input > 32768)
-        {
-                return -(65536 - input)*1000.0/32768.0/180.0*M_PI;
-        }
-        else
-        {
-                return input*1000.0/32768.0/180.0*M_PI;
-
-        }
+	if(input > 32768)
+	{
+		return -(65536 - input)*1000.0/32768.0/180.0*M_PI;
+	}
+	else
+	{
+		return input*1000.0/32768.0/180.0*M_PI;
+	}
 }
 
 int main(int argc, char *argv[]) 
@@ -52,9 +51,9 @@ int main(int argc, char *argv[])
 
 	ros::init(argc, argv, "RotorSpeedNode");
 
-  ros::NodeHandle node;
+    ros::NodeHandle node;
 
-  ros::Publisher rotor_rsm_pub = node.advertise<IPN_MPC::Rsm>(rsm_topic_name, 1000);
+    ros::Publisher rotor_rsm_pub = node.advertise<IPN_MPC::Rsm>(rsm_topic_name, 1000);
 	ros::Publisher rotor_imu_pub = node.advertise<sensor_msgs::Imu>(imu_topic_name, 1000);
 
 	struct UartDevice dev;
@@ -100,7 +99,7 @@ int main(int argc, char *argv[])
 	{
 		read_data_len = uart_reads(&dev, read_data, MAX_READ_SIZE);
 
-		ROS_INFO("%d\r\n", read_data_len);
+		// ROS_INFO("%d\r\n", read_data_len);
 		
 		if (read_data_len >= 8) 
 		{
@@ -114,9 +113,9 @@ int main(int argc, char *argv[])
 				memcpy((char*)&acc_x, (char*)read_data+0, sizeof(acc_x));
 				memcpy((char*)&acc_y, (char*)read_data+2, sizeof(acc_y));
 				memcpy((char*)&acc_z, (char*)read_data+4, sizeof(acc_z));
-				ROS_INFO("ACC x: %f\r\n", convert_acc(acc_x) );
-				ROS_INFO("ACC y: %f\r\n", convert_acc(acc_y) );
-				ROS_INFO("ACC z: %f\r\n", convert_acc(acc_z) );
+				// ROS_INFO("ACC x: %f\r\n", convert_acc(acc_x) );
+				// ROS_INFO("ACC y: %f\r\n", convert_acc(acc_y) );
+				// ROS_INFO("ACC z: %f\r\n", convert_acc(acc_z) );
 				
 			}
 			else if(flag == 0x80)
@@ -125,9 +124,9 @@ int main(int argc, char *argv[])
 				memcpy((char*)&gyro_y, (char*)read_data+2, sizeof(gyro_y));
 				memcpy((char*)&gyro_z, (char*)read_data+4, sizeof(gyro_z));
 
-				ROS_INFO("GYRO x: %f\r\n", convert_gyro(gyro_x) );
-				ROS_INFO("GYRO y: %f\r\n", convert_gyro(gyro_y) );
-				ROS_INFO("GYRO z: %f\r\n", convert_gyro(gyro_z) );
+				// ROS_INFO("GYRO x: %f\r\n", convert_gyro(gyro_x) );
+				// ROS_INFO("GYRO y: %f\r\n", convert_gyro(gyro_y) );
+				// ROS_INFO("GYRO z: %f\r\n", convert_gyro(gyro_z) );
 					
 				imu_msg.header.seq   = count_imu;
 				imu_msg.header.stamp = ros::Time::now();
@@ -138,11 +137,19 @@ int main(int argc, char *argv[])
 				
 				imu_msg.angular_velocity.x = convert_gyro(gyro_x);
 				imu_msg.angular_velocity.y = convert_gyro(gyro_y);
-        imu_msg.angular_velocity.z = convert_gyro(gyro_z);
+        		imu_msg.angular_velocity.z = convert_gyro(gyro_z);
 
 				rotor_imu_pub.publish(imu_msg);
 
 				count_imu++;
+
+				if(count_imu % 1000 == 0)
+				{
+					float acc1, acc2, acc3, gy1, gy2, gy3;
+
+				        //	ROS_INFO("Acc - [%f] - [%f] - [%f] - Gyro - [%f] - [%f] - [%f]", convert_acc(acc_x), convert_acc(acc_y), convert_acc(acc_z), convert_gyro(gyro_x), convert_gyro(gyro_y), convert_gyro(gyro_z) );
+					ROS_INFO("Rotor speed: [%d] - [%d] - [%d] - [%d]", rotor1_speed, rotor2_speed, rotor3_speed, rotor4_speed);
+				}
 
 
 			}
@@ -154,10 +161,10 @@ int main(int argc, char *argv[])
 				memcpy((char*)&rotor4_speed, (char*)read_data+6, sizeof(rotor4_speed));
 
 			
-				ROS_INFO("Rotor1 speed: %d\r\n", rotor1_speed);
-				ROS_INFO("Rotor2 speed: %d\r\n", rotor2_speed);
-				ROS_INFO("Rotor3 speed: %d\r\n", rotor3_speed);
-				ROS_INFO("Rotor4 speed: %d\r\n", rotor4_speed);
+				// ROS_INFO("Rotor1 speed: %d\r\n", rotor1_speed);
+				// ROS_INFO("Rotor2 speed: %d\r\n", rotor2_speed);
+				// ROS_INFO("Rotor3 speed: %d\r\n", rotor3_speed);
+				// ROS_INFO("Rotor4 speed: %d\r\n", rotor4_speed);
 				
 				rsm_msg.header.seq   = count;
 				rsm_msg.header.stamp = ros::Time::now();
