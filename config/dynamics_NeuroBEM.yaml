@@ -26,13 +26,15 @@ DT:  0 # 1100 # ms
 
 ENABLE_COG: TRUE
 
-ENABLE_VISCOUS: FALSE
+ENABLE_VISCOUS: TRUE
 
-ENABLE_I:    FALSE
+ENABLE_I:    TRUE
 
 ENABLE_H:    TRUE
 
 EXPAN_P_SIGMA: 0
+
+BATCH_SIZE : 10000
 
 # Data file path
 ROOT_PATH: ../data/blackbird/ampersand/yawConstant/maxSpeed3p0

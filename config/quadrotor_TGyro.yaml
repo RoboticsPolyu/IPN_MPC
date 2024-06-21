@@ -22,7 +22,7 @@ POS_MEAS_MEAN:  0.00
 # VEL_MEAS_COV:  0.05
 POS_MEAS_COV:   0.20 # 0.20
 VEL_MEAS_COV:   0.05 #
-ROT_MEAS_COV:   0.03 #
+ROT_MEAS_COV:   0.01 #
 OME_MEAS_COV:   0.001 # 0.059 deg/s
 
 # Drag force 

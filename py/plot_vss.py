@@ -28,7 +28,7 @@ plt.rcParams['font.sans-serif'] = ['Times New Roman']  # 如果要显示中文�
 plt.rcParams['font.weight'] = 'light'
 plt.rcParams['axes.unicode_minus'] = False  # 坐标轴负号显示
 plt.rcParams['axes.titlesize'] = 8  # 标题字体大小
-plt.rcParams['axes.labelsize'] = 6  # 坐标轴标签字体大小
+plt.rcParams['axes.labelsize'] = 7  # 坐标轴标签字体大小
 plt.rcParams['xtick.labelsize'] = 7  # x轴刻度字体大小
 plt.rcParams['ytick.labelsize'] = 7  # y轴刻度字体大小
 plt.rcParams['legend.fontsize'] = 6
@@ -91,26 +91,47 @@ body_vel_xx = data[:,19]
 body_vel_yy = data[:,20]
 body_vel_zz = data[:,21]
 
+hor_thrustt = data[:,28]
+
 x_lower = 0
 x_upper = 20
 column  = 1
 
-plt.figure()
-# plt.plot((timestamp - timestamp[0]), body_vel_x, color = 'darkred', linestyle='-')
-# plt.plot((timestamp - timestamp[0]), body_vel_y, color = 'darkblue', linestyle='-')
-# plt.plot((timestamp - timestamp[0]), body_vel_z, color = 'dark', linestyle='-')
+fig = plt.figure()
+plt.plot((timestamp - timestamp[0]), body_vel_x, color = 'darkred', linestyle='-')
+plt.plot((timestamp - timestamp[0]), body_vel_y, color = 'darkblue', linestyle='-')
+plt.plot((timestamp - timestamp[0]), body_vel_z, color = 'green', linestyle='-')
+plt.legend(['vx', 'vy', 'vz'])
+plt.xlabel('Time (s)')
+plt.ylabel('Vel (m/s)')
+plt.grid
+plt.title('Body veclocity')
+
+
+fig = plt.figure()
 c=[np.square(body_vel_x)[i]+np.square(body_vel_y)[i] for i in range(min(len(np.square(body_vel_y)),len(np.square(body_vel_y))))]
 cc=[np.square(body_vel_xx)[i]+np.square(body_vel_yy)[i] for i in range(min(len(np.square(body_vel_yy)),len(np.square(body_vel_yy))))]
-plt.plot((timestamp - timestamp[0]), c, color = 'darkred', linestyle='-')
-plt.plot((timestampp - timestampp[0]), cc, color = 'darkblue', linestyle='-')
+ax = fig.add_subplot(111)
+
+ax.plot((timestamp - timestamp[0]), c, color = 'darkred', linestyle='-', label='NeuroBEM $v_h^2$')
+ax.plot((timestampp - timestampp[0]), cc, color = 'darkblue', linestyle='-', label='Blackbird $v_h^2$')
+ax.legend(loc=(0.2, 0.3))
+ax2 = ax.twinx()
+
+ax2.plot((timestamp - timestamp[0]), hor_thrust, color = 'red', linestyle='dashed', label='NeuroBEM T')
+ax2.plot((timestampp - timestampp[0]), hor_thrustt, color = 'blue', linestyle='dashed', label='Blackbird T')
+ax2.legend(loc=(0.6, 0.25))
 # plt.plot((timestamp - timestamp[0]), hor_thrust, color = 'black', linestyle='-')
-plt.legend(['NeuroBEM', 'Blackbird'])
-plt.xlabel('Time (s)') #注意后面的字体属性
-plt.ylabel('Sum of squares of horizonal velocity (m/s)^2')
-plt.grid(ls='--')
+# plt.legend(['NeuroBEM', 'Blackbird'])
+ax.set_xlabel('Time (s)') #注意后面的字体属性
+ax.set_ylabel('Sum of squares of horizonal velocity (m/s)^2')
+ax.grid(ls='--')
+ax2.set_ylabel('Force (N)')
 plt.xlim((x_lower, x_upper))
-plt.title('Sum of squares of horizonal velocity')  
-savefig(plt,'figures/Sum of squares of horizonal velocity.svg')
+# ax.relim(-5, 100)
+# plt.title('Sum of squares of horizonal velocity')  
+plt.title('HVT')  
+savefig(plt,'figures/HVT.svg')
 
 plt.figure()
 plt.plot(body_vel_z)

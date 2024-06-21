@@ -910,4 +910,57 @@ namespace UAVFactor
       return error;
    }
 
+   Vector ControlLimitTGyroFactor::evaluateError(const gtsam::Vector4 &input, boost::optional<Matrix &> H1) const
+   {
+      gtsam::Vector4 error;
+      gtsam::Matrix4 jac;
+      jac.setZero();
+
+
+      uint i = 0;
+      if(input[i] >= T_low_ + T_thr_ && input[i] <= T_high_ - T_thr_)
+      {
+         error(i) = 0;
+         jac(i,i) = 0;
+      }
+      else if(input[i] < T_low_ + T_thr_)
+      {
+         error(i) = alpha_ * (T_low_ + T_thr_ - input[i]);
+         jac(i,i) = - alpha_;
+      }
+      else
+      {
+         error(i) = alpha_ * (input[i] - T_high_ + T_thr_);
+         jac(i,i) = alpha_;
+      }
+
+      
+      for(i = 1; i < 4; i++)
+      {
+         if(input[i] >= Gyro_low_ + Gyro_thr_ && input[i] <= Gyro_high_ - Gyro_thr_)
+         {
+            error(i) = 0;
+            jac(i,i) = 0;
+         }
+         else if(input[i] < Gyro_low_ + Gyro_thr_)
+         {
+            error(i) = alpha_ * (Gyro_low_ + Gyro_thr_ - input[i]);
+            jac(i,i) = - alpha_;
+         }
+         else
+         {
+            error(i) = alpha_ * (input[i] - Gyro_high_ + Gyro_thr_);
+            jac(i,i) = alpha_;
+         }
+      }
+      if(H1)
+      {
+         *H1 = jac;
+      }
+      std::cout << "ControlLimitFactor Error: " << error.transpose() << std::endl;
+      std::cout << "Jac: " << jac << std::endl;
+
+      return error;
+   }
+
 }

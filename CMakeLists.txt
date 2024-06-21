@@ -121,6 +121,7 @@ add_library(quadrotor_dynamics
             src/calibration/Calibration_factor.cpp
             src/calibration/Calibration_inertial.cpp
             src/control/Minimum_snap_controller.cpp
+            src/control/Energy_control_factor.cpp
             src/dynamics/Dynamics_control_factor.cpp
             src/dynamics/Dynamics_factor.cpp
             src/env_sensors_sim/IMU.cpp
@@ -178,6 +179,9 @@ target_link_libraries(SW_Joint_Estimation_Control gtsam quadrotor_dynamics ${Pan
 add_executable(Joint_Positioning_Control_Test app/Joint_Positioning_Control_Test.cpp)
 target_link_libraries(Joint_Positioning_Control_Test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
+add_executable(JPCM_TGyro_version_Test app/JPCM_TGyro_version_Test.cpp)
+target_link_libraries(JPCM_TGyro_version_Test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+
 # CALIBRATION
 add_executable(Aerial_vehicle_calibration_BLACK app/Aerial_vehicle_calibration_BLACK.cpp)
 target_link_libraries(Aerial_vehicle_calibration_BLACK gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
@@ -197,6 +201,11 @@ target_link_libraries(Motor_calibration quadrotor_dynamics ${Pangolin_LIBRARIES}
 add_executable(Online_Calibration_BLACK app/Online_Calibration_BLACK.cpp)
 target_link_libraries(Online_Calibration_BLACK quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
+add_executable(Batch_Opt_Dynamics_NBEM app/Batch_Opt_Dynamics_NBEM.cpp)
+target_link_libraries(Batch_Opt_Dynamics_NBEM quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+
+add_executable(Batch_Fixed_Lag_Dynamics_NBEM app/Batch_Fixed_Lag_Dynamics_NBEM.cpp)
+target_link_libraries(Batch_Fixed_Lag_Dynamics_NBEM quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
 if(BUILD_WITH_ROS)
 

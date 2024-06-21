@@ -1,0 +1,36 @@
+# Rotor's postion 
+ROTOR_P_X: 0.076
+ROTOR_P_Y: 0.10
+
+# Dataset segment 
+DATASET_S: 0000
+DATASET_L: 10000
+
+# Thrust sigma of z-axis direction
+P_T_SIGMA: 0.1
+
+# Unmodel thrust sigma of xy-axis direction 
+U_T_SIGMA: 0.05
+
+
+# INERTIA_IX: 0.049
+# INERTIA_IY: 0.049
+# INERTIA_IZ: 0.069
+
+INERTIA_IX: 0.00103
+INERTIA_IY: 0.000714
+INERTIA_IZ: 0.001
+
+DT:             0 # 1100 # ms
+ENABLE_DRAG:    TRUE
+ENABLE_COG:     TRUE
+ENABLE_VISCOUS: TRUE
+ENABLE_I:       TRUE
+ENABLE_H:       TRUE
+
+EXPAN_P_SIGMA: 0
+
+BATCH_SIZE : 9000
+
+# Data file path
+ROOT_PATH: /Users/ypwen/IPN/IPN_MPC/data/NeuroBEM/merged_2021-02-18-17-26-00_seg_1.csv

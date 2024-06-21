@@ -15,7 +15,7 @@ font = {'family' : 'Times New Roman',
 
 plt.rc('font', **font)
 
-file = '/home/amov/IPN_MPC/data/traj/Traj_for_dyn2.txt'
+file = '/Users/ypwen/IPN/IPN_MPC/data/Traj/Traj_wobbly_radius_1.5_vs_4.txt'
 
 data = np.loadtxt(file)
 
@@ -30,6 +30,9 @@ q_z = data[:,7]
 v_x = data[:,8]
 v_y = data[:,9]
 v_z = data[:,10]
+w_x = data[:,11]
+w_y = data[:,12]
+w_z = data[:,13]
 
 plt.figure(1)
 plt.plot(time - time[0], p_x, '-r', time- time[0], p_y, '-b', time- time[0], p_z, '-g')
@@ -58,6 +61,12 @@ ax.set_ylabel('Y')
 ax.set_zlabel('Z')     
 plt.title('Position')   
 
+plt.figure()
+plt.plot(time - time[0], w_x, '-r', time- time[0], w_y, '-b', time- time[0], w_z, '-g')
+plt.legend(['w_x', 'w_y', 'w_z'])
+plt.xlabel('Time') #注意后面的字体属性
+plt.ylabel('Angular Velocity')
+plt.title('Angular Velocity')  
 
 plt.show()
 

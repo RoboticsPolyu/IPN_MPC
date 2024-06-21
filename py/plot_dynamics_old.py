@@ -23,22 +23,17 @@ def square_elements(arr):
         result.append(num ** 2)
     return result
 
-# 字体调整
-plt.rcParams['font.sans-serif'] = ['Times New Roman']  # 如果要显示中文字体,则在此处设为：simhei,Arial Unicode MS
-plt.rcParams['font.weight'] = 'light'
+plt.rcParams['font.sans-serif'   ] = ['Times New Roman']  # 如果要显示中文字体,则在此处设为：simhei,Arial Unicode MS
+plt.rcParams['font.weight'       ] = 'light'
 plt.rcParams['axes.unicode_minus'] = False  # 坐标轴负号显示
-plt.rcParams['axes.titlesize'] = 8  # 标题字体大小
-plt.rcParams['axes.labelsize'] = 6  # 坐标轴标签字体大小
-plt.rcParams['xtick.labelsize'] = 7  # x轴刻度字体大小
-plt.rcParams['ytick.labelsize'] = 7  # y轴刻度字体大小
-plt.rcParams['legend.fontsize'] = 6
-
-# 线条调整
-plt.rcParams['axes.linewidth'] = 0.5
-
-# 刻度在内，设置刻度字体大小
-plt.rcParams['xtick.direction'] = 'in'
-plt.rcParams['ytick.direction'] = 'in'
+plt.rcParams['axes.titlesize'    ] = 8  # 标题字体大小
+plt.rcParams['axes.labelsize'    ] = 6  # 坐标轴标签字体大小
+plt.rcParams['xtick.labelsize'   ] = 7  # x轴刻度字体大小
+plt.rcParams['ytick.labelsize'   ] = 7  # y轴刻度字体大小
+plt.rcParams['legend.fontsize'   ] = 6
+plt.rcParams['axes.linewidth'    ] = 0.5
+plt.rcParams['xtick.direction'   ] = 'in'
+plt.rcParams['ytick.direction'   ] = 'in'
 
 # calib_log << std::setprecision(19) << Interp_states.at(idx).timestamp << std::setprecision(5) 
 # << " " << dyn_pos_err(0) << " " << dyn_pos_err(1) << " " << dyn_pos_err(2) << " " << dyn_e(3) << " " << dyn_e(4) << " " << dyn_e(5) << " " << dyn_e(6) 
@@ -65,35 +60,34 @@ dyn_ome_err_x = data[:,10]
 dyn_ome_err_y = data[:,11] 
 dyn_ome_err_z = data[:,12]
 
-thrust_ex = data[:,13]
-thrust_ey = data[:,14]
-thrust_ez = data[:,15]
+thrust_ex     = data[:,13]
+thrust_ey     = data[:,14]
+thrust_ez     = data[:,15]
 
-tq_ex = data[:,16]
-tq_ey = data[:,17]
-tq_ez = data[:,18]
+tq_ex         = data[:,16]
+tq_ey         = data[:,17]
+tq_ez         = data[:,18]
 
-body_vel_x = data[:,19]
-body_vel_y = data[:,20]
-body_vel_z = data[:,21]
-
-
-body_wx = data[:,19]
-body_wy = data[:,20]
-body_wz = data[:,21]
-
-df_ex = data[:,25]
-df_ey = data[:,26]
-df_ez = data[:,27]
-
-hor_thrust = data[:,28]
-
-vt_x = data[:,29]
-vt_y = data[:,30]
-vt_z = data[:,31]
+body_vel_x    = data[:,19]
+body_vel_y    = data[:,20]
+body_vel_z    = data[:,21]
 
 
-freq = 400
+body_wx       = data[:,19]
+body_wy       = data[:,20]
+body_wz       = data[:,21]
+
+df_ex         = data[:,25]
+df_ey         = data[:,26]
+df_ez         = data[:,27]
+
+hor_thrust    = data[:,28]
+
+vt_x = 0
+vt_y = 0
+vt_z = 0
+
+freq = 100
 # body_vel_x_gt = data[:,29]
 # body_vel_y_gt = data[:,30]
 # body_vel_z_gt = data[:,31]
