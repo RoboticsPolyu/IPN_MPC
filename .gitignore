@@ -5,3 +5,4 @@ cmake-build-debug/**
 .vscode/**
 py/figures/**
 bash/*.bag
+data/log/**
