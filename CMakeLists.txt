@@ -133,6 +133,7 @@ add_library(quadrotor_dynamics
             src/env_sensors_sim/IMU.cpp
             src/env_sensors_sim/Landmarks.cpp
             src/env_sensors_sim/Lidar.cpp
+            src/env_sensors_sim/Obs.cpp
             src/dynamics/Quadrotor_SO3.cpp
             src/trajectory_generator/Trajectory_generator.cpp)
 
@@ -148,17 +149,17 @@ target_link_libraries(hardware_lib PUBLIC ${YAML_CPP_LIBRARIES})
 endif(BUILD_HARDWARE)
 
 
-# add_executable(wheel_imu_factor app/test_wheel_imu_factor.cpp)
-# target_link_libraries(wheel_imu_factor gtsam wio_factor_lib)
+add_executable(wheel_imu_factor app/test_wheel_imu_factor.cpp)
+target_link_libraries(wheel_imu_factor gtsam wio_factor_lib)
 
-# add_executable(wheel_imu_pim app/test_wheel_imu_pim.cpp)
-# target_link_libraries(wheel_imu_pim gtsam wio_factor_lib)
+add_executable(wheel_imu_pim app/test_wheel_imu_pim.cpp)
+target_link_libraries(wheel_imu_pim gtsam wio_factor_lib)
 
-# add_executable(wheel_imu_error app/test_wheel_imu_error.cpp)
-# target_link_libraries(wheel_imu_error gtsam wio_factor_lib)
+add_executable(wheel_imu_error app/test_wheel_imu_error.cpp)
+target_link_libraries(wheel_imu_error gtsam wio_factor_lib)
 
-# add_executable(wheel_imu_isam app/wheel_imu_isam.cpp)
-# target_link_libraries(wheel_imu_isam gtsam gtsam_unstable wio_factor_lib)
+add_executable(wheel_imu_isam app/wheel_imu_isam.cpp)
+target_link_libraries(wheel_imu_isam gtsam gtsam_unstable wio_factor_lib)
 
 # Simulation of JPCM
 add_executable(test_dynamics src/test_dynamics/test_dynamics.cpp)
@@ -195,8 +196,8 @@ target_link_libraries(Aerial_vehicle_calibration_BLACK gtsam quadrotor_dynamics 
 add_executable(Quadrotor_dynamics_calibration app/Quadrotor_dynamics_calibration.cpp)
 target_link_libraries(Quadrotor_dynamics_calibration gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
-# add_executable(Aerial_vehicle_calibration_sim app/Aerial_vehicle_calibration_sim.cpp)
-# target_link_libraries(Aerial_vehicle_calibration_sim gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+add_executable(Aerial_vehicle_calibration_sim app/Aerial_vehicle_calibration_sim.cpp)
+target_link_libraries(Aerial_vehicle_calibration_sim gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
 add_executable(Aerial_vehicle_calibration_NBEM app/Aerial_vehicle_calibration_NBEM.cpp)
 target_link_libraries(Aerial_vehicle_calibration_NBEM quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
@@ -227,8 +228,8 @@ target_link_libraries(Test_Thrust_cmd gtsam quadrotor_dynamics ${Pangolin_LIBRAR
 
 if(BUILD_HARDWARE)
 
-# add_executable(Orin_rotor_angular_speed app/Orin_rotor_angular_speed.cpp)
-# target_link_libraries(Orin_rotor_angular_speed ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})    
+add_executable(Orin_rotor_angular_speed app/Orin_rotor_angular_speed.cpp)
+target_link_libraries(Orin_rotor_angular_speed ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})    
 
 add_executable(Orin_rsm_uart app/Orin_rsm_uart.cpp)
 add_dependencies(Orin_rsm_uart ${YAML_CPP_LIBRARIES} hardware_lib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

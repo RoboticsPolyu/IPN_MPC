@@ -259,6 +259,48 @@ namespace UAVFactor
             Base;
     };
 
+        /* Force and Moments Between factor */
+    class GTSAM_EXPORT PointObsFactor : public NoiseModelFactor1<gtsam::Pose3>
+    {
+    public:
+        typedef boost::shared_ptr<PointObsFactor> shared_ptr;
+
+        PointObsFactor() {}
+        PointObsFactor(Key p_i, gtsam::Vector3& obs, float safe_d, const SharedNoiseModel &model)
+            : Base(model, p_i), obs_(obs), safe_d_(safe_d)
+        {}
+
+        virtual ~PointObsFactor()
+        {
+        }
+
+        Vector evaluateError(const gtsam::Pose3 &pi, boost::optional<Matrix &> H1 = boost::none) const
+        {
+            Vector err;
+            Matrix36 jac_t_posei;
+            err = Vector1(safe_d_* safe_d_) - (pi.translation(jac_t_posei) - obs_).transpose()* (pi.translation(jac_t_posei) - obs_); 
+            
+            if(err(0) < 0)
+            {
+                err(0) = 0;
+            }
+
+            if(H1)
+            {
+                *H1 =  - 2 * (pi.translation(jac_t_posei) - obs_).transpose() * jac_t_posei;
+            }
+
+            return err;
+        }
+
+    private:
+        typedef PointObsFactor This;
+        typedef NoiseModelFactor1<gtsam::Pose3>
+            Base;
+        gtsam::Vector3 obs_;
+        float safe_d_;
+    };
+
     
     class GTSAM_EXPORT ControlLimitFactor : public NoiseModelFactor1<gtsam::Vector4>
     {

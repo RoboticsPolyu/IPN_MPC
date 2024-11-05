@@ -35,8 +35,8 @@ DRAG_FORCE_Z:   -0.0
 # method + vel + case_id
 LOG_NAME: JPCM_HIN_TEST_6
 
-PRI_VICON_COV:         0.05 # 0.20
-PRI_VICON_VEL_COV:     0.05 # 0.05
+PRI_VICON_COV:         0.001 # 0.20
+PRI_VICON_VEL_COV:     0.001 # 0.05
 
 CONTROL_P_COV_X:       0.03
 CONTROL_P_FINAL_COV_X: 0.01

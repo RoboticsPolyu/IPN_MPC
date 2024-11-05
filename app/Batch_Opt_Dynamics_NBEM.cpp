@@ -104,7 +104,7 @@ int main(void)
     calib_log.open(file_name);
 
     std::ofstream calib_params_log;
-    file_name = "../data/batch_calib_";
+    file_name = "../data/log/batch_calib_";
     file_name.append("params");
     file_name.append("_log.txt");
     calib_params_log.open(file_name);

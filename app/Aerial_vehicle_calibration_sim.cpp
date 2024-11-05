@@ -6,7 +6,6 @@
 #include <yaml-cpp/yaml.h>
 #include "quadrotor_simulator/Quadrotor_SO3.h"
 
-using namespace Calib;
 using namespace gtsam;
 using namespace std;
 using namespace UAVFactor;
@@ -25,6 +24,7 @@ using symbol_shorthand::U; // actuator_input
 using symbol_shorthand::V; // velocity
 using symbol_shorthand::X; // pose
 using symbol_shorthand::D; // body_T_mass
+using symbol_shorthand::H; // body_T_mass
 
 typedef struct State
 {
@@ -95,7 +95,6 @@ int main(void)
     auto rp_noise    = noiseModel::Diagonal::Sigmas(Vector3(0.0001, 0.0001, 0.0001));
     auto gr_noise    = noiseModel::Diagonal::Sigmas(Vector3(0.0001, 0.0001, 0.0001));
     auto km_noise    = noiseModel::Diagonal::Sigmas(Vector1(0.00001));
-    auto bm_nosie    = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.00001), Vector3::Constant(0.00001)).finished());
 
     std::ofstream calib_log;
     std::string file_name = "../data/calib_";
@@ -121,7 +120,7 @@ int main(void)
     state_0.p     = gtsam::Vector3(0,0,0);
     state_0.rot   = gtsam::Rot3::identity();
     state_0.v     = gtsam::Vector3(0,0,0);
-    state_0.omega = gtsam::Vector3(0,0,0);
+    state_0.body_rate = gtsam::Vector3(0,0,0);
     
     quad.setState(state_0);
 
@@ -148,11 +147,11 @@ int main(void)
         Uav_pwms.push_back(_uav_pwm);
 
         State _state;
-        _state.timestamp   = timestamp_cur;
-        _state.pose        = gtsam::Pose3(state_1.rot, state_1.p);
+        _state.timestamp = timestamp_cur;
+        _state.pose      = gtsam::Pose3(state_1.rot, state_1.p);
         // gtsam::Pose3(Rot3::Expmap(circle_generator.theta(timestamp_cur)),circle_generator.pos(timestamp_cur));
-        _state.vel         = state_1.v; // circle_generator.vel(timestamp_cur);
-        _state.body_rate   = state_1.body_rate; // circle_generator.omega(timestamp_cur);
+        _state.vel       = state_1.v; // circle_generator.vel(timestamp_cur);
+        _state.omega     = state_1.body_rate; // circle_generator.omega(timestamp_cur);
 
         _state.actuator_output = rand_actuator;// input_;
 
@@ -183,18 +182,18 @@ int main(void)
 
         initial_value_dyn.insert(X(idx), Interp_states.at(idx).pose);
         initial_value_dyn.insert(V(idx), Interp_states.at(idx).vel);
-        initial_value_dyn.insert(S(idx), Interp_states.at(idx).body_rate);
+        initial_value_dyn.insert(S(idx), Interp_states.at(idx).omega);
 
         if( idx == DATASET_LENS - 1 )
         {
             dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx+1), Interp_states.at(idx+1).pose,  vicon_noise));
             initial_value_dyn.insert(X(idx+1), Interp_states.at(idx+1).pose);
             initial_value_dyn.insert(V(idx+1), Interp_states.at(idx+1).vel);
-            initial_value_dyn.insert(S(idx+1), Interp_states.at(idx+1).body_rate);
+            initial_value_dyn.insert(S(idx+1), Interp_states.at(idx+1).omega);
         }
         
         // pose, velocity, angular speed, thrust_moments, pose, velocity, angular speed, inertial of moments, rot of g
-        DynamcisCaliFactor_RS dynamicsCalibFactor(X(idx), V(idx), S(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), P(0), K(0), M(0), D(0), Interp_states.at(idx).actuator_output, dt, quad_params.mass, dyn_noise);
+        DynamcisCaliFactor_RS dynamicsCalibFactor(X(idx), V(idx), S(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), P(0), K(0), M(0), D(0), H(0), Interp_states.at(idx).actuator_output, dt, quad_params.mass, dyn_noise);
         dyn_factor_graph.add(dynamicsCalibFactor);
     }
 
@@ -226,15 +225,16 @@ int main(void)
     double          kf = result.at<double>(K(0));
     double          mf = result.at<double>(M(0)); 
     gtsam::Pose3   bTm = result.at<gtsam::Pose3>(D(0)); 
-
+    gtsam::Vector3  dk = result.at<gtsam::Vector3>(H(0)); 
     
     for(uint32_t idx = 100; idx < DATASET_LENS; idx++)
     {
         // AllocationCalibFactor3 allo_for_err(T(idx), P(0), K(0), M(0), Interp_states.at(idx).actuator_output, thrust_torque_noise);
         // gtsam::Vector6 t_t = result.at<gtsam::Vector6>(T(idx));
-        DynamcisCaliFactor_RS dyn_err(X(idx), V(idx), S(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), P(0), K(0), M(0), D(0), Interp_states.at(idx).actuator_output, dt, quad_params.mass, dyn_noise);
+        DynamcisCaliFactor_RS dyn_err(X(idx), V(idx), S(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), P(0), K(0), M(0), D(0), H(0), Interp_states.at(idx).actuator_output, dt, quad_params.mass, dyn_noise);
         // DynamcisCaliFactor_TM dyn_err(X(idx), V(idx), S(idx), T(idx), X(idx + 1), V(idx + 1), S(idx + 1), J(0), R(0), dt, quad_params.mass, dyn_noise);
-        gtsam::Vector12 dyn_e = dyn_err.evaluateError(Interp_states.at(idx).pose, Interp_states.at(idx).vel, Interp_states.at(idx).body_rate, Interp_states.at(idx+1).pose, Interp_states.at(idx+1).vel, Interp_states.at(idx+1).body_rate, IM, rot, p, kf, mf, bTm);
+        gtsam::Vector12 dyn_e = dyn_err.evaluateError(Interp_states.at(idx).pose, Interp_states.at(idx).vel, Interp_states.at(idx).omega, 
+            Interp_states.at(idx+1).pose, Interp_states.at(idx+1).vel, Interp_states.at(idx+1).omega, IM, rot, p, kf, mf, bTm, dk);
 
         gtsam::Pose3          pose = result.at<gtsam::Pose3>(X(idx));
         gtsam::Vector3 dyn_pos_err = pose.rotation() * gtsam::Vector3(dyn_e(0), dyn_e(1), dyn_e(2)) / quad_params.mass;

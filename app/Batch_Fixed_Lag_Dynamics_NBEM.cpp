@@ -127,7 +127,7 @@ int main(void)
     calib_log.open(file_name);
 
     std::ofstream calib_params_log;
-    file_name = "../data/calib_";
+    file_name = "../data/log/calib_fixed_lag_";
     file_name.append("params");
     file_name.append("_log.txt");
     calib_params_log.open(file_name);
@@ -194,7 +194,7 @@ int main(void)
     gtsam::Rot3    rot = gtsam::Rot3::identity();
     gtsam::Vector3   p = gtsam::Vector3(0);
     double          kf = 2.0e-06;
-    double          km = 0.005; 
+    double          km = 0.01; 
     gtsam::Pose3   bTm = gtsam::Pose3::identity(); 
     gtsam::Vector3  dk = gtsam::Vector3(0.0, 0.0, 0.0);
     gtsam::Vector3  ak = gtsam::Vector3(0.0, 0.0, 1.0);
@@ -217,30 +217,38 @@ int main(void)
     initial_value_dyn.insert(A(0), ak);
     initial_value_dyn.insert(B(0), bk);
 
-    
+    int factor_idx = 0;
     if(!enable_inertia)
     {
         dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(J(0), gtsam::Vector3(quad_params.Ixx, quad_params.Iyy, quad_params.Izz), im_noise));
+        factor_idx++;
     }
 
     dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(D(0), gtsam::Pose3::identity(), bm_nosie));
+    factor_idx++;
 
     // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Rot3>(R(0), gtsam::Rot3::identity(), gr_noise));
     dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(P(0), rotor_p, rp_noise)); 
-    dyn_factor_graph.add(gtsam::PriorFactor<double>(M(0), 0.001f, km_noise));
+    factor_idx++;
+
+    dyn_factor_graph.add(gtsam::PriorFactor<double>(M(0), 0.01f, km_noise));
+    factor_idx++;
 
     if(!enable_drag)
     {
         dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(H(0), drag_k, im_noise)); 
+        factor_idx++;
     }
     if(!ENABLE_COG)
     {
         dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(A(0), A_k, im_noise)); 
+        factor_idx++;
     }
 
     if(!ENABLE_VISCOUS)   
     {
         dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(B(0), B_k, im_noise)); 
+        factor_idx++;
     }
 
     // newTimestamps[J(0)] = 0.0;
@@ -264,6 +272,7 @@ int main(void)
         newTimestamps[S(idx)] = (idx - DATASET_S) * dt;
 
         dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx), Interp_states.at(idx).pose, vicon_noise));
+        
         // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx), Interp_states.at(idx).vel, vel_noise));
         // dyn_factor_graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), Interp_states.at(idx).body_rate, ang_s_noise));
 
@@ -320,14 +329,8 @@ int main(void)
             // smootherBatch.calculateEstimate<Pose2>(currentKey).print("Batch Estimate:");
             result = smootherBatch.calculateEstimate();
 
-            // smootherISAM2.update(dyn_factor_graph, initial_value_dyn, newTimestamps);
-            // for(size_t i = 1; i < 2; ++i) { // Optionally perform multiple iSAM2 iterations
-            //     smootherISAM2.update();
-            // }
-
             // std::cout << "###################### begin optimize ######################" << std::endl;
-            // // result = optimizer.optimize();
-            // result = smootherISAM2.calculateEstimate();
+            // result = optimizer.optimize();
 
             IM  = result.at<gtsam::Vector3>(J(0));
             rot = result.at<gtsam::Rot3>(R(0));

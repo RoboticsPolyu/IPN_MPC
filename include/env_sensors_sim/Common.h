@@ -28,3 +28,15 @@ struct IMUMeasurement
     gtsam::Vector3 acc_bias;
     gtsam::Vector3 angular_speed_bias;
 };
+
+enum Motion_type
+{
+    Stationary = 1,
+    Linear = 2 
+};
+
+typedef struct Style
+{
+    Motion_type motion_type;
+
+}Style;

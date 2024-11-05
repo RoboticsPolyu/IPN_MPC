@@ -640,12 +640,12 @@ namespace QuadrotorSim_SO3
     {
         gtsam::Vector3 begin = p;
         gtsam::Vector3 end;
-        end = rot.rotate(gtsam::Vector3(0.03, 0, 0)) + begin;
-        drawLine(gtsam::Vector3(1, 0, 0), begin, end);
-        end = rot.rotate(gtsam::Vector3(0, 0.03, 0)) + begin;
-        drawLine(gtsam::Vector3(0, 1, 0), begin, end);
-        end = rot.rotate(gtsam::Vector3(0, 0, 0.03)) + begin;
-        drawLine(gtsam::Vector3(0, 0, 1), begin, end);
+        end = rot.rotate(gtsam::Vector3(0.1, 0, 0)) + begin;
+        drawLine(gtsam::Vector3(5, 0, 0), begin, end);
+        end = rot.rotate(gtsam::Vector3(0, 0.1, 0)) + begin;
+        drawLine(gtsam::Vector3(0, 5, 0), begin, end);
+        end = rot.rotate(gtsam::Vector3(0, 0, 0.1)) + begin;
+        drawLine(gtsam::Vector3(0, 0, 5), begin, end);
     }
 
     void Quadrotor::renderHistoryTrj()
@@ -676,6 +676,28 @@ namespace QuadrotorSim_SO3
         }
     }
 
+    // Define a structure to hold 3D points
+    struct Point3D {
+        float x, y, z;
+    };
+
+    // Function to generate points on the surface of a sphere
+    std::vector<Point3D> generateSpherePoints(float radius, int numTheta, int numPhi) {
+        std::vector<Point3D> points;
+        for (int i = 0; i < numTheta; ++i) {
+            float theta = 2.0f * M_PI * i / numTheta;
+            for (int j = 0; j < numPhi; ++j) {
+                float phi = M_PI * j / numPhi;
+                Point3D point;
+                point.x = radius * std::sin(phi) * std::cos(theta);
+                point.y = radius * std::sin(phi) * std::sin(theta);
+                point.z = radius * std::cos(phi);
+                points.push_back(point);
+            }
+        }
+        return points;
+    }
+
     void Quadrotor::renderHistoryOpt(std::vector<State> &trj, boost::optional<gtsam::Vector3 &> err, boost::optional<Features &> features, 
         boost::optional<gtsam::Vector3&> vicon_measurement, boost::optional<gtsam::Vector3 &> rot_err, boost::optional<std::vector<State> &> state_trj)
     {
@@ -704,8 +726,26 @@ namespace QuadrotorSim_SO3
 
             trj_.push_back(state_);
             d_cam.Activate(*s_cam);
+            
+            float radius = 0.5f;  // Radius of the sphere
+            int numTheta = 100;   // Number of divisions along the azimuthal angle
+            int numPhi   = 100;     // Number of divisions along the polar angle
+
+            std::vector<Point3D> spherePoints = generateSpherePoints(radius, numTheta, numPhi);
+
+            for(int i = 0; i < spherePoints.size(); i++)
+            {
+                glColor3f(1.0, 0., 0.);
+                glPointSize(2.0);
+                glBegin(GL_POINTS);
+
+                glVertex3f(spherePoints[i].x + 0, spherePoints[i].y + 1.75, spherePoints[i].z + 1);
+                
+                glEnd();
+            }
+
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-            glLineWidth(1);
+            glLineWidth(3);
             drawFrame(gtsam::Vector3(0, 0, 0), gtsam::Rot3::identity());
             for (int i = 0; i < trj_.size() - 1; i++)
             
@@ -713,7 +753,7 @@ namespace QuadrotorSim_SO3
                 drawLine(gtsam::Vector3(0.5, 0, 0.5), trj_[i].p, trj_[i + 1].p);
             }
 
-            glLineWidth(2);
+            glLineWidth(3);
             for (int i = 0; i < trj.size() - 1; i++)
             {
                 drawLine(gtsam::Vector3(1.0, 0, 0), trj[i].p, trj[i + 1].p);
@@ -756,14 +796,14 @@ namespace QuadrotorSim_SO3
             for(uint i = 0; i < 314; i++)
             {
                 glColor3f(0.3, 0.1, 0.8);
-                glPointSize(2.0);
+                glPointSize(5.0);
                 glBegin(GL_POINTS);
 
                 glVertex3f(1.5*sin(float(i)/ 314.0f * 6.28), 1.5*cos(float(i)/ 314.0f * 6.28), 1);
                 
                 glEnd();
             }
-
+            
             renderPanel();
 
             // Swap frames and Process Events

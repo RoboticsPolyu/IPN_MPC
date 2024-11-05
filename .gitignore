@@ -6,3 +6,4 @@ cmake-build-debug/**
 py/figures/**
 bash/*.bag
 data/log/**
+py/TVT_Figures/**

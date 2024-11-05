@@ -48,9 +48,10 @@ plt.rcParams['ytick.direction'] = 'in'
 # << " " << vel_body(0) << " " << vel_body(1) << " " << vel_body(2) 
 # << " " << Interp_states.at(idx).omega.x() << " " << Interp_states.at(idx).omega.y() << " " << Interp_states.at(idx).omega.z() 
 
-file = '/Users/ypwen/IPN/IPN_MPC/data/batch_calib_params_log.txt' # for paper
+file = '/Users/ypwen/IPN/IPN_MPC/data/log/calib_fixed_lag_params_log.txt' # for paper
+# file = '/Users/ypwen/IPN/IPN_MPC/data/log/batch_calib_params_log.txt' # for paper
 
-# file = '/Users/ypwen/IPN/IPN_MPC/data/calib_params_log.txt'
+# file = '/Users/ypwen/IPN/IPN_MPC/data/log/calib_params_log.txt'
 
 # data1.pwm << " " << data1.rotor_speed1 << " " << data2.rotor_speed1 - data1.rotor_speed1 
 data = np.loadtxt(file)
@@ -88,13 +89,13 @@ Ix = data[:,15]
 Iy = data[:,16]
 Iz = data[:,17]
 
-left = 100
+left = 1
 
 # kf[left] = 2e-6
 
 plt.figure()
-plt.plot( kf[left:,], color = 'darkred', linestyle='-')
-plt.xlabel('Batch index') #注意后面的字体属性
+plt.plot( time[left:,]-time[left], kf[left:,], color = 'darkred', linestyle='-')
+plt.xlabel('Time (s)') #注意后面的字体属性
 plt.ylabel('Value')
 plt.grid(ls='--')
 # plt.xlim((x_lower, x_upper))
@@ -102,8 +103,8 @@ plt.title('Dynamic parameter $k_f$')
 savefig(plt, 'figures/p_kf.svg')
 
 plt.figure()
-plt.plot( km[left:,], color = 'darkblue', linestyle='-')
-plt.xlabel('Batch index') #注意后面的字体属性
+plt.plot( time[left:,]-time[left], km[left:,], color = 'darkblue', linestyle='-')
+plt.xlabel('Time (s)') #注意后面的字体属性
 plt.ylabel('Value')
 plt.grid(ls='--')
 # plt.xlim((x_lower, x_upper))
@@ -111,9 +112,9 @@ plt.title('Dynamic parameter $k_m$')
 savefig(plt, 'figures/p_km.svg')
 
 plt.figure()
-plt.plot( az[left:,], color = 'purple', linestyle='-')
+plt.plot( time[left:,]-time[left], az[left:,], color = 'purple', linestyle='-')
 # plt.legend(['kf', 'km', 'kv'])
-plt.xlabel('Batch index') #注意后面的字体属性
+plt.xlabel('Time (s)') #注意后面的字体属性
 plt.ylabel('Value (N*s2/m2)')
 plt.grid(ls='--')
 # plt.xlim((x_lower, x_upper))
@@ -121,8 +122,8 @@ plt.title('Dynamic parameter $k_h$')
 savefig(plt, 'figures/p_kh.svg')
 
 plt.figure()
-plt.plot( dx[left:,], color = 'darkred', linestyle='-')
-# plt.xlabel('Batch index') #注意后面的字体属性
+plt.plot( time[left:,]-time[left], dx[left:,], color = 'darkred', linestyle='-')
+# plt.xlabel('Time (s)') #注意后面的字体属性
 # plt.ylabel('Value (N*s/m)')
 # plt.grid(ls='--')
 # # plt.xlim((x_lower, x_upper))
@@ -130,15 +131,15 @@ plt.plot( dx[left:,], color = 'darkred', linestyle='-')
 # savefig(plt, path)
 
 # plt.figure()
-plt.plot( dy[left:,], color = 'darkblue', linestyle='-')
-# plt.xlabel('Batch index') #注意后面的字体属性
+plt.plot( time[left:,]-time[left], dy[left:,], color = 'darkblue', linestyle='-')
+# plt.xlabel('Time (s)') #注意后面的字体属性
 # plt.ylabel('Value (N*s/m)')
 # plt.grid(ls='--')
 # # plt.xlim((x_lower, x_upper))
 # plt.title('Dynamic parameter $D_y$') 
 # savefig(plt, path)
 plt.legend(['Dx', 'Dy'])
-plt.xlabel('Batch index') #注意后面的字体属性
+plt.xlabel('Time (s)') #注意后面的字体属性
 plt.ylabel('Value (N*s/m)')
 plt.grid(ls='--')
 # plt.xlim((x_lower, x_upper))
@@ -146,9 +147,9 @@ plt.title('Dynamic parameters $D_x$ and $D_y$')
 savefig(plt,  'figures/p_dxy.svg') 
 
 plt.figure()
-plt.plot( dz[left:,], color = 'purple', linestyle='-')
+plt.plot( time[left:,]-time[left], dz[left:,], color = 'purple', linestyle='-')
 # plt.legend(['dx', 'dy', 'dz'])
-plt.xlabel('Batch index') #注意后面的字体属性
+plt.xlabel('Time (s)') #注意后面的字体属性
 plt.ylabel('Value (N*s/m)')
 plt.grid(ls='--')
 # plt.xlim((x_lower, x_upper))
@@ -157,11 +158,11 @@ savefig(plt,  'figures/p_dz.svg')
 
 
 plt.figure()
-plt.plot( bx[left:,], color = 'darkred', linestyle='-')
-plt.plot( by[left:,], color = 'darkblue', linestyle='-')
-plt.plot( bz[left:,], color = 'purple', linestyle='-')
+plt.plot( time[left:,]-time[left], bx[left:,], color = 'darkred', linestyle='-')
+plt.plot( time[left:,]-time[left], by[left:,], color = 'darkblue', linestyle='-')
+plt.plot( time[left:,]-time[left], bz[left:,], color = 'purple', linestyle='-')
 plt.legend(['$B_x$', '$B_y$', '$B_z$'])
-plt.xlabel('Batch index') #注意后面的字体属性
+plt.xlabel('Time (s)') #注意后面的字体属性
 plt.ylabel('Value')
 plt.grid(ls='--')
 # plt.xlim((x_lower, x_upper))
@@ -169,10 +170,10 @@ plt.title('Dynamic parameters $B$')
 savefig(plt, 'figures/p_B.svg')
 
 plt.figure()
-plt.plot( ax[left:,], color = 'darkred', linestyle='-')
-plt.plot( ay[left:,], color = 'darkblue', linestyle='-')
+plt.plot( time[left:,]-time[left], ax[left:,], color = 'darkred', linestyle='-')
+plt.plot( time[left:,]-time[left], ay[left:,], color = 'darkblue', linestyle='-')
 plt.legend(['x', 'y'])
-plt.xlabel('Batch index') #注意后面的字体属性
+plt.xlabel('Time (s)') #注意后面的字体属性
 plt.ylabel('Value (m)')
 plt.grid(ls='--')
 # plt.xlim((x_lower, x_upper))
@@ -181,10 +182,10 @@ savefig(plt,  'figures/p_hog.svg')
 
 
 plt.figure()
-plt.plot( Ix[left:,], color = 'darkred', linestyle='-')
-plt.plot( Iy[left:,], color = 'darkblue', linestyle='-')
+plt.plot( time[left:,]-time[left], Ix[left:,], color = 'darkred', linestyle='-')
+plt.plot( time[left:,]-time[left], Iy[left:,], color = 'darkblue', linestyle='-')
 plt.legend(['$I_x$', '$I_y$'])
-plt.xlabel('Batch index') #注意后面的字体属性
+plt.xlabel('Time (s)') #注意后面的字体属性
 plt.ylabel('Value (kg*m2)')
 plt.grid(ls='--')
 # plt.xlim((x_lower, x_upper))
@@ -192,9 +193,9 @@ plt.title('Dynamic parameters $I_x$ and $I_y$')
 savefig(plt, 'figures/p_Ixy.svg')
 
 plt.figure()
-plt.plot( Iz[left:,], color = 'purple', linestyle='-')
+plt.plot( time[left:,]-time[left], Iz[left:,], color = 'purple', linestyle='-')
 # plt.legend(['$I_x$', '$I_y$', '$I_z$'])
-plt.xlabel('Batch index') #注意后面的字体属性
+plt.xlabel('Time (s)') #注意后面的字体属性
 plt.ylabel('Value (kg*m2)')
 plt.grid(ls='--')
 # plt.xlim((x_lower, x_upper))
@@ -203,11 +204,11 @@ savefig(plt, 'figures/p_Iz.svg')
 
 
 plt.figure()
-plt.plot( Rx[left:,], color = 'darkred', linestyle='-')
-plt.plot( Ry[left:,], color = 'darkblue', linestyle='-')
-# plt.plot( Rz[left:,], color = 'purple', linestyle='-')
+plt.plot( time[left:,]-time[left], Rx[left:,], color = 'darkred', linestyle='-')
+plt.plot( time[left:,]-time[left], Ry[left:,], color = 'darkblue', linestyle='-')
+# plt.plot( time[left:,]-time[left], Rz[left:,], color = 'purple', linestyle='-')
 plt.legend(['$R_x$', '$R_y$'])
-plt.xlabel('Batch index') #注意后面的字体属性
+plt.xlabel('Time (s)') #注意后面的字体属性
 plt.ylabel('Value (kg*m2)')
 plt.grid(ls='--')
 # plt.xlim((x_lower, x_upper))

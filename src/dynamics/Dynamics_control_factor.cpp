@@ -97,7 +97,6 @@ namespace UAVFactor
       // J_rerr_rbj, J_rbi;
       gtsam::Matrix33 J_ri, J_rj, J_dr;
       
-
       gtsam::Vector3  pos_err = mass_ * r_w_mi.unrotate(p_w_mj - vel_i * dt_ + 0.5f * gI_ * dtt - p_w_mi, J_pe_roti) - 0.5f* gtsam::Vector3(0,0,1)*input_i(0)* dtt;
       // gtsam::Vector3  rot_err = Rot3::Logmap(r_w_mi.between(r_w_mj, J_ri, J_rj), J_dr) - 0.5f * (omega_i + omega_j) * dt_; 
       // This would cause the heavy fluctuation of omega
@@ -116,49 +115,49 @@ namespace UAVFactor
       
       if (H1)
       {
-            Matrix33 Jac_perr_p = - mass_* _unrbi_matrix;
-            Matrix33 Jac_perr_r =   mass_* J_pe_roti;
-            Matrix33 Jac_rerr_r =   J_dr * J_ri;
-            Matrix33 Jac_verr_r =   mass_* J_ve_rot1 - drag_matrix * J_dv_rit * dt_; // - A_mat * J_da_ri * dt_;
+         Matrix33 Jac_perr_p = - mass_* _unrbi_matrix;
+         Matrix33 Jac_perr_r =   mass_* J_pe_roti;
+         Matrix33 Jac_rerr_r =   J_dr * J_ri;
+         Matrix33 Jac_verr_r =   mass_* J_ve_rot1 - drag_matrix * J_dv_rit * dt_; // - A_mat * J_da_ri * dt_;
 
-            Matrix36 Jac_perr_posei = Jac_perr_p * jac_t_posei + Jac_perr_r * jac_r_posei;
-            Matrix36 Jac_rerr_posei = Jac_rerr_r * jac_r_posei;
-            Matrix36 Jac_verr_posei = Jac_verr_r * jac_r_posei;
+         Matrix36 Jac_perr_posei = Jac_perr_p * jac_t_posei + Jac_perr_r * jac_r_posei;
+         Matrix36 Jac_rerr_posei = Jac_rerr_r * jac_r_posei;
+         Matrix36 Jac_verr_posei = Jac_verr_r * jac_r_posei;
 
-            J_e_pi.setZero();
-            J_e_pi.block(0, 0, 3, 6) = Jac_perr_posei;
-            J_e_pi.block(3, 0, 3, 6) = Jac_rerr_posei;
-            J_e_pi.block(6, 0, 3, 6) = Jac_verr_posei;
+         J_e_pi.setZero();
+         J_e_pi.block(0, 0, 3, 6) = Jac_perr_posei;
+         J_e_pi.block(3, 0, 3, 6) = Jac_rerr_posei;
+         J_e_pi.block(6, 0, 3, 6) = Jac_verr_posei;
 
-            *H1 = J_e_pi;
+         *H1 = J_e_pi;
       }
 
       if (H2)
       {
-            Matrix93 J_e_v;
-            J_e_v.setZero();
-            Matrix33 Jac_perr_veli  = - mass_* _unrbi_matrix * dt_;
-            Matrix33 Jac_verr_v     = - mass_* _unrbi_matrix;
-            J_e_v.block(0, 0, 3, 3) =   Jac_perr_veli;
-            J_e_v.block(6, 0, 3, 3) =   Jac_verr_v - drag_matrix * dt_ * J_dv_v;
+         Matrix93 J_e_v;
+         J_e_v.setZero();
+         Matrix33 Jac_perr_veli  = - mass_* _unrbi_matrix * dt_;
+         Matrix33 Jac_verr_v     = - mass_* _unrbi_matrix;
+         J_e_v.block(0, 0, 3, 3) =   Jac_perr_veli;
+         J_e_v.block(6, 0, 3, 3) =   Jac_verr_v - drag_matrix * dt_ * J_dv_v;
 
-            *H2 = J_e_v;
+         *H2 = J_e_v;
       }
 
       if (H4)
       {
-            J_e_posej.setZero();
-            J_e_posej.block(0, 0, 3, 6) = mass_* _unrbi_matrix* jac_t_posej;
-            J_e_posej.block(3, 0, 3, 6) = J_dr * J_rj * jac_r_posej;
-            *H4 = J_e_posej; 
+         J_e_posej.setZero();
+         J_e_posej.block(0, 0, 3, 6) = mass_* _unrbi_matrix* jac_t_posej;
+         J_e_posej.block(3, 0, 3, 6) = J_dr * J_rj * jac_r_posej;
+         *H4 = J_e_posej; 
       }
 
       if (H5)
       {
-            Matrix93 J_e_vj;
-            J_e_vj.setZero();
-            J_e_vj.block(6, 0, 3, 3) = mass_* _unrbi_matrix;
-            *H5 = J_e_vj;
+         Matrix93 J_e_vj;
+         J_e_vj.setZero();
+         J_e_vj.block(6, 0, 3, 3) = mass_* _unrbi_matrix;
+         *H5 = J_e_vj;
       }
 
       if (H3)
@@ -904,8 +903,6 @@ namespace UAVFactor
       {
          *H1 = jac;
       }
-      std::cout << "ControlLimitFactor Error: " << error.transpose() << std::endl;
-      std::cout << "Jac: " << jac << std::endl;
 
       return error;
    }
@@ -957,8 +954,6 @@ namespace UAVFactor
       {
          *H1 = jac;
       }
-      std::cout << "ControlLimitFactor Error: " << error.transpose() << std::endl;
-      std::cout << "Jac: " << jac << std::endl;
 
       return error;
    }

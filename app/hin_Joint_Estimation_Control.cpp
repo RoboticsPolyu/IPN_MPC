@@ -176,7 +176,7 @@ int main(void)
     state_log.open(file_name);
 
     std::ofstream pwm_log;
-    file_name = "../data/simulated_state.txt";
+    file_name = "../data/simulated_pwm.txt";
     pwm_log.open(file_name);
 
     Features landmarkk; 

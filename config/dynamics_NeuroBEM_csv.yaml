@@ -3,7 +3,7 @@ ROTOR_P_X: 0.076
 ROTOR_P_Y: 0.10
 
 # Dataset segment 
-DATASET_S: 0000
+DATASET_S: 7000
 DATASET_L: 10000
 
 # Thrust sigma of z-axis direction
@@ -30,7 +30,7 @@ ENABLE_H:       TRUE
 
 EXPAN_P_SIGMA: 0
 
-BATCH_SIZE : 9000
+BATCH_SIZE : 10
 
 # Data file path
 ROOT_PATH: /Users/ypwen/IPN/IPN_MPC/data/NeuroBEM/merged_2021-02-18-17-26-00_seg_1.csv
