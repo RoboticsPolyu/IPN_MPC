@@ -165,16 +165,17 @@ int main(void)
     Lidar<Landmarks> lidar(LIDAR_RANGE, LIDAR_RANGE_MIN);
     gtsam::Vector3 vicon_measurement;
     gtsam::Vector4 rotor_input_bak;
-    gtsam::Vector3 obs1(0, 1.75, 1.);
-    float obs1_radius = 0.5f, safe_d = 0.10f;
+    gtsam::Vector3 obs1(0, 1.55, 1.);
+    float obs1_radius = 0.10f, safe_d = 0.10f;
 
     for(int traj_idx = 0; traj_idx < SIM_STEPS; traj_idx++)
     {
+        obs1 = quadrotor.getObs1();
         double t0 = traj_idx* dt;
 
         if(traj_idx == 0)
         {
-            predicted_state.p            = circle_generator.pos(t0);
+            predicted_state.p            = circle_generator.pos(t0) - gtsam::Vector3(0,0,1);
             // gtsam::Vector3 rzyx(0, 0, 10.0/180.0*3.14159);
             // gtsam::Rot3 rot = gtsam::Rot3::RzRyRx(rzyx);
             gtsam::Rot3 rot = gtsam::Rot3::identity();
@@ -269,9 +270,15 @@ int main(void)
                 {
                     float scale = obs1_radius / d2; 
                     pose_idx = gtsam::Pose3(pose_idx.rotation(), (pose_idx.translation() - obs1)* scale + obs1);
+                    graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
+                    graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
                 }
-                graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
-                graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
+                else
+                {
+                    graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
+                    graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
+                }
+
                 // graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
                 // auto correction_noise = noiseModel::Isotropic::Sigma(3, CONTROL_P_FINAL_COV_X);
                 // gtsam::GPSFactor gps_factor(X(idx+1),
@@ -299,10 +306,12 @@ int main(void)
                 //     graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
                 //     graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
                 // }
-                graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
-                graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
-                graph.add(PointObsFactor(X(idx+1), obs1, obs1_radius + safe_d, point_obs_noise));
-
+                else
+                {
+                    graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
+                    graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
+                    graph.add(PointObsFactor(X(idx+1), obs1, obs1_radius + safe_d, point_obs_noise));
+                }
                 // graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
                 // auto correction_noise = noiseModel::Isotropic::Sigma(3, CONTROL_P_COV_X);
                 // gtsam::GPSFactor gps_factor(X(idx + 1),

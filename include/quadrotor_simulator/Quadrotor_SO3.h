@@ -55,7 +55,13 @@ namespace QuadrotorSim_SO3
 
             EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
         };
-        
+
+        // Define a structure to hold 3D points
+        struct Point3D 
+        {
+            float x, y, z;
+        };
+            
         // User Interface
         void displaySetup();
         
@@ -141,11 +147,17 @@ namespace QuadrotorSim_SO3
 
         Eigen::Vector3d getAcc() const;
 
+        gtsam::Vector3 getObs1();
+
     private:
         void printCurState();
 
         // Compute Control Allocation's effectiveness matrix
         Eigen::Matrix4d ComputeEffectivenessMatrix();
+
+        std::vector<Point3D> generateSpherePoints(float radius, int numTheta, int numPhi);
+        std::vector<Point3D> generatePointsOutsideCylinder(int numTheta, float radius, float height);
+        Point3D getEllipsePoint(double t, double v, double a, double b, double z);
 
         // Control Allocation's effectiveness matrix
         Eigen::Matrix4d effectiveness_;
@@ -210,6 +222,12 @@ namespace QuadrotorSim_SO3
         double ANGULAR_SPEED_COV = 0.0;
 
         Geometry geometry_;
+
+        std::vector<Point3D> spherePoints_;
+        Point3D              sphereCenter_;
+        std::vector<Point3D> cylinderPoints_;
+
+        float clock = 0;
     };
 }
 #endif

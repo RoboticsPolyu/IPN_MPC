@@ -111,7 +111,7 @@ print("MPC rRMSEX: %f", rRMSEZ)
 
 
 # file = '/Users/ypwen/IPN/IPN_MPC/data/JEC_MPC_PRE_TEST_log.txt'
-file = '/Users/ypwen/IPN/IPN_MPC/data/log/JPC_JPCM_HIN_TEST_6_log.txt'
+file = '/Users/ypwen/IPN/IPN_MPC/data/log/JPC_JPCM_TEST_NoD_log.txt'
 
 data = np.loadtxt(file)
 
@@ -341,14 +341,17 @@ rpm_to_rads = 2 * np.pi / 60
 
 plt.figure(figsize=(5, 4))
 
+start = 1
+end = 60
+
 # First subplot
 plt.subplot(2, 1, 1)
 set_dense_grid(plt)
 # plt.ylim()
-plt.plot(in1[0:60] * rpm_to_rads, color=colors[0], linestyle='-', linewidth=2)
-plt.plot(in2[0:60] * rpm_to_rads, color=colors[1], linestyle='-.', linewidth=2)
-plt.plot(in3[0:60] * rpm_to_rads, color=colors[2], linestyle=':', linewidth=2)
-plt.plot(in4[0:60] * rpm_to_rads, color=bottom_colors[0], linestyle='--', linewidth=2)
+plt.plot(in1[start:end] * rpm_to_rads, color=colors[0], linestyle='-', linewidth=2)
+plt.plot(in2[start:end] * rpm_to_rads, color=colors[1], linestyle='-.', linewidth=2)
+plt.plot(in3[start:end] * rpm_to_rads, color=colors[2], linestyle=':', linewidth=2)
+plt.plot(in4[start:end] * rpm_to_rads, color=bottom_colors[0], linestyle='--', linewidth=2)
 plt.legend(['Rotor1', 'Rotor2', 'Rotor3', 'Rotor4'], loc='upper right', bbox_to_anchor=(1.15, 1), frameon=False)
 plt.ylabel('Rotation Velocity (Rad/s)')
 plt.xlabel('Time (0.01s)')
@@ -360,10 +363,10 @@ plt.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.7)
 plt.subplot(2, 1, 2)
 set_dense_grid(plt)
 # set_y_limits(plt, jin4[0:120], margin=0.1)
-plt.plot(jin1[0:60] * rpm_to_rads, color=colors[0], linestyle='-', linewidth=2)
-plt.plot(jin2[0:60] * rpm_to_rads, color=colors[1], linestyle='-.', linewidth=2)
-plt.plot(jin3[0:60] * rpm_to_rads, color=colors[2], linestyle=':', linewidth=2)
-plt.plot(jin4[0:60] * rpm_to_rads, color=bottom_colors[0], linestyle='--', linewidth=2)
+plt.plot(jin1[start:end] * rpm_to_rads, color=colors[0], linestyle='-', linewidth=2)
+plt.plot(jin2[start:end] * rpm_to_rads, color=colors[1], linestyle='-.', linewidth=2)
+plt.plot(jin3[start:end] * rpm_to_rads, color=colors[2], linestyle=':', linewidth=2)
+plt.plot(jin4[start:end] * rpm_to_rads, color=bottom_colors[0], linestyle='--', linewidth=2)
 plt.legend(['Rotor1', 'Rotor2', 'Rotor3', 'Rotor4'], loc='upper right', bbox_to_anchor=(1.15, 1), frameon=False)
 plt.ylabel('Rotation Velocity (Rad/s)')
 plt.xlabel('Time (0.01s)')

@@ -8,6 +8,24 @@
 namespace QuadrotorSim_SO3
 {
 
+    Quadrotor::Point3D Quadrotor::getEllipsePoint(double t, double v, double a, double b, double z) 
+    { 
+        double angle = v * t / sqrt(a * a + b * b); 
+        double x = a * cos(angle); 
+        double y = b * sin(angle); 
+
+        // rotating
+        double theta = M_PI / 4;
+        double rotatedX = x * cos(theta) - y * sin(theta); 
+        double rotatedY = x * sin(theta) + y * cos(theta);
+
+        Point3D point3d;
+        point3d.x = rotatedX;
+        point3d.y = rotatedY;
+        point3d.z = z;
+        return point3d;
+    }
+
     Quadrotor::Quadrotor(void)
     {
         YAML::Node quad_config = YAML::LoadFile("../config/quadrotor.yaml");  
@@ -52,6 +70,22 @@ namespace QuadrotorSim_SO3
         double DRAG_FORCE_Y = config["DRAG_FORCE_Y"].as<double>();
         double DRAG_FORCE_Z = config["DRAG_FORCE_Z"].as<double>();
         drag_force_params_  = Eigen::Vector3d(DRAG_FORCE_X, DRAG_FORCE_Y, DRAG_FORCE_Z);
+
+        float radius = 0.20f;  // Radius of the sphere
+        int numTheta = 100;   // Number of divisions along the azimuthal angle
+        int numPhi   = 100;     // Number of divisions along the polar angle
+
+        spherePoints_ = generateSpherePoints(radius, numTheta, numPhi);
+        int numPoints = 200;
+        radius = 0.05;
+        float height = 0.50;
+        cylinderPoints_ = generatePointsOutsideCylinder(numPoints, radius, height);
+
+        sphereCenter_.x = 0;
+        sphereCenter_.y = 0;
+        sphereCenter_.z = 0;
+
+        clock = 0;
     }
 
     void Quadrotor::step(double dt)
@@ -92,7 +126,7 @@ namespace QuadrotorSim_SO3
                                      
         // predicted_state_.motor_rpm = state_.motor_rpm + (motor_rpm - state_.motor_rpm) / motor_time_constant_;
         predicted_state_.rot       = state_.rot * gtsam::Rot3::Expmap(state_.body_rate * dt);
-        predicted_state_.body_rate     = state_.body_rate + body_rate_dot * dt;                                        
+        predicted_state_.body_rate = state_.body_rate + body_rate_dot * dt;                                        
 
         state_ = predicted_state_;
         // Don't go below zero, simulate floor
@@ -551,21 +585,24 @@ namespace QuadrotorSim_SO3
 
     void Quadrotor::drawQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot)
     {
+        
         gtsam::Vector3 begin;
         gtsam::Vector3 end;
+        gtsam::Vector3 blue(0,216,230);
+        glPointSize(2.0);
         begin = p;
         end = rot.rotate(gtsam::Vector3(axis_dist_ / 2 / 1.414, axis_dist_ / 2 / 1.414, 0)) + p;
-        drawLine(gtsam::Vector3(0, 0, 0), begin, end);
+        drawLine(blue, begin, end);
         end = rot.rotate(gtsam::Vector3(-axis_dist_ / 2 / 1.414, -axis_dist_ / 2 / 1.414, 0)) + p;
-        drawLine(gtsam::Vector3(0, 0, 0), begin, end);
+        drawLine(blue, begin, end);
         end = rot.rotate(gtsam::Vector3(-axis_dist_ / 2 / 1.414, axis_dist_ / 2 / 1.414, 0)) + p;
-        drawLine(gtsam::Vector3(0, 0, 0), begin, end);
+        drawLine(blue, begin, end);
         end = rot.rotate(gtsam::Vector3(axis_dist_ / 2 / 1.414, -axis_dist_ / 2 / 1.414, 0)) + p;
-        drawLine(gtsam::Vector3(0, 0, 0), begin, end);
+        drawLine(blue, begin, end);
         drawFrame(p, rot);
 
         glColor3f(0, 0, 0);
-        glPointSize(1.0);
+        glPointSize(3.0);
         glBegin(GL_POINTS);
         for (int i = 0; i < 360; i++)
         {
@@ -605,6 +642,7 @@ namespace QuadrotorSim_SO3
                 gtsam::Rot3::identity());
         drawCircle(gtsam::Vector3(0, 0, 0), prop_radius_, gtsam::Vector3(axis_dist_ / 2 / 1.414, -axis_dist_ / 2 / 1.414, 0),
                 gtsam::Rot3::identity());
+            
     }
 
     void Quadrotor::drawCircle(gtsam::Vector3 color, float r, gtsam::Vector3 p, gtsam::Rot3 rot)
@@ -676,13 +714,9 @@ namespace QuadrotorSim_SO3
         }
     }
 
-    // Define a structure to hold 3D points
-    struct Point3D {
-        float x, y, z;
-    };
-
     // Function to generate points on the surface of a sphere
-    std::vector<Point3D> generateSpherePoints(float radius, int numTheta, int numPhi) {
+    std::vector<Quadrotor::Point3D> Quadrotor::generateSpherePoints(float radius, int numTheta, int numPhi) 
+    {
         std::vector<Point3D> points;
         for (int i = 0; i < numTheta; ++i) {
             float theta = 2.0f * M_PI * i / numTheta;
@@ -698,9 +732,37 @@ namespace QuadrotorSim_SO3
         return points;
     }
 
+    std::vector<Quadrotor::Point3D> Quadrotor::generatePointsOutsideCylinder(int numTheta, float radius, float height) 
+    {
+        std::vector<Point3D> points;
+        std::srand(std::time(0)); // Seed for random number generation
+
+        int height_num = 1000;
+        for(int h = 0; h < height_num; h++)
+        {
+            for (int i = 0; i < numTheta; ++i) {
+                float theta = 2.0f * M_PI * i / numTheta;
+                Point3D point;
+                point.x = radius * std::cos(theta);
+                point.y = radius * std::sin(theta);
+                point.z = height / height_num * h;
+                points.push_back(point);
+            }
+        }
+
+        return points;
+    }
+    gtsam::Vector3 Quadrotor::getObs1()
+    {
+        return gtsam::Vector3(sphereCenter_.x, sphereCenter_.y, sphereCenter_.z);
+    }
+
     void Quadrotor::renderHistoryOpt(std::vector<State> &trj, boost::optional<gtsam::Vector3 &> err, boost::optional<Features &> features, 
         boost::optional<gtsam::Vector3&> vicon_measurement, boost::optional<gtsam::Vector3 &> rot_err, boost::optional<std::vector<State> &> state_trj)
     {
+        clock = clock + 0.01;
+        gtsam::Vector3 obs_v(0.20, 0.20, 0); // m/s
+
         gtsam::Vector3 error = *err;
         
         if(rot_err)
@@ -727,22 +789,19 @@ namespace QuadrotorSim_SO3
             trj_.push_back(state_);
             d_cam.Activate(*s_cam);
             
-            float radius = 0.5f;  // Radius of the sphere
-            int numTheta = 100;   // Number of divisions along the azimuthal angle
-            int numPhi   = 100;     // Number of divisions along the polar angle
+            sphereCenter_ = getEllipsePoint(clock, 0.20, 0.5, 0.2, 1);
+            sphereCenter_.x = sphereCenter_.x + 1.5;
 
-            std::vector<Point3D> spherePoints = generateSpherePoints(radius, numTheta, numPhi);
+            // for(int i = 0; i < cylinderPoints_.size(); i++)
+            // {
+            //     glColor3f(.3, 0.5, 0.5);
+            //     glPointSize(2.0);
+            //     glBegin(GL_POINTS);
 
-            for(int i = 0; i < spherePoints.size(); i++)
-            {
-                glColor3f(1.0, 0., 0.);
-                glPointSize(2.0);
-                glBegin(GL_POINTS);
-
-                glVertex3f(spherePoints[i].x + 0, spherePoints[i].y + 1.75, spherePoints[i].z + 1);
+            //     glVertex3f(cylinderPoints_[i].x + 0, cylinderPoints_[i].y - 1.50, cylinderPoints_[i].z + 0.75);
                 
-                glEnd();
-            }
+            //     glEnd();
+            // }
 
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
             glLineWidth(3);
@@ -804,6 +863,17 @@ namespace QuadrotorSim_SO3
                 glEnd();
             }
             
+            for(int i = 0; i < spherePoints_.size(); i++)
+            {
+                glColor3f(1.0, 0., 0.);
+                glPointSize(2.0);
+                glBegin(GL_POINTS);
+                glVertex3f(spherePoints_[i].x + sphereCenter_.x, spherePoints_[i].y + sphereCenter_.y, 
+                    spherePoints_[i].z + sphereCenter_.z);
+
+                glEnd();
+            }
+
             renderPanel();
 
             // Swap frames and Process Events
