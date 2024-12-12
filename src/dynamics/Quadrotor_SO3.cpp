@@ -7,7 +7,6 @@
 
 namespace QuadrotorSim_SO3
 {
-
     Quadrotor::Point3D Quadrotor::getEllipsePoint(double t, double v, double a, double b, double z) 
     { 
         double angle = v * t / sqrt(a * a + b * b); 
@@ -802,6 +801,27 @@ namespace QuadrotorSim_SO3
                 
             //     glEnd();
             // }
+            for(uint i = 0; i < 314; i++)
+            {
+                glColor3f(0.3, 0.1, 0.8);
+                glPointSize(5.0);
+                glBegin(GL_POINTS);
+
+                glVertex3f(1.5*sin(float(i)/ 314.0f * 6.28), 1.5*cos(float(i)/ 314.0f * 6.28), 1);
+                
+                glEnd();
+            }
+            
+            for(int i = 0; i < spherePoints_.size(); i++)
+            {
+                glColor3f(1.0, 0.5, 0.);
+                glPointSize(2.0);
+                glBegin(GL_POINTS);
+                glVertex3f(spherePoints_[i].x + sphereCenter_.x, spherePoints_[i].y + sphereCenter_.y, 
+                    spherePoints_[i].z + sphereCenter_.z);
+
+                glEnd();
+            }
 
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
             glLineWidth(3);
@@ -850,28 +870,6 @@ namespace QuadrotorSim_SO3
                 glVertex3f(vicon_measurement->x(), vicon_measurement->y(), vicon_measurement->z());
                 glEnd();
                 
-            }
-            
-            for(uint i = 0; i < 314; i++)
-            {
-                glColor3f(0.3, 0.1, 0.8);
-                glPointSize(5.0);
-                glBegin(GL_POINTS);
-
-                glVertex3f(1.5*sin(float(i)/ 314.0f * 6.28), 1.5*cos(float(i)/ 314.0f * 6.28), 1);
-                
-                glEnd();
-            }
-            
-            for(int i = 0; i < spherePoints_.size(); i++)
-            {
-                glColor3f(1.0, 0., 0.);
-                glPointSize(2.0);
-                glBegin(GL_POINTS);
-                glVertex3f(spherePoints_[i].x + sphereCenter_.x, spherePoints_[i].y + sphereCenter_.y, 
-                    spherePoints_[i].z + sphereCenter_.z);
-
-                glEnd();
             }
 
             renderPanel();
