@@ -14,7 +14,6 @@ namespace UAVFactor
 {    
     using UAV_State = QuadrotorSim_SO3::Quadrotor::State;
 
-
     class Dynamics
     {
     public:
@@ -175,7 +174,7 @@ namespace UAVFactor
         typedef boost::shared_ptr<DynamicsFactorTGyro> shared_ptr;
 
         DynamicsFactorTGyro() {}
-        DynamicsFactorTGyro(Key p_i, Key vel_i, Key input_i, Key p_j, Key vel_j, float dt, double mass_, gtsam::Vector3 drag_k, const SharedNoiseModel &model);
+        DynamicsFactorTGyro(Key p_i, Key vel_i, Key input_i, Key p_j, Key vel_j, float dt, double mass, gtsam::Vector3 drag_k, const SharedNoiseModel &model);
 
         virtual ~DynamicsFactorTGyro()
         {
@@ -191,16 +190,12 @@ namespace UAVFactor
         typedef DynamicsFactorTGyro This;
         typedef NoiseModelFactor5<gtsam::Pose3, gtsam::Vector3, gtsam::Vector4, gtsam::Pose3, gtsam::Vector3>
             Base;
-
-        DynamicsParams dynamics_params_;
         
-        gtsam::Vector3 drag_k_;
+        float           dt_     = 0.01f;
+        double         mass_   = 1.0f;
+        gtsam::Vector3 drag_k_ = gtsam::Vector3(0, 0, 0);
+        gtsam::Vector3 gI_     = gtsam::Vector3(0, 0, 9.81); // gravity
         
-        double mass_;
-        
-        gtsam::Vector3 gI_ = gtsam::Vector3(0, 0, 9.81); // gravity
-
-        float dt_;
     };
 
     /*thrust's x and y components are nozero */

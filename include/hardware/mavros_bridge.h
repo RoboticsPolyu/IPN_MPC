@@ -24,11 +24,11 @@ namespace middleware
 {
     enum Ctrl_mode {none = 0, pose = 1, att_thrust = 2, bodyrate_acc = 3, bodyrate_thrust = 4};
     
-    class MavrosMiddleware
+    class MavBridge
     {
         public:
-            typedef boost::shared_ptr<MavrosMiddleware> shared_ptr;
-            MavrosMiddleware(const ros::NodeHandle &nh, int takeoff_alt);
+            typedef boost::shared_ptr<MavBridge> shared_ptr;
+            MavBridge(const ros::NodeHandle &nh, int takeoff_alt);
 
             float RetThrustAccRatio()
             {

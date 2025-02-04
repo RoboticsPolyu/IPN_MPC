@@ -1,8 +1,8 @@
-#include <hardware/mavros_middleware.h>
+#include <hardware/mavros_bridge.h>
 
 namespace middleware
 {
-    MavrosMiddleware::MavrosMiddleware(const ros::NodeHandle &nh, int takeoff_alt) 
+    MavBridge::MavBridge(const ros::NodeHandle &nh, int takeoff_alt) 
         : nh_(nh), takeoff_altitude_(takeoff_alt)
     {        
         arming_client_   = nh_.serviceClient<mavros_msgs::CommandBool   >("mavros/cmd/arming");
@@ -10,10 +10,10 @@ namespace middleware
         bodyrate_pub_    = nh_.advertise    <mavros_msgs::AttitudeTarget>("command/bodyrate_command", 1);
         local_pos_pub_   = nh_.advertise    <geometry_msgs::PoseStamped >("mavros/setpoint_position/local", 10);
         set_mode_client_ = nh_.serviceClient<mavros_msgs::SetMode       >("mavros/set_mode");
-        mav_tt_sub_      = nh_.subscribe    <mavros_msgs::TrustMoments  >("trust_moments_px4", 100, &MavrosMiddleware::MavttCb, this, ros::TransportHints().tcpNoDelay());
-        state_sub_       = nh_.subscribe    <mavros_msgs::State         >("mavros/state", 10, &MavrosMiddleware::MavstateCb, this, ros::TransportHints().tcpNoDelay());
-        mav_imu_sub_     = nh_.subscribe    <sensor_msgs::Imu           >("mavros/imu/data", 100, &MavrosMiddleware::MavIMU, this, ros::TransportHints().tcpNoDelay());
-        ctrl_input_sub_  = nh_.subscribe    <IPN_MPC::INPUT             >("internal_ctrl_input", 100, &MavrosMiddleware::CtrlInputCb, this, ros::TransportHints().tcpNoDelay());
+        mav_tt_sub_      = nh_.subscribe    <mavros_msgs::TrustMoments  >("trust_moments_px4", 100, &MavBridge::MavttCb, this, ros::TransportHints().tcpNoDelay());
+        state_sub_       = nh_.subscribe    <mavros_msgs::State         >("mavros/state", 10, &MavBridge::MavstateCb, this, ros::TransportHints().tcpNoDelay());
+        mav_imu_sub_     = nh_.subscribe    <sensor_msgs::Imu           >("mavros/imu/data", 100, &MavBridge::MavIMU, this, ros::TransportHints().tcpNoDelay());
+        ctrl_input_sub_  = nh_.subscribe    <IPN_MPC::INPUT             >("internal_ctrl_input", 100, &MavBridge::CtrlInputCb, this, ros::TransportHints().tcpNoDelay());
 
 
         if(Connect())
@@ -35,7 +35,7 @@ namespace middleware
         ROS_INFO("The thrust acc ratio initial estimation value is (%f)", thrust_acc_ratio_);
     }
 
-    bool MavrosMiddleware::Connect()
+    bool MavBridge::Connect()
     {
         ros::Rate rate(100u);
         // wait for FCU connection
@@ -64,7 +64,7 @@ namespace middleware
         return true;
     }
 
-    bool MavrosMiddleware::OffboardHover()
+    bool MavBridge::OffboardHover()
     {
         ros::Rate rate(100);
 
@@ -126,13 +126,13 @@ namespace middleware
         return true;
     }
 
-    void MavrosMiddleware::EstThrustAccRatio()
+    void MavBridge::EstThrustAccRatio()
     {
 
     }
 
     // 100hz control loop
-    void MavrosMiddleware::Loop()
+    void MavBridge::Loop()
     {
         ros::Rate rate(ctrl_freq_);
 
@@ -168,18 +168,18 @@ namespace middleware
         }
     }
 
-    void MavrosMiddleware::pubBodyrateCmd(const IPN_MPC::INPUT& input)
+    void MavBridge::pubBodyrateCmd(const IPN_MPC::INPUT& input)
     {
         mavros_msgs::AttitudeTarget bodyrate_cmd;
         bodyrate_cmd.body_rate.x = input.bodyrate_x;
         bodyrate_cmd.body_rate.y = input.bodyrate_y;
         bodyrate_cmd.body_rate.z = input.bodyrate_z;
-        bodyrate_cmd.thrust = input.acc_z* thrust_acc_ratio_;
+        bodyrate_cmd.thrust      = input.acc_z * thrust_acc_ratio_;
 
         bodyrate_pub_.publish(bodyrate_cmd);
     }
 
-    void MavrosMiddleware::pubPosYawCmd(const IPN_MPC::INPUT& input)
+    void MavBridge::pubPosYawCmd(const IPN_MPC::INPUT& input)
     {
         geometry_msgs::PoseStamped control;
         control.pose.position.x    = input.position_x;

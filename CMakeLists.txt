@@ -79,7 +79,7 @@ include_directories(include)
 # include_directories(${ARMADILLO_INCLUDE_DIRS})
 
 # Pangolin
-find_package(Pangolin 0.8 REQUIRED)
+find_package(Pangolin 0.6 REQUIRED)
 include_directories(${Pangolin_INCLUDE_DIRS})
 
 # Find OSQP library and headers
@@ -141,7 +141,7 @@ target_link_libraries(quadrotor_dynamics PUBLIC gtsam gtsam_unstable ${Pangolin_
 if(BUILD_HARDWARE)
 add_library(hardware_lib 
             src/hardware/uart.cpp
-            src/hardware/mavros_middleware.cpp
+            src/hardware/mavros_bridge.cpp
             )
             
 target_link_libraries(hardware_lib PUBLIC ${YAML_CPP_LIBRARIES})
@@ -224,6 +224,9 @@ target_link_libraries(Traj_load_run_px4ctrl gtsam quadrotor_dynamics ${Pangolin_
 add_executable(Test_Thrust_cmd app/Test_Thrust_cmd.cpp)
 target_link_libraries(Test_Thrust_cmd gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})   
 
+add_executable(Mav_JPCM_TGyro_version_Test app/Mav_JPCM_TGyro_version_Test.cpp)
+target_link_libraries(Mav_JPCM_TGyro_version_Test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES})   
+
 
 if(BUILD_HARDWARE)
 
@@ -250,10 +253,7 @@ add_executable(Orin_rotor_angular_speed_test app/Orin_rotor_angular_speed_test.c
 target_link_libraries(Orin_rotor_angular_speed_test ${YAML_CPP_LIBRARIES})
 
 add_executable(Orin_csi_camera app/Orin_csi_camera.cpp)
-target_link_libraries(Orin_csi_camera ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES} ${OpenCV_LIBS})   
+target_link_libraries(Orin_csi_camera ${YAML_CPP_LIBRARIES} ${catkin_LIBRARIES} ${OpenCV_LIBS})
 
-install(TARGETS Orin_rsm_uart
-        DESTINATION bin)
-        
 endif(BUILD_HARDWARE)
 endif(BUILD_WITH_ROS)

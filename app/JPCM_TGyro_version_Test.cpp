@@ -29,7 +29,7 @@ int main(void)
     clock_t start, end;
 
     // Configuration file 
-    YAML::Node FGO_config        = YAML::LoadFile("../config/factor_graph_TGyro.yaml");  
+    YAML::Node FGO_config         = YAML::LoadFile("../config/factor_graph_TGyro.yaml");  
     double PRI_VICON_COV         = FGO_config["PRI_VICON_COV"].as<double>();
     double PRI_VICON_VEL_COV     = FGO_config["PRI_VICON_VEL_COV"].as<double>();   
     double CONTROL_P_COV_X       = FGO_config["CONTROL_P_COV_X"].as<double>();
