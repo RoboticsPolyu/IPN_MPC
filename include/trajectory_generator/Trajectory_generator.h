@@ -99,6 +99,36 @@ namespace Trajectory
         DynamicsParams dynamics_params_;
     };
 
+    class figure_eight_generator
+    {
+    public:
+        figure_eight_generator(double scale, double speed, double dt)
+            : scale_(scale),
+            speed_(speed),
+            dt_(dt) {};
+
+        gtsam::Vector3 pos(double t);
+
+        gtsam::Vector3 vel(double t);
+
+        gtsam::Vector3 theta(double t);
+
+        gtsam::Vector3 omega(double t);
+
+        gtsam::Vector3 thrust(double t);
+
+        gtsam::Vector4 inputfm(double t);
+
+        gtsam::Vector4 input(double t);
+
+    private:
+        double scale_;  // Controls the size of the figure-eight
+        double speed_;  // Controls the speed of traversal
+        double dt_;     // Time step for numerical derivatives
+
+        gtsam::Vector3 g_ = gtsam::Vector3(0, 0, 9.81);  // Gravity vector
+        DynamicsParams dynamics_params_;                 // Quadrotor dynamics parameters
+    };
 }
 
 #endif

@@ -280,6 +280,8 @@ namespace UAVFactor
             Matrix36 jac_t_posei;
             err = Vector1(safe_d_* safe_d_) - (pi.translation(jac_t_posei) - obs_).transpose()* (pi.translation(jac_t_posei) - obs_); 
             
+            // std::cout << " -- PointObs: [ " << err[0] << " ]" << std::endl;
+
             if(err(0) < 0)
             {
                 err(0) = 0;

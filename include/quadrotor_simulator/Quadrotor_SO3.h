@@ -148,6 +148,8 @@ namespace QuadrotorSim_SO3
         Eigen::Vector3d getAcc() const;
 
         gtsam::Vector3 getObs1();
+        
+        std::vector<gtsam::Vector3> getObsN();
 
     private:
         void printCurState();
@@ -157,10 +159,12 @@ namespace QuadrotorSim_SO3
 
         std::vector<Point3D> generateSpherePoints(float radius, int numTheta, int numPhi);
         std::vector<Point3D> generatePointsOutsideCylinder(int numTheta, float radius, float height);
-        Point3D getEllipsePoint(double t, double v, double a, double b, double z);
-
+        Point3D              getEllipsePoint(uint8_t index);
+        
         // Control Allocation's effectiveness matrix
         Eigen::Matrix4d effectiveness_;
+
+        pangolin::GlFont *text_font = new pangolin::GlFont("../data/timr45w.ttf", 30.0);
 
         double g_; // gravity
         double mass_;
@@ -188,22 +192,22 @@ namespace QuadrotorSim_SO3
 
         pangolin::View d_cam;
         std::shared_ptr<pangolin::OpenGlRenderState> s_cam;
-        stringUI dis_force_;
-        stringUI dis_M1_;
-        stringUI dis_M2_;
-        stringUI dis_M3_;
-        stringUI dis_Quad_x_;
-        stringUI dis_Quad_y_;
-        stringUI dis_Quad_z_;
-        stringUI dis_Quad_velx_;
-        stringUI dis_Quad_vely_;
-        stringUI dis_Quad_velz_;
-        stringUI dis_Quad_Rx_;
-        stringUI dis_Quad_Ry_;
-        stringUI dis_Quad_Rz_;
-        stringUI dis_AVE_ERR_;
-        stringUI dis_timestamp_;
-        stringUI dis_rotor_[4];
+        stringUI str_force_;
+        stringUI str_M1_;
+        stringUI str_M2_;
+        stringUI str_M3_;
+        stringUI str_Quad_x_;
+        stringUI str_Quad_y_;
+        stringUI str_Quad_z_;
+        stringUI str_Quad_velx_;
+        stringUI str_Quad_vely_;
+        stringUI str_Quad_velz_;
+        stringUI str_Quad_Rx_;
+        stringUI str_Quad_Ry_;
+        stringUI str_Quad_Rz_;
+        stringUI str_AVE_ERR_;
+        stringUI str_timestamp_;
+        stringUI str_rotor_[4];
 
         std::vector<gtsam::Vector3> errs_;
         const uint64_t ERRS_LENS = 1;
@@ -211,6 +215,8 @@ namespace QuadrotorSim_SO3
         float axis_dist_;
         float propeller_dist_;
         const uint64_t HISTORY_TRJ_LENS = 1000;
+        float trj_len_max_ = 1.0;
+        int8_t obs_num_ = 1;
 
         std::default_random_engine generator_;
         std::ofstream record_info_;
@@ -226,8 +232,9 @@ namespace QuadrotorSim_SO3
         std::vector<Point3D> spherePoints_;
         Point3D              sphereCenter_;
         std::vector<Point3D> cylinderPoints_;
+        std::vector<Point3D> obstacle_centers_;
 
-        float clock = 0;
+        float clock_ = 0;
     };
 }
 #endif

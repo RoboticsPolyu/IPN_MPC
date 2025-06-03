@@ -135,3 +135,6 @@ target_link_libraries(Joint_Positioning_Control_Test gtsam quadrotor_dynamics ${
 
 add_executable(JPCM_TGyro_version_Test app/JPCM_TGyro_version_Test.cpp)
 target_link_libraries(JPCM_TGyro_version_Test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+
+add_executable(JPCM_TGyro_OA_Test app/JPCM_TGyro_OA_Test.cpp)
+target_link_libraries(JPCM_TGyro_OA_Test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})

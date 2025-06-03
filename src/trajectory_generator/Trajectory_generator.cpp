@@ -280,4 +280,107 @@ namespace Trajectory
 
         return input;
     }
+
+    gtsam::Vector3 figure_eight_generator::pos(double t)
+    {
+        double tau = speed_ * t;  // Scaled time for speed control
+        return gtsam::Vector3(
+            scale_ * sin(tau),
+            scale_ * sin(tau) * cos(tau),
+            // 1.0 + scale_* 0.1 * cos(tau)
+            1.0
+        );
+    }
+
+    gtsam::Vector3 figure_eight_generator::vel(double t)
+    {
+        double tau = speed_ * t;
+        double cos_tau = cos(tau);
+        double sin_tau = sin(tau);
+        return gtsam::Vector3(
+            scale_ * speed_ * cos_tau,
+            scale_ * speed_ * cos(2 * tau),
+            0.0
+        );
+    }
+
+    gtsam::Vector3 figure_eight_generator::theta(double t)
+    {
+        gtsam::Vector3 force = thrust(t);
+        double yaw = atan2(vel(t)(1), vel(t)(0));  // Yaw aligns with velocity direction
+        gtsam::Vector3 zB = force / force.norm();
+        gtsam::Vector3 xC(cos(yaw), sin(yaw), 0);
+        gtsam::Vector3 yB = zB.cross(xC) / zB.cross(xC).norm();
+        gtsam::Vector3 xB = yB.cross(zB);
+
+        gtsam::Matrix3 R;
+        R.col(0) = xB;
+        R.col(1) = yB;
+        R.col(2) = zB;
+        gtsam::Rot3 rot3(R);
+        return gtsam::Rot3::Logmap(rot3);
+    }
+
+    gtsam::Vector3 figure_eight_generator::omega(double t)
+    {
+        return gtsam::Rot3::Logmap(
+            gtsam::Rot3::Expmap(theta(t - dt_)).between(gtsam::Rot3::Expmap(theta(t + dt_)))
+        ) / (2 * dt_);
+    }
+
+    gtsam::Vector3 figure_eight_generator::thrust(double t)
+    {
+        // Numerical acceleration using central difference
+        gtsam::Vector3 acc = (vel(t + dt_) - vel(t - dt_)) / (2 * dt_);
+        return acc + g_;
+    }
+
+    gtsam::Vector4 figure_eight_generator::inputfm(double t)
+    {
+        gtsam::Vector3 acc = thrust(t);
+        gtsam::Vector3 d_omega = (omega(t + dt_) - omega(t)) / dt_;
+
+        gtsam::Matrix33 J;
+        J << dynamics_params_.Ixx, 0, 0,
+             0, dynamics_params_.Iyy, 0,
+             0, 0, dynamics_params_.Izz;
+
+        gtsam::Vector3 mb = J * d_omega + omega(t).cross(J * omega(t));
+        gtsam::Vector4 Tmb(acc.norm() * dynamics_params_.mass, mb(0), mb(1), mb(2));
+        return Tmb;
+    }
+
+    gtsam::Vector4 figure_eight_generator::input(double t)
+    {
+        gtsam::Vector3 force = thrust(t);
+        gtsam::Vector3 d_omega = (omega(t + dt_) - omega(t)) / dt_;
+
+        gtsam::Matrix33 J;
+        J << dynamics_params_.Ixx, 0, 0,
+             0, dynamics_params_.Iyy, 0,
+             0, 0, dynamics_params_.Izz;
+
+        gtsam::Vector3 mb = J * d_omega + omega(t).cross(J * omega(t));
+        gtsam::Vector4 Tmb(force.norm() * dynamics_params_.mass, mb(0), mb(1), mb(2));
+
+        gtsam::Matrix4 K1;
+        double dx0 = 0.10;
+        double dx1 = 0.10;
+
+        K1 << dynamics_params_.k_f, dynamics_params_.k_f, dynamics_params_.k_f, dynamics_params_.k_f,
+              dx0 * dynamics_params_.k_f, -dx0 * dynamics_params_.k_f, -dx0 * dynamics_params_.k_f, dx0 * dynamics_params_.k_f,
+              -dx1 * dynamics_params_.k_f, -dx1 * dynamics_params_.k_f, dx0 * dynamics_params_.k_f, dx0 * dynamics_params_.k_f,
+              dynamics_params_.k_m, -dynamics_params_.k_m, dynamics_params_.k_m, -dynamics_params_.k_m;
+
+        gtsam::Vector4 input = K1.inverse() * Tmb;
+
+        // Ensure non-negative inputs for motor speeds
+        input[0] = sqrt(std::max(0.0, input[0]));
+        input[1] = sqrt(std::max(0.0, input[1]));
+        input[2] = sqrt(std::max(0.0, input[2]));
+        input[3] = sqrt(std::max(0.0, input[3]));
+
+        return input;
+    }
+
 }
