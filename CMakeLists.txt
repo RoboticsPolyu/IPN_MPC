@@ -99,6 +99,7 @@ ENDIF()
 
 add_library(quadrotor_dynamics 
             include/gtsam_wrapper.h
+            src/UI.cpp
             src/control/Minimum_snap_controller.cpp
             src/control/Energy_control_factor.cpp
             src/dynamics/Dynamics_control_factor.cpp

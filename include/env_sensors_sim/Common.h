@@ -40,3 +40,50 @@ typedef struct Style
     Motion_type motion_type;
 
 }Style;
+
+typedef struct State
+{
+    int64_t         id;
+    double          timestamp;
+
+    Eigen::Vector3d p;
+    Eigen::Vector3d v;
+    gtsam::Rot3     rot;
+    Eigen::Vector3d body_rate;
+
+    double          acc_z;
+    Eigen::Vector3d torque;
+
+    Eigen::Vector4d thrust_torque;
+    Eigen::Array4d  motor_rpm;
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+
+    // State(): id(0), timestamp(0), p(Eigen::Vector3d::Zero()), v(Eigen::Vector3d::Zero()),
+    //     rot(gtsam::Rot3::identity()), body_rate(Eigen::Vector3d::Zero()), acc_z(0), torque(Eigen::Vector3d::Zero()), 
+    //     thrust_torque(Eigen::Vector4d::Zero()), motor_rpm(Eigen::Array4d::Zero()) {};
+
+    // const State operator=(const State& state)
+    // {
+    //     id = state.id;
+    //     timestamp = state.timestamp;
+    //     p = state.p;
+    //     v = state.v;
+    //     rot = state.rot;
+    //     body_rate = state.body_rate;
+    //     acc_z = state.acc_z;
+    //     torque = state.torque;
+    //     thrust_torque = state.thrust_torque;
+    //     motor_rpm = state.motor_rpm;
+    //     return *this;
+    // }
+
+    // state = state will dead ???
+    
+}State;
+
+// Define a structure to hold 3D points
+typedef struct Point3D 
+{
+    float timestamp;
+    float x, y, z;
+}Point3D;

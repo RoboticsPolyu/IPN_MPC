@@ -12,7 +12,7 @@ using namespace gtsam_wrapper;
 
 namespace UAVFactor
 {    
-    using UAV_State = QuadrotorSim_SO3::Quadrotor::State;
+    using UAV_State = State;
 
 
     class Dynamics
@@ -278,18 +278,19 @@ namespace UAVFactor
         {
             Vector err;
             Matrix36 jac_t_posei;
-            err = Vector1(safe_d_* safe_d_) - (pi.translation(jac_t_posei) - obs_).transpose()* (pi.translation(jac_t_posei) - obs_); 
+            err = - Vector1(safe_d_* safe_d_) 
+                + (pi.translation(jac_t_posei) - obs_).transpose()* (pi.translation(jac_t_posei) - obs_); 
             
             // std::cout << " -- PointObs: [ " << err[0] << " ]" << std::endl;
 
-            if(err(0) < 0)
+            if(err(0) > 0)
             {
                 err(0) = 0;
             }
 
             if(H1)
             {
-                *H1 =  - 2 * (pi.translation(jac_t_posei) - obs_).transpose() * jac_t_posei;
+                *H1 = 2 * (pi.translation(jac_t_posei) - obs_).transpose() * jac_t_posei;
             }
 
             return err;

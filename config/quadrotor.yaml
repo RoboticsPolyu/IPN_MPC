@@ -30,7 +30,7 @@ DRAG_FORCE_X:   -0.20
 DRAG_FORCE_Y:   -0.23
 DRAG_FORCE_Z:   -0.30
 TRJ_LEN_MAX:     1.0
-OBS_NUM:         5
+OBS_NUM:         1
 
 #Driver delay (s)
 DRIVER_DELAT:    0.05

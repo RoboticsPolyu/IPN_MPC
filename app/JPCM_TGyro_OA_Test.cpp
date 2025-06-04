@@ -145,7 +145,7 @@ int main(void)
     dt = 0.01f; // Model predictive control duration
 
     Quadrotor quadrotor;
-    Quadrotor::State predicted_state;
+    State predicted_state;
     std::default_random_engine meas_x_gen;
     std::default_random_engine meas_y_gen;
     std::default_random_engine meas_z_gen;
@@ -185,8 +185,8 @@ int main(void)
         obs1 = quadrotor.getObs1();
         obsN = quadrotor.getObsN();
         double t0 = traj_idx* dt;
-        std::vector<Quadrotor::State> opt_trj, ref_trj;
-        Quadrotor::State ref_state;
+        std::vector<State> opt_trj, ref_trj;
+        State ref_state;
 
         if(traj_idx == 0)
         {
@@ -452,7 +452,7 @@ int main(void)
                         // std::cout << "REF      INPUT: "
                         //         << circle_generator.inputfm(t0 + ikey * dt).transpose() << std::endl;
                 }
-                Quadrotor::State m_state;
+                State m_state;
                 m_state.p = i_pose.translation();
                 opt_trj.push_back(m_state);
 
@@ -463,7 +463,7 @@ int main(void)
         // std::cout << " ------ " << input.transpose() << std::endl;
         
         /* Simulator */
-        Quadrotor::State est_state = quadrotor.getState();
+        State est_state = quadrotor.getState();
         gtsam::Vector3 drag_force = est_state.rot.matrix() * Eigen::Matrix3d(drag_k.asDiagonal()) * est_state.rot.matrix().transpose() * est_state.v;
         
         float g_ = 9.81f;

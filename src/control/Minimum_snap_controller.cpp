@@ -17,7 +17,7 @@ namespace Control
 
     }
 
-    MiniSnapController::FeedOut & MiniSnapController::Feedback(const Quadrotor::State &est_state, const Quadrotor::State &des_state)
+    MiniSnapController::FeedOut & MiniSnapController::Feedback(const State &est_state, const State &des_state)
     {
         MiniSnapController::FeedOut feed_output;
 

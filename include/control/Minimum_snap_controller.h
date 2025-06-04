@@ -38,7 +38,7 @@ namespace Control
 
         MiniSnapController(/* args */);
 
-        FeedOut & Feedback(const Quadrotor::State &est_state, const Quadrotor::State &des_state);
+        FeedOut & Feedback(const State &est_state, const State &des_state);
 
         ~MiniSnapController();    
         
