@@ -5,6 +5,12 @@
 
 #include "gtsam_wrapper.h"
 
+enum PointType
+{
+    L_NONV = 0,
+    L_VIS  = 1
+};
+
 // Point feature
 struct Feature
 {
@@ -13,6 +19,7 @@ struct Feature
     double x;
     double y;
     double z;
+    uint8_t type; // 0 nonvisible 1 visible
 };
 typedef std::vector<Feature> Features;
 
@@ -78,7 +85,7 @@ typedef struct State
     // }
 
     // state = state will dead ???
-    
+
 }State;
 
 // Define a structure to hold 3D points

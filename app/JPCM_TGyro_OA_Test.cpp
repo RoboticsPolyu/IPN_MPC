@@ -43,6 +43,7 @@ int main(void)
 
     double CONTROL_V_COV         = FGO_config["CONTROL_V_COV"].as<double>();
     double DYNAMIC_P_COV         = FGO_config["DYNAMIC_P_COV"].as<double>(); 
+    double DYNAMIC_T_COV         = FGO_config["DYNAMIC_T_COV"].as<double>(); 
     double CONTROL_R1_COV        = FGO_config["CONTROL_R1_COV"].as<double>();
     double CONTROL_R2_COV        = FGO_config["CONTROL_R2_COV"].as<double>();
     double CONTROL_R3_COV        = FGO_config["CONTROL_R3_COV"].as<double>();
@@ -62,7 +63,7 @@ int main(void)
     std::string LOG_NAME         = FGO_config["LOG_NAME"].as<std::string>();
     
     uint16_t WINDOW_SIZE         = FGO_config["WINDOW_SIZE"].as<uint16_t>();
-
+     double point_obs_sigma      = FGO_config["POINT_OBS_SIGMA"].as<double>();
     double high                  = FGO_config["CLF_HIGH"].as<double>(); 
     double low                   = FGO_config["CLF_LOW"].as<double>(); 
     double thr                   = FGO_config["CLF_THR"].as<double>(); 
@@ -70,6 +71,7 @@ int main(void)
     double glow                  = FGO_config["G_CLF_LOW"].as<double>(); 
     double gthr                  = FGO_config["G_CLF_THR"].as<double>(); 
     double alpha                 = FGO_config["CLF_ALPHA"].as<double>(); 
+    uint8_t maxIterations        = FGO_config["MAX_ITERS"].as<double>(); 
 
     YAML::Node quad_config = YAML::LoadFile("../config/quadrotor_TGyro.yaml"); 
 
@@ -85,6 +87,8 @@ int main(void)
     double MAP_X           = quad_config["MAP_X"].as<double>();
     double MAP_Y           = quad_config["MAP_Y"].as<double>();
     double MAP_Z           = quad_config["MAP_Z"].as<double>();
+    double OBS1_RADIUS     = quad_config["OBS1_RADIUS"].as<double>();
+    double SAFE_D          = quad_config["SAFE_D"].as<double>();
 
     double MAP_CENTER_X    = quad_config["MAP_CENTER_X"].as<double>();
     double MAP_CENTER_Y    = quad_config["MAP_CENTER_Y"].as<double>();
@@ -107,37 +111,39 @@ int main(void)
     JEC_log.open(file_name);
 
     double dt = 0.001f, radius = RADIUS, linear_vel = LINEAR_VEL;
-    circle_generator circle_generator(radius, linear_vel, dt);
+    // Trajectory::circle_generator fig8_gen(radius, linear_vel, dt);
 
     Trajectory::figure_eight_generator fig8_gen(radius, linear_vel, dt);  // scale=1m, speed=1rad/s, dt=0.01s
+    
     traj_state state;
     state.t = 0.0;
-    state.pos = fig8_gen.pos(0.0);
-    state.vel = fig8_gen.vel(0.0);
+    state.pos      = fig8_gen.pos(0.0);
+    state.vel      = fig8_gen.vel(0.0);
     state.rotation = gtsam::Rot3::Expmap(fig8_gen.theta(0.0)).toQuaternion();
-    state.angular_speed = fig8_gen.omega(0.0);
-    state.acc = fig8_gen.thrust(0.0);
-    state.motor = fig8_gen.input(0.0);
+
+    state.angular_speed = gtsam::Vector3::Zero();
+    state.acc           = fig8_gen.thrust(0.0);
+    state.motor         = fig8_gen.input(0.0);
 
     gtsam::LevenbergMarquardtParams parameters;
     parameters.absoluteErrorTol = 100;
     parameters.relativeErrorTol = 1e-2;
-    parameters.maxIterations    = 10;
+    parameters.maxIterations    = maxIterations;
     parameters.verbosity        = gtsam::NonlinearOptimizerParams::ERROR;
     parameters.verbosityLM      = gtsam::LevenbergMarquardtParams::SUMMARY;
     
     auto input_jerk  = noiseModel::Diagonal::Sigmas(Vector4(INPUT_JERK_T, INPUT_JERK_M, INPUT_JERK_M, INPUT_JERK_M3));
     auto input_noise = noiseModel::Diagonal::Sigmas(Vector4(PRIOR_U_F_COV, PRIOR_U_M1_COV, PRIOR_U_M2_COV, PRIOR_U_M3_COV));
-
-    auto dynamics_noise = noiseModel::Diagonal::Sigmas((Vector(9) << Vector3::Constant(DYNAMIC_P_COV), Vector3::Constant(0.001), 
-        Vector3::Constant(0.001)).finished());
+    float dyn_dt     = 0.01f;
+    auto dynamics_noise = noiseModel::Diagonal::Sigmas((Vector(9) << Vector3::Constant(DYNAMIC_T_COV * 0.5 * dyn_dt * dyn_dt), Vector3::Constant(DYNAMIC_T_COV * dyn_dt), 
+        Vector3::Constant(0.01)).finished());
     
     // Initial state noise
     auto vicon_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(ROT_MEAS_COV), Vector3::Constant(PRI_VICON_COV)).finished());
     auto vel_noise   = noiseModel::Diagonal::Sigmas(Vector3(PRI_VICON_VEL_COV, PRI_VICON_VEL_COV, PRI_VICON_VEL_COV));
     auto omega_noise = noiseModel::Diagonal::Sigmas(Vector3(OME_MEAS_COV, OME_MEAS_COV, OME_MEAS_COV));
     
-    auto point_obs_noise = noiseModel::Diagonal::Sigmas(Vector1(0.001));
+    auto point_obs_noise = noiseModel::Diagonal::Sigmas(Vector1(point_obs_sigma));
 
     auto ref_predict_vel_noise   = noiseModel::Diagonal::Sigmas(Vector3(CONTROL_V_COV, CONTROL_V_COV, CONTROL_V_COV));
     auto ref_predict_omega_noise = noiseModel::Diagonal::Sigmas(Vector3(CONTROL_O_COV, CONTROL_O_COV, CONTROL_O_COV));
@@ -178,12 +184,14 @@ int main(void)
     gtsam::Vector3 obs1(0.f, 0.f, 0.f);
     std::vector<gtsam::Vector3> obsN;
 
-    float obs1_radius = 0.20f, safe_d = 0.10f;
+    float obs1_radius = OBS1_RADIUS, safe_d = SAFE_D;
 
     for(int traj_idx = 0; traj_idx < SIM_STEPS; traj_idx++)
     {
-        obs1 = quadrotor.getObs1();
         obsN = quadrotor.getObsN();
+
+        std::cout << "obsN size is " << obsN.size() << std::endl;
+
         double t0 = traj_idx* dt;
         std::vector<State> opt_trj, ref_trj;
         State ref_state;
@@ -210,11 +218,18 @@ int main(void)
             // state.acc = fig8_gen.thrust(0.0);
             // state.motor = fig8_gen.input(0.0);
 
+            // predicted_state.p         = fig8_gen.pos(0.0);
+            // gtsam::Rot3 rot           = gtsam::Rot3::Expmap(gtsam::Vector3::Zero()).toQuaternion();
+            // predicted_state.rot       = rot; 
+            // predicted_state.v         = gtsam::Vector3::Zero();
+            // predicted_state.body_rate = gtsam::Vector3::Zero();
+
             predicted_state.p         = fig8_gen.pos(0.0);
-            gtsam::Rot3           rot = gtsam::Rot3::Expmap(fig8_gen.theta(0.0)).toQuaternion();
+            gtsam::Rot3 rot           = gtsam::Rot3::Expmap(fig8_gen.theta(0.0)).toQuaternion();
             predicted_state.rot       = rot; 
-            predicted_state.v         = fig8_gen.vel(0.0); 
+            predicted_state.v         = fig8_gen.vel(0.0);
             predicted_state.body_rate = fig8_gen.omega(0.0);
+
             // predicted_state.thrust_torque = circle_generator.inputfm(t0);
 
             quadrotor.setState(predicted_state);
@@ -232,7 +247,6 @@ int main(void)
         Values initial_value;
         graph.empty();
 
-        gtsam::Vector4 input_bak;
         auto clf_sigma = noiseModel::Diagonal::Sigmas(Vector4(1.0, 1.0, 1.0, 1.0));
         ControlLimitTGyroFactor cntrolLimitTGyroFactor(U(0), clf_sigma, low, high, glow, ghigh, thr, gthr, alpha);
         graph.add(cntrolLimitTGyroFactor);
@@ -242,18 +256,11 @@ int main(void)
             DynamicsFactorTGyro dynamics_factor(X(idx), V(idx), U(idx), X(idx + 1), V(idx + 1), dt, mass, drag_k, dynamics_noise);
             graph.add(dynamics_factor);
             
-            gtsam::Pose3 pose_idx(gtsam::Rot3::Expmap(fig8_gen.theta(t0 + (idx + 1) * dt)), fig8_gen.pos(t0 + (idx + 1) * dt));
-            
-            gtsam::Vector3 vel_idx = fig8_gen.vel(t0 + (idx + 1) * dt);
+            gtsam::Pose3   pose_idx(gtsam::Rot3::Expmap(fig8_gen.theta(t0 + (idx + 1) * dt)), fig8_gen.pos(t0 + (idx + 1) * dt));
+            gtsam::Vector3 vel_idx   = fig8_gen.vel(t0 + (idx + 1) * dt);
+            gtsam::Vector3 omega_idx = fig8_gen.omega(t0 + (idx + 1) * dt);
 
-            ref_state.p   = pose_idx.translation();
-            ref_state.rot = pose_idx.rotation();
-            ref_state.v   = vel_idx;
-            ref_trj.push_back(ref_state);
-
-            float hvel = 0.50f;
-            // gtsam::Pose3 pose_idx;
-            // gtsam::Vector3 vel_idx;
+            // float hvel = 0.50f;
 
             // if((t0 + float(idx+1)/100.0) < 4)
             // {
@@ -281,12 +288,15 @@ int main(void)
             //     vel_idx = gtsam::Vector3(0, 0, 0);    
             // }
             
-            gtsam::Vector3 omega_idx = fig8_gen.omega(t0 + (idx + 1) * dt);
+            ref_state.p   = pose_idx.translation();
+            ref_state.rot = pose_idx.rotation();
+            ref_state.v   = vel_idx;
+            ref_trj.push_back(ref_state);
             
             gtsam::Vector4 init_input(10, 0, 0, 0);
             initial_value.insert(X(idx + 1), pose_idx);
             initial_value.insert(V(idx + 1), vel_idx);
-            initial_value.insert(U(idx), init_input);
+            initial_value.insert(U(idx),     init_input);
 
             // gtsam::Vector4 init_input = circle_generator.inputfm(t0 + idx * dt);
             if(idx != 0)
@@ -314,18 +324,18 @@ int main(void)
                 // }
                 // else
                 // {
-                    graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
-                    graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
+                graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1),  pose_idx, ref_predict_pose_noise));
+                graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
                 // }
 
-                    // graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
-                    // auto correction_noise = noiseModel::Isotropic::Sigma(3, CONTROL_P_FINAL_COV_X);
-                    // gtsam::GPSFactor gps_factor(X(idx+1),
-                    //            Point3(pose_idx.translation()[0],   // N,
-                    //                   pose_idx.translation()[1],   // E,
-                    //                   pose_idx.translation()[2]),  // D,
-                    //            correction_noise);
-                    // graph.add(gps_factor);
+                // graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
+                // auto correction_noise = noiseModel::Isotropic::Sigma(3, CONTROL_P_FINAL_COV_X);
+                // gtsam::GPSFactor gps_factor(X(idx+1),
+                //            Point3(pose_idx.translation()[0],   // N,
+                //                   pose_idx.translation()[1],   // E,
+                //                   pose_idx.translation()[2]),  // D,
+                //            correction_noise);
+                // graph.add(gps_factor);
                 for(uint16_t obsi = 0; obsi < obsN.size(); obsi++)
                 {
                     obs1 = obsN[obsi];
@@ -337,36 +347,33 @@ int main(void)
                 gtsam::Vector3 _position_ref(CONTROL_P_COV_X, CONTROL_P_COV_Y, CONTROL_P_COV_Z);
                 // auto ref_predict_pose_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(CONTROL_R_COV), _position_ref).finished());
                 auto ref_predict_pose_noise = noiseModel::Diagonal::Sigmas((Vector(6) << control_r_cov, _position_ref).finished());
-                
+                // float d2 = std::sqrt((pose_idx.translation() - obs1).transpose()* (pose_idx.translation() - obs1));
+                // if(d2 < obs1_radius)
+                // {
+                //     float scale = obs1_radius / d2; 
+                //     pose_idx = gtsam::Pose3(pose_idx.rotation(), (pose_idx.translation() - obs1)* scale + obs1);
+                // }
+                // if((pose_idx.translation() - obs1).transpose()* (pose_idx.translation() - obs1) >= 0.50 * 0.50)
+                // {
+                //     graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
+                //     graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
+                // }
+                // else
+                // {
+                graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
+                graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
 
+                // }
+                // graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
+                // auto correction_noise = noiseModel::Isotropic::Sigma(3, CONTROL_P_COV_X);
+                // gtsam::GPSFactor gps_factor(X(idx + 1),
+                //            Point3(pose_idx.translation()[0],   // N,
+                //                   pose_idx.translation()[1],   // E,
+                //                   pose_idx.translation()[2]),  // D,
+                //            correction_noise);
+                // graph.add(gps_factor);
 
-                    // float d2 = std::sqrt((pose_idx.translation() - obs1).transpose()* (pose_idx.translation() - obs1));
-                    // if(d2 < obs1_radius)
-                    // {
-                    //     float scale = obs1_radius / d2; 
-                    //     pose_idx = gtsam::Pose3(pose_idx.rotation(), (pose_idx.translation() - obs1)* scale + obs1);
-                    // }
-                    // if((pose_idx.translation() - obs1).transpose()* (pose_idx.translation() - obs1) >= 0.50 * 0.50)
-                    // {
-                    //     graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
-                    //     graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
-                    // }
-                //   else
-                //    {
-                        graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
-                        graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
-
-                //    }
-                    // graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
-                    // auto correction_noise = noiseModel::Isotropic::Sigma(3, CONTROL_P_COV_X);
-                    // gtsam::GPSFactor gps_factor(X(idx + 1),
-                    //            Point3(pose_idx.translation()[0],   // N,
-                    //                   pose_idx.translation()[1],   // E,
-                    //                   pose_idx.translation()[2]),  // D,
-                    //            correction_noise);
-                    // graph.add(gps_factor);
-
-                for(uint16_t obsi=0; obsi < obsN.size(); obsi++)
+                for(uint16_t obsi = 0; obsi < obsN.size(); obsi++)
                 {
                     obs1 = obsN[obsi];
                     graph.add(PointObsFactor(X(idx+1), obs1, obs1_radius + safe_d, point_obs_noise));
@@ -395,7 +402,6 @@ int main(void)
         }
 
         
-        std::cout << "###################### init optimizer ######################" << std::endl;
         LevenbergMarquardtOptimizer optimizer(graph, initial_value, parameters);
         BatchFixedLagSmoother smoother(7.0, LevenbergMarquardtParams());
         
@@ -403,7 +409,7 @@ int main(void)
         start = clock();
         Values result = optimizer.optimize();
 	    end = clock();
-        double opt_cost = (double)(end-start)/CLOCKS_PER_SEC;
+        float opt_cost = (float)(end - start)/ CLOCKS_PER_SEC;
 	    std::cout << " ---------- Optimize Time " << opt_cost << endl;
 
         gtsam::Pose3   i_pose;
@@ -475,12 +481,10 @@ int main(void)
         double wy_noise = w_noise(generator_);
         double wz_noise = w_noise(generator_);
 
-        gtsam::Vector3 v_dot = - gtsam::Vector3(0, 0, g_) 
+        gtsam::Vector3  v_dot = - gtsam::Vector3(0, 0, g_) 
                                 + est_state.rot.rotate(gtsam::Vector3(0, 0, (input[0] + at_noise) / mass))
                                 + drag_force / mass;
-
-        gtsam::Vector3 p_dot = est_state.v;
-
+        gtsam::Vector3  p_dot = est_state.v;
         Eigen::Matrix3d r_dot = est_state.rot.matrix() * gtsam::skewSymmetric(est_state.body_rate);
 
         est_state.p = est_state.p + p_dot * dt; 
@@ -494,19 +498,19 @@ int main(void)
         gtsam::Pose3 predicted_pose = gtsam::Pose3(predicted_state.rot, predicted_state.p);
 
         landmarkk = lidar.Measurement(env, predicted_pose);
-        gtsam::Vector3 tar_position     = fig8_gen.pos(t0 + 1 * dt);
-        gtsam::Vector3 tar_theta        = fig8_gen.theta(t0 + 1 * dt);
-        gtsam::Rot3    tar_rotation     = gtsam::Rot3::Expmap(tar_theta);
-        gtsam::Vector3 tar_vel          = fig8_gen.vel(t0 + 1 * dt);
-        gtsam::Vector3 tar_omega        = fig8_gen.omega(t0 + 1 * dt);
-        gtsam::Vector4 ref_input        = fig8_gen.inputfm(t0);
+        gtsam::Vector3 tar_position  = fig8_gen.pos(t0 + 1 * dt);
+        gtsam::Vector3 tar_theta     = fig8_gen.theta(t0 + 1 * dt);
+        gtsam::Rot3    tar_rotation  = gtsam::Rot3::Expmap(tar_theta);
+        gtsam::Vector3 tar_vel       = fig8_gen.vel(t0 + 1 * dt);
+        gtsam::Vector3 tar_omega     = fig8_gen.omega(t0 + 1 * dt);
+        gtsam::Vector4 ref_input     = fig8_gen.inputfm(t0);
 
-        gtsam::Vector3 err              = predicted_state.p - tar_position;
-        gtsam::Vector3 pred_theta       = gtsam::Rot3::Logmap(predicted_state.rot);
-        gtsam::Vector3 rot_err          = tar_rotation.rpy() - predicted_state.rot.rpy();
-        // actuator_outputs = quadrotor.CumputeRotorsVel();
+        gtsam::Vector3 pos_err       = predicted_state.p - tar_position;
+        gtsam::Vector3 pred_theta    = gtsam::Rot3::Logmap(predicted_state.rot);
+        gtsam::Vector3 rot_err       = tar_rotation.rpy() - predicted_state.rot.rpy();
+
         
-        quadrotor.renderHistoryOpt(opt_trj, err, landmarkk, vicon_measurement, rot_err, ref_trj);
+        quadrotor.renderHistoryOpt(opt_trj, pos_err, boost::none, vicon_measurement, rot_err, ref_trj, opt_cost);
 
         /* real position, real attituede, real vel, rel augular speed, input their corr references */
         JEC_log << predicted_pose.translation().x() << " " << predicted_pose.translation().y() << " " << predicted_pose.translation().z() << " " 

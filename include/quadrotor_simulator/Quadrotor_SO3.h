@@ -97,7 +97,8 @@ namespace QuadrotorSim_SO3
                                                         boost::optional<Features&> features = boost::none, 
                                                         boost::optional<gtsam::Vector3&> vicon_measurement = boost::none, 
                                                         boost::optional<gtsam::Vector3 &> rot_err = boost::none, 
-                                                        boost::optional<std::vector<State> &> ref_trj = boost::none);
+                                                        boost::optional<std::vector<State> &> ref_trj = boost::none,
+                                                        boost::optional<float &> opt_cost = boost::none);
         gtsam::Vector3 getObs1()
         {
             return ui_ptr->getObs1();
@@ -105,7 +106,19 @@ namespace QuadrotorSim_SO3
         
         std::vector<gtsam::Vector3> getObsN()
         {
-            return ui_ptr->getObsN();
+            // return ui_ptr->getObsN();
+
+            // std::vector<gtsam::Vector3> obstacles;
+            // obstacles.reserve(obstacle_centers_.size());
+            // for (const auto& center : obstacle_centers_) {
+            //     obstacles.emplace_back(center.x, center.y, center.z);
+            // }
+            for(uint8_t i = 0; i < obs_num_; i++)
+            {
+                obstacles_[i] = getObsbyEllipse(i);
+            }
+            return obstacles_;
+
         }
 
     private:
@@ -117,6 +130,7 @@ namespace QuadrotorSim_SO3
         // Control Allocation's effectiveness matrix
         Eigen::Matrix4d effectiveness_;
 
+        gtsam::Vector3 Quadrotor::getObsbyEllipse(uint8_t index);
 
         double g_; // gravity
         double mass_;
@@ -134,24 +148,26 @@ namespace QuadrotorSim_SO3
 
         State state_;
         
+        float clock_ = 0;
 
         Eigen::Vector3d acc_;
 
         Eigen::Array4d  input_;
         Eigen::Vector3d external_force_;
-        Eigen::Vector3d external_moment_;
+        Eigen::Vector3d external_torque_;
         gtsam::Vector4  thrust_torque_;
 
         std::default_random_engine generator_;
 
         // force noise
-        double THRUST_NOISE_MEAN = 0.0;
-        double THRUST_NOISE_COV  = 0.0;
+        double THRUST_NOISE_MEAN  = 0.0;
+        double THRUST_NOISE_COV   = 0.0;
         double ANGULAR_SPEED_MEAN = 0.0;
-        double ANGULAR_SPEED_COV = 0.0;
+        double ANGULAR_SPEED_COV  = 0.0;
 
         Geometry geometry_;
-
+        std::vector<gtsam::Vector3> obstacles_;
+        uint16_t obs_num_ = 0;
         std::shared_ptr<UI> ui_ptr;
     };
 }

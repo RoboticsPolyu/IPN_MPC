@@ -281,17 +281,27 @@ namespace UAVFactor
             err = - Vector1(safe_d_* safe_d_) 
                 + (pi.translation(jac_t_posei) - obs_).transpose()* (pi.translation(jac_t_posei) - obs_); 
             
+            float thr = 0.02;
+
             // std::cout << " -- PointObs: [ " << err[0] << " ]" << std::endl;
 
             if(err(0) > 0)
             {
                 err(0) = 0;
+                
+                if(H1)
+                {
+                    *H1 = gtsam::Matrix16::Zero();
+                }
             }
-
-            if(H1)
+            else
             {
-                *H1 = 2 * (pi.translation(jac_t_posei) - obs_).transpose() * jac_t_posei;
+                if(H1)
+                {
+                    *H1 = 2 * (pi.translation(jac_t_posei) - obs_).transpose() * jac_t_posei;
+                }
             }
+            // std::cout << " -- PointObs: [ " << err[0] << " ]" << std::endl;
 
             return err;
         }

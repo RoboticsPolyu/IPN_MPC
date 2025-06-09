@@ -13,18 +13,33 @@ namespace Sensors_Sim
             double d_b_f = std::sqrt((iter->x - body_pose.x()) * (iter->x - body_pose.x()) +
                                      (iter->y - body_pose.y()) * (iter->y - body_pose.y()) +
                                      (iter->z - body_pose.z()) * (iter->z - body_pose.z()));
+            Feature lidar_point;
 
+            lidar_point.x = iter->x;
+            lidar_point.y = iter->y;
+            lidar_point.z = iter->z;
 
             if (d_b_f <= range_ && d_b_f >= range_min_)
             {
-                Feature lidar_point;
-
-                gtsam::Vector3 l_body_w((*iter).x - body_pose.x(), (*iter).y - body_pose.y(), (*iter).z - body_pose.z());
-                gtsam::Vector3 l_body_body = body_pose.rotation().unrotate(l_body_w);
+                // gtsam::Vector3 l_body_w((*iter).x - body_pose.x(), (*iter).y - body_pose.y(), (*iter).z - body_pose.z());
+                // gtsam::Vector3 l_body_body = body_pose.rotation().unrotate(l_body_w);
                 
-                lidar_point.x  = l_body_body.x();
-                lidar_point.y  = l_body_body.y();
-                lidar_point.z  = l_body_body.z();
+                // lidar_point.x = l_body_body.x();
+                // lidar_point.y = l_body_body.y();
+                // lidar_point.z = l_body_body.z();
+                lidar_point.type = PointType::L_VIS;
+
+                features_inview.push_back(lidar_point);
+            }
+            else
+            {
+                // gtsam::Vector3 l_body_w((*iter).x - body_pose.x(), (*iter).y - body_pose.y(), (*iter).z - body_pose.z());
+                // gtsam::Vector3 l_body_body = body_pose.rotation().unrotate(l_body_w);
+                
+                // lidar_point.x = l_body_body.x();
+                // lidar_point.y = l_body_body.y();
+                // lidar_point.z = l_body_body.z();
+                lidar_point.type = PointType::L_NONV;
 
                 features_inview.push_back(lidar_point);
             }

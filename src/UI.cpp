@@ -3,11 +3,11 @@
 
 namespace QuadrotorSim_SO3
 {
-    UI::UI(float trj_len_max, uint8_t obs_num)
+    UI::UI(float trj_len_max, uint8_t obs_num, double che_dis)
     {
         trj_len_max_ = trj_len_max_;
         obs_num_ = obs_num;
-
+        che_dis_ = che_dis;
         
         float radius = 0.20f; int numTheta = 100; int numPhi = 100;
         spherePoints_ = generateSpherePoints(radius, numTheta, numPhi);
@@ -15,7 +15,12 @@ namespace QuadrotorSim_SO3
         cylinderPoints_ = generatePointsOutsideCylinder(numPoints, radius, height);
 
         // Initialize obstacle centers (default N=5)
-        obstacle_centers_.resize(obs_num_);
+        std::cout << "Obs num is " << obs_num_ << std::endl;
+        std::cout << "obstacle centers " << obstacle_centers_.size() << std::endl;
+        // obstacle_centers_.resize(obs_num_);
+
+        std::cout << "obstacle centers " << obstacle_centers_.size() << std::endl;
+
         record_info_.open("../data/record_info.txt");
         clock_ = 0.0f;
         prop_radius_ = 0.062;
@@ -29,7 +34,7 @@ namespace QuadrotorSim_SO3
         displaySetup();
     }
 
-    Point3D UI::getEllipsePoint(uint8_t index) 
+    Point3D UI::getObsbyEllipse(uint8_t index) 
     { 
         Point3D point3d{0,0,0};
         if(index >= obs_num_)
@@ -67,7 +72,7 @@ namespace QuadrotorSim_SO3
         // Define Camera Render Object (for view / scene browsing)
         s_cam = std::make_shared<pangolin::OpenGlRenderState>(
             pangolin::ProjectionMatrix(1600, 1600, 800, 800, 800, 800, 0.1, 1000),
-            pangolin::ModelViewLookAt(0, 0.5, 1, 0, 0, 0, 0.0, -1.0, 0.0));
+            pangolin::ModelViewLookAt(0, 0, 1, 0, 0, 0, 0.0, -1.0, 0.0));
 
         // Choose a sensible left UI Panel width based on the width of 20
         // charectors from the default font.
@@ -89,10 +94,20 @@ namespace QuadrotorSim_SO3
         str_Quad_velz_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vz(m/s)", "UAV_vz");
         str_AVE_ERR_   = std::make_shared<pangolin::Var<std::string>>("ui.AVE_ERR(m)", "AVE_ERR");
         str_timestamp_ = std::make_shared<pangolin::Var<std::string>>("ui.TIMESTAMP(s)", "TIMESTAMP");
+        str_opt_cost_  = std::make_shared<pangolin::Var<std::string>>("ui.OPT_COST(s)", "OPT_COST");
         str_rotor_[0]  = std::make_shared<pangolin::Var<std::string>>("ui.ROTOR1(RPM)", "ROTOR1");
         str_rotor_[1]  = std::make_shared<pangolin::Var<std::string>>("ui.ROTOR2(RPM)", "ROTOR2");
         str_rotor_[2]  = std::make_shared<pangolin::Var<std::string>>("ui.ROTOR3(RPM)", "ROTOR3");
         str_rotor_[3]  = std::make_shared<pangolin::Var<std::string>>("ui.ROTOR4(RPM)", "ROTOR4");
+    }
+
+    void UI::drawTrjP(gtsam::Vector3 p)
+    {
+        glBegin(GL_POINTS);
+        glPointSize(5.0);
+        glColor3f(0.1, 0.2, 0.7);
+        glVertex3f(p[0], p[1], p[2]);
+        glEnd();
     }
 
     void UI::drawQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot)
@@ -171,15 +186,24 @@ namespace QuadrotorSim_SO3
 
     void UI::drawLidarCloud(Features &features)
     {
-        glColor3f(0.1, 0.2, 0.7);
-        glPointSize(5.0);
         glBegin(GL_POINTS);
 
         for (int idx = 0; idx < features.size(); idx++)
         {
-            gtsam::Vector3 l_body_body(features[idx].x, features[idx].y, features[idx].z);
-            gtsam::Vector3 l_body_w = state_.rot.rotate(l_body_body) + state_.p;
-            glVertex3f(l_body_w.x(), l_body_w.y(), l_body_w.z());
+            // gtsam::Vector3 l_body_body(features[idx].x, features[idx].y, features[idx].z);
+            // gtsam::Vector3 l_body_w = state_.rot.rotate(l_body_body) + state_.p;
+           
+            if(features[idx].type == PointType::L_VIS)
+            {
+                glPointSize(5.0);
+                glColor3f(0.1, 0.2, 0.7);
+            }
+            else if(features[idx].type == PointType::L_NONV)
+            {
+                glPointSize(3.0);
+                glColor3f(0.1, 0.8, 0.7);
+            }
+            glVertex3f(features[idx].x, features[idx].y, features[idx].z);
         }
 
         glEnd();
@@ -274,23 +298,43 @@ namespace QuadrotorSim_SO3
             obstacles.emplace_back(center.x, center.y, center.z);
         }
         return obstacles;
+    }   
+
+    bool UI::checkCollision(const State &state, const gtsam::Vector3& obstacle_center)
+    {
+        // Eigen::Vector3d _center(obstacle_center.x, obstacle_center.y, obstacle_center.z);
+        float obs_distance = (state.p - obstacle_center).norm();
+        if(obs_distance >= che_dis_)
+        {
+            return false;
+        }
+        else
+        {
+            std::cout << "Happening collision: " << obs_distance << std::endl;
+            return true;
+        }
     }
 
     // Modified renderHistoryOpt to plot N obstacles
     void UI::renderHistoryOpt(State& state, std::vector<State> &pred_trj, boost::optional<gtsam::Vector3 &> err, boost::optional<Features &> features, 
-        boost::optional<gtsam::Vector3&> vicon_measurement, boost::optional<gtsam::Vector3 &> rot_err, boost::optional<std::vector<State> &> ref_trj)
+        boost::optional<gtsam::Vector3&> vicon_measurement, boost::optional<gtsam::Vector3 &> rot_err, boost::optional<std::vector<State> &> ref_trj,
+        boost::optional<float &> opt_cost, boost::optional<std::vector<gtsam::Vector3> &> obstacle_centers)
     {
         clock_ = clock_ + delta_t;
         state_.p = state.p;
         state_.v = state.v;
         gtsam::Vector3 error = *err;
-
+        
+        if(opt_cost)
+        {
+            opt_cost_ = *opt_cost;
+        }
         if(rot_err)
         {
             gtsam::Vector3 rot_error = *rot_err;
             record_info_ << state_.p[0] << " " << state_.p[1] << " " << state_.p[2] << " " << error[0] << " " << error[1] << " " << error[2] << " " << state_.thrust_torque[0] << " " 
-            << state_.thrust_torque[1] << " " << state_.thrust_torque[2] << " " << state_.thrust_torque[3] << " " << 
-            rot_error[0] << " " << rot_error[1] << " " << rot_error[2] << std::endl;
+                << state_.thrust_torque[1] << " " << state_.thrust_torque[2] << " " << state_.thrust_torque[3] << " " 
+                << rot_error[0] << " " << rot_error[1] << " " << rot_error[2] << std::endl;
         }
         else
         {
@@ -315,29 +359,44 @@ namespace QuadrotorSim_SO3
             trj_.push_back(state_);
             d_cam.Activate(*s_cam);
             
+            std:: cout << "obs num " << obs_num_ << std::endl;
             // Update obstacle positions (move along elliptical paths)
-            for (size_t i = 0; i < obstacle_centers_.size(); ++i) 
-            {
+            // obstacle_centers.clear();
+            
+            std::cout << "obstacle centers " << obstacle_centers->size() << std::endl;
 
-                obstacle_centers_[i] = getEllipsePoint(i);
-            }
-
+            // for (size_t i = 0; i < obs_num_; ++i) 
+            // {
+            //     obstacle_centers.push_back(getObsbyEllipse(i));
+            // }
+            
+            std::cout << "obstacle centers " << obstacle_centers->size() << std::endl;
             // Plot all obstacles
-            for (const auto& center : obstacle_centers_) 
+            for (int i=0; i <  obstacle_centers->size(); i++) 
             {
-                glColor3f(1.0, 0.5, 0.0); // Orange color for obstacles
-                glPointSize(2.0);
+                gtsam::Vector3 center = obstacle_centers->at(i);
+                std::cout << "center.x: " << center.x() << ", center y: " << center.y() << ", center.z: " << center.z() << std::endl;
+                if(checkCollision(state, center))
+                {
+                    glColor3f(0.3, 0.5, 0.6); // collision
+                    glPointSize(3.0);
+                }
+                else
+                {
+                    glColor3f(1.0, 0.5, 0.0); // Orange color for obstacles
+                    glPointSize(1.0);
+                }
                 glBegin(GL_POINTS);
                 for (const auto& point : spherePoints_) {
-                    glVertex3f(point.x + center.x, point.y + center.y, point.z + center.z);
+                    glVertex3f(point.x + center.x(), point.y + center.y(), point.z + center.z());
                 }
                 glEnd();
 
-                glColor3f(1.0, 0.0, 0.0);
-                std::string centerText = "(" + std::to_string(center.x) + ", " + 
-                        std::to_string(center.y) + ", " + 
-                        std::to_string(center.z) + ")";
-                text_font->Text(centerText.c_str()).Draw(center.x, center.x, center.x);
+                // glColor3f(1.0, 0.0, 0.0);
+                // std::string centerText = "(" + std::to_string(center.x) + ", " + 
+                //         std::to_string(center.y) + ", " + 
+                //         std::to_string(center.z) + ")";
+                // text_font->Text(centerText.c_str()).Draw(center.x, center.x, center.x);
             }
 
             for(uint i = 0; i < 314; i++)
@@ -368,6 +427,7 @@ namespace QuadrotorSim_SO3
             // Predicted Trajectory
             for (int i = 0; i < pred_trj.size() - 1; i++)
             {
+                drawTrjP(pred_trj[i].p);
                 drawLine(gtsam::Vector3(1.0, 0, 0), pred_trj[i].p, pred_trj[i + 1].p);
             }
 
@@ -378,7 +438,6 @@ namespace QuadrotorSim_SO3
                 {
                     drawLine(gtsam::Vector3(0.4f, 0.2f, 0.6f), (*ref_trj)[i].p, (*ref_trj)[i - 1].p);
                 }
-                
             }
 
             drawQuadrotor(state_.p, state_.rot);
@@ -389,8 +448,11 @@ namespace QuadrotorSim_SO3
             }
             errs_.push_back(error);
 
-            Features f = *features;
-            drawLidarCloud(f);
+            if(features)
+            {
+                Features f = *features;
+                drawLidarCloud(f); 
+            }
 
             if(vicon_measurement)
             {
@@ -440,7 +502,8 @@ namespace QuadrotorSim_SO3
         *str_rotor_[2] = temp_str;
         temp_str = std::to_string(input_[3]);
         *str_rotor_[3] = temp_str;
-
+        temp_str = std::to_string(opt_cost_);
+        *str_opt_cost_ = temp_str;
         double err_sum = 0;
         for (uint j = 0; j < errs_.size(); j++)
         {

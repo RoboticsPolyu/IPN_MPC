@@ -28,7 +28,7 @@ namespace QuadrotorSim_SO3
         using stringUI = std::shared_ptr<pangolin::Var<std::string> >;
         using stateType = boost::array<double, 22>;
         
-        UI::UI(float trj_len_max, uint8_t obs_num);
+        UI(float trj_len_max, uint8_t obs_num, double che_dis);
 
         // User Interface
         void displaySetup();
@@ -39,13 +39,16 @@ namespace QuadrotorSim_SO3
                                                         boost::optional<Features&> features = boost::none, 
                                                         boost::optional<gtsam::Vector3&> vicon_measurement = boost::none, 
                                                         boost::optional<gtsam::Vector3 &> rot_err = boost::none, 
-                                                        boost::optional<std::vector<State> &> ref_trj = boost::none);
+                                                        boost::optional<std::vector<State> &> ref_trj = boost::none,
+                                                        boost::optional<float &> opt_cost = boost::none,
+                                                        boost::optional<std::vector<gtsam::Vector3> &> obstacle_centers = boost::none);
         
         gtsam::Vector3 getObs1();
         
         std::vector<gtsam::Vector3> getObsN();
 
     private:
+        bool checkCollision(const State &state, const gtsam::Vector3& obstacle_center);
 
         void drawQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot);
 
@@ -57,11 +60,13 @@ namespace QuadrotorSim_SO3
         
         void drawLidarCloud(Features & features);
         
+        void drawTrjP(gtsam::Vector3 p);
+
         void renderPanel();
 
         std::vector<Point3D> generateSpherePoints(float radius, int numTheta, int numPhi);
         std::vector<Point3D> generatePointsOutsideCylinder(int numTheta, float radius, float height);
-        Point3D              getEllipsePoint(uint8_t index);
+        Point3D              getObsbyEllipse(uint8_t index);
         pangolin::GlFont *text_font = new pangolin::GlFont("../data/timr45w.ttf", 30.0);   
 
 
@@ -83,6 +88,7 @@ namespace QuadrotorSim_SO3
         stringUI str_AVE_ERR_;
         stringUI str_timestamp_;
         stringUI str_rotor_[4];
+        stringUI str_opt_cost_;
 
         std::vector<Point3D> spherePoints_;
         Point3D              sphereCenter_;
@@ -92,9 +98,10 @@ namespace QuadrotorSim_SO3
         float axis_dist_;
         float propeller_dist_;
         const uint64_t HISTORY_TRJ_LENS = 1000;
-        float trj_len_max_ = 1.0;
+        float trj_len_max_ = 1.0f;
         uint8_t obs_num_ = 1;
-
+        float opt_cost_ = -1.0f;
+        double che_dis_  = 0;
         std::default_random_engine generator_;
         
         float clock_ = 0;

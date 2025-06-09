@@ -11,16 +11,16 @@ namespace QuadrotorSim_SO3
     Quadrotor::Quadrotor(void)
     {
         // Existing constructor code
-        YAML::Node quad_config = YAML::LoadFile("../config/quadrotor.yaml");  
-        g_ = quad_config["g"].as<double>();
-        mass_ = quad_config["mass"].as<double>();
-        kf_ = quad_config["k_f"].as<double>();
-        km_ = quad_config["k_m"].as<double>();
-        motor_time_constant_ = quad_config["time_constant"].as<double>();
+        YAML::Node config = YAML::LoadFile("../config/quadrotor_TGyro.yaml");  
+        g_ = config["g"].as<double>();
+        mass_ = config["mass"].as<double>();
+        kf_ = config["k_f"].as<double>();
+        km_ = config["k_m"].as<double>();
+        motor_time_constant_ = config["time_constant"].as<double>();
 
-        double Ixx = quad_config["Ixx"].as<double>();
-        double Iyy = quad_config["Iyy"].as<double>();
-        double Izz = quad_config["Izz"].as<double>();
+        double Ixx = config["Ixx"].as<double>();
+        double Iyy = config["Iyy"].as<double>();
+        double Izz = config["Izz"].as<double>();
         J_ = Eigen::Vector3d(Ixx, Iyy, Izz).asDiagonal();
 
         prop_radius_ = 0.062;
@@ -38,9 +38,9 @@ namespace QuadrotorSim_SO3
         input_ = Eigen::Array4d::Zero();
 
         external_force_.setZero();
-        external_moment_.setZero();
+        external_torque_.setZero();
 
-        YAML::Node config   = YAML::LoadFile("../config/quadrotor.yaml");
+        // YAML::Node config   = YAML::LoadFile("../config/quadrotor_TGyro.yaml");
         THRUST_NOISE_MEAN   = config["THRUST_NOISE_MEAN"].as<double>();
         THRUST_NOISE_COV    = config["THRUST_NOISE_COV"].as<double>();
         ANGULAR_SPEED_MEAN  = config["ANGULAR_SPEED_MEAN"].as<double>();
@@ -49,10 +49,13 @@ namespace QuadrotorSim_SO3
         double DRAG_FORCE_Y = config["DRAG_FORCE_Y"].as<double>();
         double DRAG_FORCE_Z = config["DRAG_FORCE_Z"].as<double>();
         float trj_len_max   = config["TRJ_LEN_MAX"].as<double>();
-        float obs_num       = config["OBS_NUM"].as<uint8_t>();
+        obs_num_            = config["OBS_NUM"].as<uint16_t>();
+        double OBS1_RADIUS  = config["OBS1_RADIUS"].as<double>();
+        double SAFE_D       = config["SAFE_D"].as<double>();
         drag_force_params_  = Eigen::Vector3d(DRAG_FORCE_X, DRAG_FORCE_Y, DRAG_FORCE_Z);
+        obstacles_.resize(obs_num_);
 
-        ui_ptr = std::make_shared<UI>(trj_len_max, obs_num);
+        ui_ptr = std::make_shared<UI>(trj_len_max, obs_num_, OBS1_RADIUS + SAFE_D);
     }
 
     void Quadrotor::step(double dt)
@@ -79,13 +82,12 @@ namespace QuadrotorSim_SO3
 
         Eigen::Vector3d drag_force = - state_.rot.matrix() * Eigen::Matrix3d(drag_force_params_.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
         Eigen::Vector3d v_dot      = - Eigen::Vector3d(0, 0, g_) + state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ 
-                                    + external_force_ / mass_ + drag_force;
+                                     + external_force_ / mass_ + drag_force;
 
         Eigen::Vector3d p_dot = state_.v;
 
         // J* body_rate_dot = torque - J.cross(J* body_rate)
-        Eigen::Vector3d body_rate_dot = J_.inverse() * (torque - state_.body_rate.cross(J_ * state_.body_rate) + external_moment_);
-
+        Eigen::Vector3d body_rate_dot = J_.inverse() * (torque - state_.body_rate.cross(J_ * state_.body_rate) + external_torque_);
 
         // Predict state
         predicted_state_.p         = state_.p + p_dot * dt;                                                   
@@ -150,7 +152,7 @@ namespace QuadrotorSim_SO3
         Eigen::Matrix3d r_dot = est_state.rot.matrix() * gtsam::skewSymmetric(est_state.body_rate);
 
         // J* body_rate_dot = moment - J.cross(J* body_rate)
-        Eigen::Vector3d body_rate_dot = J_.inverse() * (moment - est_state.body_rate.cross(J_ * est_state.body_rate) + external_moment_);
+        Eigen::Vector3d body_rate_dot = J_.inverse() * (moment - est_state.body_rate.cross(J_ * est_state.body_rate) + external_torque_);
 
         for (int i = 0; i < 3; i++)
         {
@@ -469,11 +471,11 @@ namespace QuadrotorSim_SO3
 
     const Eigen::Vector3d &Quadrotor::getExternalMoment(void) const
     {
-        return external_moment_;
+        return external_torque_;
     }
     void Quadrotor::setExternalMoment(const Eigen::Vector3d &moment)
     {
-        external_moment_ = moment;
+        external_torque_ = moment;
     }
 
     double Quadrotor::getMaxRPM(void) const
@@ -508,15 +510,47 @@ namespace QuadrotorSim_SO3
     {
         return acc_;
     }
-
    
     void Quadrotor::renderHistoryOpt(std::vector<State> & pred_trj, boost::optional<gtsam::Vector3&> err,  
-                                                               boost::optional<Features&> features, 
-                                                               boost::optional<gtsam::Vector3&> vicon_measurement, 
-                                                               boost::optional<gtsam::Vector3 &> rot_err, 
-                                                               boost::optional<std::vector<State> &> ref_trj)
+                                                                    boost::optional<Features&> features, 
+                                                                    boost::optional<gtsam::Vector3&> vicon_measurement, 
+                                                                    boost::optional<gtsam::Vector3 &> rot_err, 
+                                                                    boost::optional<std::vector<State> &> ref_trj,
+                                                                    boost::optional<float &> opt_cost)
     {
-        ui_ptr->renderHistoryOpt(state_, pred_trj, err, features, vicon_measurement, rot_err, ref_trj);
+        clock_ = clock_ + 0.01f;
+        ui_ptr->renderHistoryOpt(state_, pred_trj, err, features, vicon_measurement, rot_err, ref_trj, opt_cost, obstacles_);
+        // unsigned int microsecond = 1000000;
+        // usleep(0.1 * microsecond);
+    }
+
+
+    gtsam::Vector3 Quadrotor::getObsbyEllipse(uint8_t index) 
+    { 
+        gtsam::Vector3 point3d{0,0,0};
+        if(index >= obs_num_)
+        {
+            return point3d;
+        }
+        float a  = 1.00;
+        float b  = 0.50;
+        float v  = 0.40;
+        float z  = 1.00;
+        double t = clock_ + index * 2.0 * M_PI / obs_num_ * sqrt(a * a + b * b) / v; // Spread obstacles evenly over one cycle
+
+        double angle = v * t / sqrt(a * a + b * b); 
+        double x = a * cos(angle); 
+        double y = b * sin(angle); 
+
+        // // rotating
+        // double theta = M_PI / 4;
+        // double rotatedX = x * cos(theta) - y * sin(theta); 
+        // double rotatedY = x * sin(theta) + y * cos(theta);
+
+        point3d[0] = x - a/2;
+        point3d[1] = y - b/2;
+        point3d[2] = z;
+        return point3d;
     }
 
 }
