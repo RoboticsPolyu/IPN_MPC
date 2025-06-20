@@ -279,7 +279,7 @@ int main(void)
             gtsam::Vector4 init_input(10, 0, 0, 0);
             initial_value.insert(X(idx + 1), pose_idx);
             initial_value.insert(V(idx + 1), vel_idx);
-            initial_value.insert(U(idx), init_input);
+            initial_value.insert(U(idx),     init_input);
 
             // gtsam::Vector4 init_input = circle_generator.inputfm(t0 + idx * dt);
             if(idx != 0)
@@ -307,8 +307,8 @@ int main(void)
                 // }
                 // else
                 // {
-                    graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
-                    graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
+                    graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1),   pose_idx, ref_predict_pose_noise));
+                    graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx,  ref_predict_vel_noise));
                 // }
 
                     // graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
@@ -319,11 +319,11 @@ int main(void)
                     //                   pose_idx.translation()[2]),  // D,
                     //            correction_noise);
                     // graph.add(gps_factor);
-                for(uint16_t obsi = 0; obsi < obsN.size(); obsi++)
-                {
-                    obs1 = obsN[obsi];
-                    graph.add(PointObsFactor(X(idx+1), obs1, obs1_radius + safe_d, point_obs_noise));
-                }
+                // for(uint16_t obsi = 0; obsi < obsN.size(); obsi++)
+                // {
+                //     obs1 = obsN[obsi];
+                //     graph.add(PointObsFactor(X(idx+1), obs1, obs1_radius + safe_d, point_obs_noise));
+                // }
             }
             else
             {
@@ -346,8 +346,8 @@ int main(void)
                     // }
                 //   else
                 //    {
-                        graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
-                        graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
+                        graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1),   pose_idx, ref_predict_pose_noise));
+                        graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx,  ref_predict_vel_noise));
 
                 //    }
                     // graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx + 1), omega_idx, ref_predict_omega_noise));
@@ -359,11 +359,17 @@ int main(void)
                     //            correction_noise);
                     // graph.add(gps_factor);
 
-                for(uint16_t obsi=0; obsi < obsN.size(); obsi++)
-                {
-                    obs1 = obsN[obsi];
-                    graph.add(PointObsFactor(X(idx+1), obs1, obs1_radius + safe_d, point_obs_noise));
-                }
+                // for(uint16_t obsi=0; obsi < obsN.size(); obsi++)
+                // {
+                //     obs1 = obsN[obsi];
+                //     graph.add(PointObsFactor(X(idx+1), obs1, obs1_radius + safe_d, point_obs_noise));
+                // }
+            }
+
+            for(uint16_t obsi = 0; obsi < obsN.size(); obsi++)
+            {
+                obs1 = obsN[obsi];
+                graph.add(PointObsFactor(X(idx+1), obs1, obs1_radius + safe_d, point_obs_noise));
             }
 
             if (idx == 0)
@@ -398,7 +404,7 @@ int main(void)
         start = clock();
         Values result = optimizer.optimize();
 	    end = clock();
-        double opt_cost = (double)(end-start)/CLOCKS_PER_SEC;
+        double opt_cost = (double)(end - start)/CLOCKS_PER_SEC;
 	    std::cout << " ---------- Optimize Time " << opt_cost << endl;
 
         std::vector<State> opt_trj;
@@ -465,12 +471,12 @@ int main(void)
         
         float g_ = 9.81f;
         std::normal_distribution<double> thrust_noise(0, 0.2);
-        std::normal_distribution<double> w_noise(0, 0.02);
+        std::normal_distribution<double> gyro_noise(0, 0.02);
         std::default_random_engine generator_;
         double at_noise = thrust_noise(generator_);
-        double wx_noise = w_noise(generator_);
-        double wy_noise = w_noise(generator_);
-        double wz_noise = w_noise(generator_);
+        double wx_noise = gyro_noise(generator_);
+        double wy_noise = gyro_noise(generator_);
+        double wz_noise = gyro_noise(generator_);
 
         gtsam::Vector3 v_dot = - gtsam::Vector3(0, 0, g_) 
                                 + est_state.rot.rotate(gtsam::Vector3(0, 0, (input[0] + at_noise) / mass))

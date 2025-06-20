@@ -61,12 +61,14 @@ namespace QuadrotorSim_SO3
         void drawLidarCloud(Features & features);
         
         void drawTrjP(gtsam::Vector3 p);
+        
+        void drawTrjPColli(gtsam::Vector3 p);
 
         void renderPanel();
 
         std::vector<Point3D> generateSpherePoints(float radius, int numTheta, int numPhi);
         std::vector<Point3D> generatePointsOutsideCylinder(int numTheta, float radius, float height);
-        Point3D              getObsbyEllipse(uint8_t index);
+        // Point3D              getObsbyEllipse(uint8_t index);
         pangolin::GlFont *text_font = new pangolin::GlFont("../data/timr45w.ttf", 30.0);   
 
 

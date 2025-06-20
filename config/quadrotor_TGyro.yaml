@@ -9,9 +9,9 @@ k_m:  0.01302 # 0.01302
 time_constant: 0.01
 
 THRUST_NOISE_MEAN:  0.0
-THRUST_NOISE_COV:   0.3
+THRUST_NOISE_COV:   0.0
 ANGULAR_SPEED_MEAN: 0.0
-ANGULAR_SPEED_COV:  0.1 
+ANGULAR_SPEED_COV:  0.0 
 
 RADIUS:     1.5
 LINEAR_VEL: 3
@@ -30,18 +30,18 @@ OME_MEAS_COV:   0.001 # 0.059 deg/s
 # OME_MEAS_COV:   0.001 # 0.059 deg/s
 
 # Drag force 
-DRAG_FORCE_X:   -0.
-DRAG_FORCE_Y:   -0.
-DRAG_FORCE_Z:   -0.
+DRAG_FORCE_X:   -0.3
+DRAG_FORCE_Y:   -0.3
+DRAG_FORCE_Z:   -0.2
 # Drag force 
 # DRAG_FORCE_X:   -0.20
 # DRAG_FORCE_Y:   -0.23
 # DRAG_FORCE_Z:   -0.30
-TRJ_LEN_MAX:     3.0
-OBS_NUM:         7
-OBS1_RADIUS:     0.20
-SAFE_D:          0.10
-#Driver delay (s)
+TRJ_LEN_MAX:     10.0
+OBS_NUM:         6
+OBS1_RADIUS:     0.08
+SAFE_D:          0.00
+# Driver delay (s)
 DRIVER_DELAT:    0.05
 
 # DRAG_FORCE_X:   0.2

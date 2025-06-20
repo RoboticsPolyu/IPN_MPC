@@ -51,11 +51,11 @@ namespace QuadrotorSim_SO3
         float trj_len_max   = config["TRJ_LEN_MAX"].as<double>();
         obs_num_            = config["OBS_NUM"].as<uint16_t>();
         double OBS1_RADIUS  = config["OBS1_RADIUS"].as<double>();
-        double SAFE_D       = config["SAFE_D"].as<double>();
+        // double SAFE_D       = config["SAFE_D"].as<double>();
         drag_force_params_  = Eigen::Vector3d(DRAG_FORCE_X, DRAG_FORCE_Y, DRAG_FORCE_Z);
         obstacles_.resize(obs_num_);
 
-        ui_ptr = std::make_shared<UI>(trj_len_max, obs_num_, OBS1_RADIUS + SAFE_D);
+        ui_ptr = std::make_shared<UI>(trj_len_max, obs_num_, OBS1_RADIUS);
     }
 
     void Quadrotor::step(double dt)
@@ -532,10 +532,13 @@ namespace QuadrotorSim_SO3
         {
             return point3d;
         }
-        float a  = 1.00;
+        float a  = 1.10;
         float b  = 0.50;
         float v  = 0.40;
         float z  = 1.00;
+
+        // clock_ = 10.0; // static obstacles
+
         double t = clock_ + index * 2.0 * M_PI / obs_num_ * sqrt(a * a + b * b) / v; // Spread obstacles evenly over one cycle
 
         double angle = v * t / sqrt(a * a + b * b); 

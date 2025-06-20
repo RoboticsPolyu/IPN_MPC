@@ -106,19 +106,11 @@ namespace QuadrotorSim_SO3
         
         std::vector<gtsam::Vector3> getObsN()
         {
-            // return ui_ptr->getObsN();
-
-            // std::vector<gtsam::Vector3> obstacles;
-            // obstacles.reserve(obstacle_centers_.size());
-            // for (const auto& center : obstacle_centers_) {
-            //     obstacles.emplace_back(center.x, center.y, center.z);
-            // }
             for(uint8_t i = 0; i < obs_num_; i++)
             {
                 obstacles_[i] = getObsbyEllipse(i);
             }
             return obstacles_;
-
         }
 
     private:
@@ -148,7 +140,7 @@ namespace QuadrotorSim_SO3
 
         State state_;
         
-        float clock_ = 0;
+        float clock_ = 0.;
 
         Eigen::Vector3d acc_;
 

@@ -5,7 +5,7 @@ namespace QuadrotorSim_SO3
 {
     UI::UI(float trj_len_max, uint8_t obs_num, double che_dis)
     {
-        trj_len_max_ = trj_len_max_;
+        trj_len_max_ = trj_len_max;
         obs_num_ = obs_num;
         che_dis_ = che_dis;
         
@@ -32,34 +32,6 @@ namespace QuadrotorSim_SO3
         // state_.motor_rpm = Eigen::Array4d::Zero();
 
         displaySetup();
-    }
-
-    Point3D UI::getObsbyEllipse(uint8_t index) 
-    { 
-        Point3D point3d{0,0,0};
-        if(index >= obs_num_)
-        {
-            return point3d;
-        }
-        float a  = 1.00;
-        float b  = 0.50;
-        float v  = 0.40;
-        float z  = 1.00;
-        double t = clock_ + index * 2.0 * M_PI / 5.0 * sqrt(a * a + b * b) / v; // Spread obstacles evenly over one cycle
-
-        double angle = v * t / sqrt(a * a + b * b); 
-        double x = a * cos(angle); 
-        double y = b * sin(angle); 
-
-        // // rotating
-        // double theta = M_PI / 4;
-        // double rotatedX = x * cos(theta) - y * sin(theta); 
-        // double rotatedY = x * sin(theta) + y * cos(theta);
-
-        point3d.x = x - a/2;
-        point3d.y = y - b/2;
-        point3d.z = z;
-        return point3d;
     }
 
     void UI::displaySetup()
@@ -103,8 +75,17 @@ namespace QuadrotorSim_SO3
 
     void UI::drawTrjP(gtsam::Vector3 p)
     {
+        glPointSize(3.0);
         glBegin(GL_POINTS);
-        glPointSize(5.0);
+        glColor3f(0.1, 0.2, 0.7);
+        glVertex3f(p[0], p[1], p[2]);
+        glEnd();
+    }
+
+    void UI::drawTrjPColli(gtsam::Vector3 p)
+    {
+        glPointSize(10.0);
+        glBegin(GL_POINTS);
         glColor3f(0.1, 0.2, 0.7);
         glVertex3f(p[0], p[1], p[2]);
         glEnd();
@@ -302,7 +283,6 @@ namespace QuadrotorSim_SO3
 
     bool UI::checkCollision(const State &state, const gtsam::Vector3& obstacle_center)
     {
-        // Eigen::Vector3d _center(obstacle_center.x, obstacle_center.y, obstacle_center.z);
         float obs_distance = (state.p - obstacle_center).norm();
         if(obs_distance >= che_dis_)
         {
@@ -310,7 +290,9 @@ namespace QuadrotorSim_SO3
         }
         else
         {
-            std::cout << "Happening collision: " << obs_distance << std::endl;
+            std::cout << " Happening collision: " << obs_distance << std::endl;
+            std::cout << " state p: " << state.p.transpose() << std::endl;
+            std::cout << " obstacle_center: " << obstacle_center.transpose() << std::endl;
             return true;
         }
     }
@@ -348,9 +330,6 @@ namespace QuadrotorSim_SO3
             {
                 trj_.erase(trj_.begin());
             }
-            //    glBegin(GL_POINTS);
-            //     glVertex3f(1.5*sin(float(i)/ 314.0f * 6.28), 1.5*cos(float(i)/ 314.0f * 6.28), 1);
-            //     glEnd();
             
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
             glLineWidth(3);
@@ -359,23 +338,27 @@ namespace QuadrotorSim_SO3
             trj_.push_back(state_);
             d_cam.Activate(*s_cam);
             
-            std:: cout << "obs num " << obs_num_ << std::endl;
-            // Update obstacle positions (move along elliptical paths)
-            // obstacle_centers.clear();
-            
             std::cout << "obstacle centers " << obstacle_centers->size() << std::endl;
+            
+            glLineWidth(1);
+            // Ref Trajectory
+            for (int i = 0; i < ref_trj->size() - 1; i++)
+            {
+                drawTrjP((*ref_trj)[i].p);
+            }
 
-            // for (size_t i = 0; i < obs_num_; ++i) 
-            // {
-            //     obstacle_centers.push_back(getObsbyEllipse(i));
-            // }
-            
-            std::cout << "obstacle centers " << obstacle_centers->size() << std::endl;
+            glLineWidth(3);
+            // Predicted Trajectory
+            for (int i = 0; i < pred_trj.size() - 1; i++)
+            {
+                drawLine(gtsam::Vector3(1.0, 0, 0), pred_trj[i].p, pred_trj[i + 1].p);
+            }
+
             // Plot all obstacles
-            for (int i=0; i <  obstacle_centers->size(); i++) 
+            for (int i = 0; i <  obstacle_centers->size(); i++) 
             {
                 gtsam::Vector3 center = obstacle_centers->at(i);
-                std::cout << "center.x: " << center.x() << ", center y: " << center.y() << ", center.z: " << center.z() << std::endl;
+                // std::cout << "center.x: " << center.x() << ", center y: " << center.y() << ", center.z: " << center.z() << std::endl;
                 if(checkCollision(state, center))
                 {
                     glColor3f(0.3, 0.5, 0.6); // collision
@@ -391,21 +374,16 @@ namespace QuadrotorSim_SO3
                     glVertex3f(point.x + center.x(), point.y + center.y(), point.z + center.z());
                 }
                 glEnd();
-
-                // glColor3f(1.0, 0.0, 0.0);
-                // std::string centerText = "(" + std::to_string(center.x) + ", " + 
-                //         std::to_string(center.y) + ", " + 
-                //         std::to_string(center.z) + ")";
-                // text_font->Text(centerText.c_str()).Draw(center.x, center.x, center.x);
-            }
-
-            for(uint i = 0; i < 314; i++)
-            {
-                glColor3f(0.3, 0.1, 0.8);
-                glPointSize(5.0);
-                glBegin(GL_POINTS);
-                glVertex3f(1.5*sin(float(i)/ 314.0f * 6.28), 1.5*cos(float(i)/ 314.0f * 6.28), 1);
-                glEnd();
+                
+                for (int i = 0; i < pred_trj.size(); i++)
+                {
+                    State _state;
+                    _state.p = pred_trj[i].p;
+                    if(checkCollision(_state, center))
+                    {
+                        drawTrjPColli(pred_trj[i].p);
+                    }
+                }
             }
             
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -421,23 +399,6 @@ namespace QuadrotorSim_SO3
                     break;
                 }
                 drawLine(gtsam::Vector3(0.5, 0, 0.5), trj_[i].p, trj_[i - 1].p);
-            }
-
-            glLineWidth(3);
-            // Predicted Trajectory
-            for (int i = 0; i < pred_trj.size() - 1; i++)
-            {
-                drawTrjP(pred_trj[i].p);
-                drawLine(gtsam::Vector3(1.0, 0, 0), pred_trj[i].p, pred_trj[i + 1].p);
-            }
-
-            glLineWidth(3);
-            if(ref_trj)
-            {
-                for (int i = (*ref_trj).size() - 1; i > 0; i--)
-                {
-                    drawLine(gtsam::Vector3(0.4f, 0.2f, 0.6f), (*ref_trj)[i].p, (*ref_trj)[i - 1].p);
-                }
             }
 
             drawQuadrotor(state_.p, state_.rot);

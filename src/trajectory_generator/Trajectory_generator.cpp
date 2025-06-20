@@ -304,14 +304,31 @@ namespace Trajectory
         );
     }
 
+    // gtsam::Vector3 figure_eight_generator::theta(double t)
+    // {
+    //     gtsam::Vector3 force = thrust(t);
+    //     double yaw = atan2(vel(t)(1), vel(t)(0));  // Yaw aligns with velocity direction
+    //     gtsam::Vector3 zB = force / force.norm();
+    //     gtsam::Vector3 xC(cos(yaw), sin(yaw), 0);
+    //     gtsam::Vector3 yB = zB.cross(xC) / zB.cross(xC).norm();
+    //     gtsam::Vector3 xB = yB.cross(zB);
+
+    //     gtsam::Matrix3 R;
+    //     R.col(0) = xB;
+    //     R.col(1) = yB;
+    //     R.col(2) = zB;
+    //     gtsam::Rot3 rot3(R);
+    //     return gtsam::Rot3::Logmap(rot3);
+    // }
+
     gtsam::Vector3 figure_eight_generator::theta(double t)
     {
+        double         yaw   = 0.0f;
         gtsam::Vector3 force = thrust(t);
-        double yaw = atan2(vel(t)(1), vel(t)(0));  // Yaw aligns with velocity direction
-        gtsam::Vector3 zB = force / force.norm();
+        gtsam::Vector3 zB    = force / force.norm();
         gtsam::Vector3 xC(cos(yaw), sin(yaw), 0);
-        gtsam::Vector3 yB = zB.cross(xC) / zB.cross(xC).norm();
-        gtsam::Vector3 xB = yB.cross(zB);
+        gtsam::Vector3 yB    = zB.cross(xC) / zB.cross(xC).norm();
+        gtsam::Vector3 xB    = yB.cross(zB);
 
         gtsam::Matrix3 R;
         R.col(0) = xB;

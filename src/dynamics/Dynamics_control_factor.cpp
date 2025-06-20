@@ -67,6 +67,71 @@ namespace UAVFactor
          return thrust_torque;
    }
 
+   Vector VeCBFPdFactor::evaluateError(const gtsam::Pose3 &pi, const gtsam::Vector3 &vi, const gtsam::Vector4 &ui,
+      boost::optional<Matrix &> H1, boost::optional<Matrix &> H2, boost::optional<Matrix &> H3) const
+   {
+      Vector err;
+      Matrix36 jac_ti;
+      // err = (- Vector1(1.* safe_d_ * safe_d_) 
+      //      + (pi.translation(jac_t_posei) - obs_).transpose() * (pi.translation(jac_t_posei) - obs_)); 
+      gtsam::Vector3 p_p0 = pi.translation(jac_ti) - obs_;
+      double d = p_p0.norm();
+      gtsam::Vector1 hi = Vector1(1/safe_d_ - 1/d) + beta_* p_p0.transpose()/d* (vi - obs_vel_);
+      
+      gtsam::Vector3 e2(0., 0., 1.);
+      gtsam::Vector3 _g(0., 0., 9.81);
+      gtsam::Vector3 _ai = e2 * ui(0);
+      
+      gtsam::Matrix36 J_ri;
+      gtsam::Matrix3  J_r_ri;
+      gtsam::Matrix3  J_r_ai;
+
+      gtsam::Vector3 x_dot_0 = vi;
+      gtsam::Vector3 x_dot_2 = -_g + pi.rotation(J_ri).rotate(_ai, J_r_ri, J_r_ai);
+      err = hi + alpha_* evaluateH_ti(pi, vi)* x_dot_0 + alpha_* evaluateH_vi(pi)* x_dot_2; // h + alpha* dot h
+
+      if(err(0) > 0)
+      {
+            err(0) = 0;
+            if(H1)
+            {
+               *H1 = gtsam::Matrix16::Zero();
+            }
+
+            if(H2)
+            {
+               *H2 = gtsam::Matrix13::Zero();
+            }
+            
+            if(H3)
+            {
+               *H3 = gtsam::Matrix14::Zero();
+            }
+      }
+      else
+      {
+            if(H1) 
+            {
+               *H1 = evaluateH_ti_err(pi, vi, ui)* jac_ti 
+                  + alpha_* evaluateH_vi(pi)* J_r_ri* J_ri ;
+            }
+
+            if(H2)
+            {
+               *H2 = evaluateH_vi_err(pi, vi);
+            }
+
+            if(H3)
+            {
+               H3->setZero();
+               gtsam::Matrix13 J_ai = alpha_* evaluateH_vi(pi)* J_r_ai;
+               H3->block(0, 0, 0, 0) = J_ai* e2;
+            }
+      }
+
+      return err;
+   }
+
    DynamicsFactorTGyro::DynamicsFactorTGyro(Key p_i, Key vel_i, Key input_i, Key p_j, Key vel_j, float dt, double mass, gtsam::Vector3 drag_k, const SharedNoiseModel &model)
           : Base(model, p_i, vel_i, input_i, p_j, vel_j)
           , dt_(dt)
