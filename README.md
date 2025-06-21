@@ -35,7 +35,7 @@ _Affiliation_: Department of Aeronautical and Aviation Engineering, The Hong Kon
 
 ## Updates
 - **Dynamic Obstacle Avoidance**: Integrated **Control Barrier Functions (CBF)** with factors `CBFPdFactor` and `VeCBFPdFactor`.  
-  - Reference: [VeCBFPdFactor Mathematical Formulation.pdf](https://github.com/RoboticsPolyu/jpcm/blob/main/docs/VeCBFPdFactor_Mathematical_Formulation.pdf)  
+  - Reference: [VeCBFPdFactor Mathematical Formulation.pdf](docs/VeCBFPdFactor_Mathematical_Formulation.pdf)  
   - Test Script: `JPCM_TGyro_CBF_Test.cpp`
 
 ## Problem Description
