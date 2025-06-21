@@ -1,3 +1,18 @@
+# Factor Graph-Based MPC Implementation
+
+We have implemented factor graph-based Model Predictive Control (MPC) in real-world experiments. The code is available in the following repository:
+
+[GitHub Repository: RoboticsPolyu/jpcm](https://github.com/RoboticsPolyu/jpcm)
+
+## Contact
+For access to the code or further inquiries, please reach out to me at:  
+**Email**: [peiwen1.yang@connect.polyu.hk](mailto:peiwen1.yang@connect.polyu.hk)
+
+## Note
+Due to time constraints, the repository currently lacks detailed documentation and regular maintenance. I appreciate your understanding and welcome any feedback or contributions to improve it.
+
+Thank you for your interest!
+
 # Tightly Joined Positioning and Control Model for Unmanned Aerial Vehicles Based on Factor Graph Optimization
 
 ## Abstract
@@ -13,6 +28,12 @@ This repository depends on GTSAM, Pangolin, and so on.
 ## Authors
 Peiwen Yang, Weisong Wen*, Member, IEEE, Shiyu Bai, Member, IEEE, and Li-Ta Hsu, Senior Member, IEEE
 
+## Updates
+1. Dynamic Obstacle Avoidance Based on **Control Barrier Functions**
+
+Factor CBFPdFactor and factor VeCBFPdFactor (VeCBFPdFactor Mathematical Formulation.pdf)
+
+Run JPCM_TGyro_CBF_Test.cpp 
 
 ## Problem description
 The safety challenges of intelligent transportation in smart cities (the background figure is from Google Earth).

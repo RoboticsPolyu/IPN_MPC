@@ -119,7 +119,7 @@ int main(void)
     dt = 0.01f; // Model predictive control duration
 
     Quadrotor quadrotor;
-    Quadrotor::State last_state, predicted_state;
+    State last_state, predicted_state;
     std::default_random_engine meas_x_gen;
     std::default_random_engine meas_y_gen;
     std::default_random_engine meas_z_gen;
@@ -139,9 +139,9 @@ int main(void)
     Lidar<Landmarks> lidar(LIDAR_RANGE, LIDAR_RANGE_MIN);
     gtsam::Vector3 vicon_measurement;
 
-    std::vector<Quadrotor::State> measurements;
+    std::vector<State> measurements;
     std::vector<gtsam::Pose3>     lidar_measures;
-    std::vector<Quadrotor::State> opt_trj, state_trj;
+    std::vector<State> opt_trj, state_trj;
 
     for(int traj_idx = 0; traj_idx < SIM_STEPS; traj_idx++)
     {
@@ -182,7 +182,7 @@ int main(void)
         // vicon_measurement = predicted_state.p;
         // gtsam::Vector3 vel_add = predicted_state.v;
 
-        Quadrotor::State m_state;
+        State m_state;
         m_state.p     = vicon_measurement;
         m_state.rot   = predicted_state.rot;
         m_state.v     = vel_add;
@@ -337,7 +337,7 @@ int main(void)
                     //         std::cout << "REF      INPUT: "
                     //                 << circle_generator.inputfm(t_ref).transpose() << std::endl;
                     // }
-                    Quadrotor::State m_state;
+                    State m_state;
                     m_state.p = i_pose.translation();
                     if(ikey < WINDOW_SIZE)
                     {

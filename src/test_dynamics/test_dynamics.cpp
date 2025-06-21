@@ -18,7 +18,7 @@ int main(int argc, char **argv)
     double dt = 0.001;
     QuadrotorSim_SO3::Quadrotor quad;
 
-    QuadrotorSim_SO3::Quadrotor::State state = quad.getState();
+    QuadrotorSim_SO3::State state = quad.getState();
 
     const double m = quad.getMass();
     const double g = quad.getGravity();

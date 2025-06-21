@@ -154,7 +154,7 @@ int main(void)
     dt = 0.01f; // Model predictive control duration
 
     Quadrotor quadrotor;
-    Quadrotor::State predicted_state;
+    State predicted_state;
     std::default_random_engine meas_x_gen;
     std::default_random_engine meas_y_gen;
     std::default_random_engine meas_z_gen;
@@ -308,7 +308,7 @@ int main(void)
         std::cout << "###################### begin optimize ######################" << std::endl;
         Values result = optimizer.optimize();
 
-        std::vector<Quadrotor::State> opt_trj;
+        std::vector<State> opt_trj;
 
         gtsam::Pose3   i_pose;
         gtsam::Vector3 vel;
@@ -353,7 +353,7 @@ int main(void)
                         // std::cout << "REF      INPUT: "
                         //         << circle_generator.inputfm(t0 + ikey * dt).transpose() << std::endl;
                 }
-                Quadrotor::State m_state;
+                State m_state;
                 m_state.p = i_pose.translation();
                 opt_trj.push_back(m_state);
 

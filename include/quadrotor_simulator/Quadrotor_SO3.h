@@ -11,18 +11,9 @@
 #include <Eigen/Core>
 #include <fstream>
 #include <iostream>
-#include <pangolin/var/var.h>
-#include <pangolin/var/varextra.h>
-#include <pangolin/gl/gl.h>
-#include <pangolin/gl/gldraw.h>
-#include <pangolin/display/default_font.h>
-#include <pangolin/display/display.h>
-#include <pangolin/display/view.h>
-#include <pangolin/display/widgets.h>
-#include <pangolin/display/default_font.h>
-#include <pangolin/handler/handler.h>
 #include <vector>
 
+#include "UI.h"
 
 using namespace boost::numeric::odeint;
 using namespace std;
@@ -30,68 +21,18 @@ using namespace UAVFactor;
 
 
 namespace QuadrotorSim_SO3
-{
+{       
     class Quadrotor
     {
     public:
-        using stringUI = std::shared_ptr<pangolin::Var<std::string> >;
         using stateType = boost::array<double, 22>;
-
-        struct State
-        {
-            int64_t         id;
-            double          timestamp;
-
-            Eigen::Vector3d p;
-            Eigen::Vector3d v;
-            gtsam::Rot3     rot;
-            Eigen::Vector3d body_rate;
-
-            double          acc_z;
-            Eigen::Vector3d torque;
-        
-            Eigen::Vector4d thrust_torque;
-            Eigen::Array4d  motor_rpm;
-
-            EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
-        };
-
-        // Define a structure to hold 3D points
-        struct Point3D 
-        {
-            float x, y, z;
-        };
-            
-        // User Interface
-        void displaySetup();
-        
-        void renderHistoryTrj();
-        
-        void renderHistoryOpt(std::vector<State> & trj, boost::optional<gtsam::Vector3&> err = boost::none,  
-                                                        boost::optional<Features&> features = boost::none, 
-                                                        boost::optional<gtsam::Vector3&> vicon_measurement = boost::none, 
-                                                        boost::optional<gtsam::Vector3 &> rot_err = boost::none, 
-                                                        boost::optional<std::vector<State> &> state_trj = boost::none);
-
-        void drawQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot);
-
-        void drawCircle(gtsam::Vector3 color, float r, gtsam::Vector3 p, gtsam::Rot3 rot);
-
-        void drawLine(gtsam::Vector3 color, gtsam::Vector3 begin, gtsam::Vector3 end);
-
-        void drawFrame(gtsam::Vector3 p, gtsam::Rot3 rot);
-        
-        void drawLidarCloud(Features & features);
-        
-        void renderPanel();
-
        // Dynamics related function
 
         Quadrotor();
 
-        const Quadrotor::State &getState(void) const;
+        const State &getState(void) const;
 
-        void setState(const Quadrotor::State &state);
+        void setState(const State &state);
 
         void setStatePos(const Eigen::Vector3d &Pos);
 
@@ -146,22 +87,45 @@ namespace QuadrotorSim_SO3
         Eigen::Vector4d InvCumputeRotorsVel(Eigen::Vector4d rotor_speed);
 
         Eigen::Vector3d getAcc() const;
+        
+        void renderHistoryTrj()
+        {
+            ui_ptr->renderHistoryTrj();
+        }
 
-        gtsam::Vector3 getObs1();
+        void renderHistoryOpt(std::vector<State> & pred_trj, boost::optional<gtsam::Vector3&> err = boost::none,  
+                                                        boost::optional<Features&> features = boost::none, 
+                                                        boost::optional<gtsam::Vector3&> vicon_measurement = boost::none, 
+                                                        boost::optional<gtsam::Vector3 &> rot_err = boost::none, 
+                                                        boost::optional<std::vector<State> &> ref_trj = boost::none,
+                                                        boost::optional<float &> opt_cost = boost::none);
+        gtsam::Vector3 getObs1()
+        {
+            return ui_ptr->getObs1();
+        }
+        
+        std::vector<Obstacle> getObsN()
+        {
+            for(uint8_t i = 0; i < obs_num_; i++)
+            {
+                obstacles_[i] = getObsbyEllipsev(i);
+            }
+            return obstacles_;
+        }
 
     private:
         void printCurState();
 
         // Compute Control Allocation's effectiveness matrix
-        Eigen::Matrix4d ComputeEffectivenessMatrix();
-
-        std::vector<Point3D> generateSpherePoints(float radius, int numTheta, int numPhi);
-        std::vector<Point3D> generatePointsOutsideCylinder(int numTheta, float radius, float height);
-        Point3D getEllipsePoint(double t, double v, double a, double b, double z);
-
+        Eigen::Matrix4d ComputeEffectivenessMatrix(); 
+        
         // Control Allocation's effectiveness matrix
         Eigen::Matrix4d effectiveness_;
 
+        gtsam::Vector3 getObsbyEllipse(uint8_t index);
+        
+        Obstacle getObsbyEllipsev(uint8_t index);         
+        
         double g_; // gravity
         double mass_;
         Eigen::Matrix3d J_; // Inertia
@@ -176,58 +140,30 @@ namespace QuadrotorSim_SO3
         
         Eigen::Vector3d drag_force_params_;
 
-        Quadrotor::State state_, last_state_;
-        std::vector<Quadrotor::State> trj_;
+        State state_;
+        
+        float clock_ = 0.;
 
         Eigen::Vector3d acc_;
 
         Eigen::Array4d  input_;
         Eigen::Vector3d external_force_;
-        Eigen::Vector3d external_moment_;
+        Eigen::Vector3d external_torque_;
         gtsam::Vector4  thrust_torque_;
 
-        pangolin::View d_cam;
-        std::shared_ptr<pangolin::OpenGlRenderState> s_cam;
-        stringUI dis_force_;
-        stringUI dis_M1_;
-        stringUI dis_M2_;
-        stringUI dis_M3_;
-        stringUI dis_Quad_x_;
-        stringUI dis_Quad_y_;
-        stringUI dis_Quad_z_;
-        stringUI dis_Quad_velx_;
-        stringUI dis_Quad_vely_;
-        stringUI dis_Quad_velz_;
-        stringUI dis_Quad_Rx_;
-        stringUI dis_Quad_Ry_;
-        stringUI dis_Quad_Rz_;
-        stringUI dis_AVE_ERR_;
-        stringUI dis_timestamp_;
-        stringUI dis_rotor_[4];
-
-        std::vector<gtsam::Vector3> errs_;
-        const uint64_t ERRS_LENS = 1;
-
-        float axis_dist_;
-        float propeller_dist_;
-        const uint64_t HISTORY_TRJ_LENS = 1000;
-
         std::default_random_engine generator_;
-        std::ofstream record_info_;
 
         // force noise
-        double THRUST_NOISE_MEAN = 0.0;
-        double THRUST_NOISE_COV  = 0.0;
+        double THRUST_NOISE_MEAN  = 0.0;
+        double THRUST_NOISE_COV   = 0.0;
         double ANGULAR_SPEED_MEAN = 0.0;
-        double ANGULAR_SPEED_COV = 0.0;
+        double ANGULAR_SPEED_COV  = 0.0;
 
         Geometry geometry_;
+        std::vector<Obstacle> obstacles_;
 
-        std::vector<Point3D> spherePoints_;
-        Point3D              sphereCenter_;
-        std::vector<Point3D> cylinderPoints_;
-
-        float clock = 0;
+        uint16_t obs_num_ = 0;
+        std::shared_ptr<UI> ui_ptr;
     };
 }
 #endif

@@ -8,60 +8,39 @@
 namespace QuadrotorSim_SO3
 {
 
-    Quadrotor::Point3D Quadrotor::getEllipsePoint(double t, double v, double a, double b, double z) 
-    { 
-        double angle = v * t / sqrt(a * a + b * b); 
-        double x = a * cos(angle); 
-        double y = b * sin(angle); 
-
-        // rotating
-        double theta = M_PI / 4;
-        double rotatedX = x * cos(theta) - y * sin(theta); 
-        double rotatedY = x * sin(theta) + y * cos(theta);
-
-        Point3D point3d;
-        point3d.x = rotatedX;
-        point3d.y = rotatedY;
-        point3d.z = z;
-        return point3d;
-    }
-
     Quadrotor::Quadrotor(void)
     {
-        YAML::Node quad_config = YAML::LoadFile("../config/quadrotor.yaml");  
-        g_                   = quad_config["g"].as<double>();
-        mass_                = quad_config["mass"].as<double>();
-        kf_                  = quad_config["k_f"].as<double>(); //  xy-moment k-gain
-        km_                  = quad_config["k_m"].as<double>(); // z-moment k-gain
-        motor_time_constant_ = quad_config["time_constant"].as<double>();
+        // Existing constructor code
+        YAML::Node config = YAML::LoadFile("../config/quadrotor_TGyro.yaml");  
+        g_ = config["g"].as<double>();
+        mass_ = config["mass"].as<double>();
+        kf_ = config["k_f"].as<double>();
+        km_ = config["k_m"].as<double>();
+        motor_time_constant_ = config["time_constant"].as<double>();
 
-        double Ixx = quad_config["Ixx"].as<double>();
-        double Iyy = quad_config["Iyy"].as<double>();
-        double Izz = quad_config["Izz"].as<double>();
+        double Ixx = config["Ixx"].as<double>();
+        double Iyy = config["Iyy"].as<double>();
+        double Izz = config["Izz"].as<double>();
         J_ = Eigen::Vector3d(Ixx, Iyy, Izz).asDiagonal();
 
-        prop_radius_         = 0.062;
-        arm_length_          = 0.26;
-        min_rpm_             = 1200;
-        max_rpm_             = 35000;
-        esc_factor_          = 1;
+        prop_radius_ = 0.062;
+        arm_length_  = 0.26;
+        min_rpm_     = 1200;
+        max_rpm_     = 35000;
+        esc_factor_  = 1;
 
-        state_.p         = Eigen::Vector3d::Zero();     // position
-        state_.v         = Eigen::Vector3d::Zero();     // velocity
-        state_.rot       = gtsam::Rot3::identity();   // altitude
-        state_.body_rate = Eigen::Vector3d::Zero(); // angular velocity
+        state_.p = Eigen::Vector3d::Zero();
+        state_.v = Eigen::Vector3d::Zero();
+        state_.rot = gtsam::Rot3::identity();
+        state_.body_rate = Eigen::Vector3d::Zero();
         state_.motor_rpm = Eigen::Array4d::Zero();
 
-        last_state_      = state_;
-        input_           = Eigen::Array4d::Zero();
+        input_ = Eigen::Array4d::Zero();
 
         external_force_.setZero();
-        external_moment_.setZero();
-        displaySetup();
+        external_torque_.setZero();
 
-        record_info_.open("../data/record_info.txt");
-
-        YAML::Node config    = YAML::LoadFile("../config/quadrotor.yaml");
+        // YAML::Node config   = YAML::LoadFile("../config/quadrotor_TGyro.yaml");
         THRUST_NOISE_MEAN   = config["THRUST_NOISE_MEAN"].as<double>();
         THRUST_NOISE_COV    = config["THRUST_NOISE_COV"].as<double>();
         ANGULAR_SPEED_MEAN  = config["ANGULAR_SPEED_MEAN"].as<double>();
@@ -69,23 +48,14 @@ namespace QuadrotorSim_SO3
         double DRAG_FORCE_X = config["DRAG_FORCE_X"].as<double>();
         double DRAG_FORCE_Y = config["DRAG_FORCE_Y"].as<double>();
         double DRAG_FORCE_Z = config["DRAG_FORCE_Z"].as<double>();
+        float trj_len_max   = config["TRJ_LEN_MAX"].as<double>();
+        obs_num_            = config["OBS_NUM"].as<uint16_t>();
+        double OBS1_RADIUS  = config["OBS1_RADIUS"].as<double>();
+        // double SAFE_D       = config["SAFE_D"].as<double>();
         drag_force_params_  = Eigen::Vector3d(DRAG_FORCE_X, DRAG_FORCE_Y, DRAG_FORCE_Z);
+        obstacles_.resize(obs_num_);
 
-        float radius = 0.20f;  // Radius of the sphere
-        int numTheta = 100;   // Number of divisions along the azimuthal angle
-        int numPhi   = 100;     // Number of divisions along the polar angle
-
-        spherePoints_ = generateSpherePoints(radius, numTheta, numPhi);
-        int numPoints = 200;
-        radius = 0.05;
-        float height = 0.50;
-        cylinderPoints_ = generatePointsOutsideCylinder(numPoints, radius, height);
-
-        sphereCenter_.x = 0;
-        sphereCenter_.y = 0;
-        sphereCenter_.z = 0;
-
-        clock = 0;
+        ui_ptr = std::make_shared<UI>(trj_len_max, obs_num_, OBS1_RADIUS);
     }
 
     void Quadrotor::step(double dt)
@@ -112,13 +82,12 @@ namespace QuadrotorSim_SO3
 
         Eigen::Vector3d drag_force = - state_.rot.matrix() * Eigen::Matrix3d(drag_force_params_.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
         Eigen::Vector3d v_dot      = - Eigen::Vector3d(0, 0, g_) + state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ 
-                                    + external_force_ / mass_ + drag_force;
+                                     + external_force_ / mass_ + drag_force;
 
         Eigen::Vector3d p_dot = state_.v;
 
         // J* body_rate_dot = torque - J.cross(J* body_rate)
-        Eigen::Vector3d body_rate_dot = J_.inverse() * (torque - state_.body_rate.cross(J_ * state_.body_rate) + external_moment_);
-
+        Eigen::Vector3d body_rate_dot = J_.inverse() * (torque - state_.body_rate.cross(J_ * state_.body_rate) + external_torque_);
 
         // Predict state
         predicted_state_.p         = state_.p + p_dot * dt;                                                   
@@ -183,7 +152,7 @@ namespace QuadrotorSim_SO3
         Eigen::Matrix3d r_dot = est_state.rot.matrix() * gtsam::skewSymmetric(est_state.body_rate);
 
         // J* body_rate_dot = moment - J.cross(J* body_rate)
-        Eigen::Vector3d body_rate_dot = J_.inverse() * (moment - est_state.body_rate.cross(J_ * est_state.body_rate) + external_moment_);
+        Eigen::Vector3d body_rate_dot = J_.inverse() * (moment - est_state.body_rate.cross(J_ * est_state.body_rate) + external_torque_);
 
         for (int i = 0; i < 3; i++)
         {
@@ -331,11 +300,11 @@ namespace QuadrotorSim_SO3
         Color::Modifier def(Color::FG_DEFAULT);
         Color::Modifier green(Color::FG_GREEN);
         std::cout << red;
-        std::cout << "Cur Position: " << state_.p.transpose() << std::endl;
-        std::cout << "Cur Rotation: " << Rot3::Logmap(state_.rot).transpose() << std::endl;
-        std::cout << "Cur Velocity: " << state_.v.transpose() << std::endl;
-        std::cout << "Cur    body_rate: " << state_.body_rate.transpose() << std::endl;
-        std::cout << "Cur ForceMom: " << state_.thrust_torque.transpose() << std::endl;
+        std::cout << "Cur Position: "  << state_.p.transpose() << std::endl;
+        std::cout << "Cur Rotation: "  << Rot3::Logmap(state_.rot).transpose() << std::endl;
+        std::cout << "Cur Velocity: "  << state_.v.transpose() << std::endl;
+        std::cout << "Cur body_rate: " << state_.body_rate.transpose() << std::endl;
+        std::cout << "Cur ForceMom: "  << state_.thrust_torque.transpose() << std::endl;
         std::cout << def;
     }
     void Quadrotor::setInput(gtsam::Vector4 thrust_torque)
@@ -365,11 +334,11 @@ namespace QuadrotorSim_SO3
         state_.motor_rpm << u1, u2, u3, u4;
     }
 
-    const Quadrotor::State &Quadrotor::getState(void) const
+    const State &Quadrotor::getState(void) const
     {
         return state_;
     }
-    void Quadrotor::setState(const Quadrotor::State &state)
+    void Quadrotor::setState(const State &state)
     {
         state_.p             = state.p;
         state_.v             = state.v;
@@ -502,11 +471,11 @@ namespace QuadrotorSim_SO3
 
     const Eigen::Vector3d &Quadrotor::getExternalMoment(void) const
     {
-        return external_moment_;
+        return external_torque_;
     }
     void Quadrotor::setExternalMoment(const Eigen::Vector3d &moment)
     {
-        external_moment_ = moment;
+        external_torque_ = moment;
     }
 
     double Quadrotor::getMaxRPM(void) const
@@ -541,389 +510,87 @@ namespace QuadrotorSim_SO3
     {
         return acc_;
     }
-
-    void Quadrotor::displaySetup()
+   
+    void Quadrotor::renderHistoryOpt(std::vector<State> & pred_trj, boost::optional<gtsam::Vector3&> err,  
+                                                                    boost::optional<Features&> features, 
+                                                                    boost::optional<gtsam::Vector3&> vicon_measurement, 
+                                                                    boost::optional<gtsam::Vector3 &> rot_err, 
+                                                                    boost::optional<std::vector<State> &> ref_trj,
+                                                                    boost::optional<float &> opt_cost)
     {
-        axis_dist_ = 0.30;
-        propeller_dist_ = 0.10;
-
-        pangolin::CreateWindowAndBind("Model Predictive Control based on FGO", 1600, 1600);
-
-        // Define Camera Render Object (for view / scene browsing)
-        s_cam = std::make_shared<pangolin::OpenGlRenderState>(
-            pangolin::ProjectionMatrix(1600, 1600, 800, 800, 800, 800, 0.1, 1000),
-            pangolin::ModelViewLookAt(0, 0.5, 1, 0, 0, 0, 0.0, -1.0, 0.0));
-
-        // Choose a sensible left UI Panel width based on the width of 20
-        // charectors from the default font.
-        const int UI_WIDTH = 20 * pangolin::default_font().MaxWidth();
-
-        d_cam = pangolin::CreateDisplay()
-                    .SetBounds(0.0, 1.0, pangolin::Attach::Pix(UI_WIDTH), 1.0, 640.0f / 480.0f)
-                    .SetHandler(new pangolin::Handler3D(*s_cam));
-
-        pangolin::CreatePanel("ui")
-            .SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(UI_WIDTH));
-
-        dis_force_     = std::make_shared<pangolin::Var<std::string>>("ui.Force(N)", "Force");
-        dis_M1_        = std::make_shared<pangolin::Var<std::string>>("ui.M1(N*m)", "M1");
-        dis_M2_        = std::make_shared<pangolin::Var<std::string>>("ui.M2(N*m)", "M2");
-        dis_M3_        = std::make_shared<pangolin::Var<std::string>>("ui.M3(N*m)", "M3");
-        dis_Quad_x_    = std::make_shared<pangolin::Var<std::string>>("ui.UAVx(m)", "UAVx");
-        dis_Quad_y_    = std::make_shared<pangolin::Var<std::string>>("ui.UAVy(m)", "UAVy");
-        dis_Quad_z_    = std::make_shared<pangolin::Var<std::string>>("ui.UAVz(m)", "UAVz");
-        dis_Quad_velx_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vx(m/s)", "UAV_vx");
-        dis_Quad_vely_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vy(m/s)", "UAV_vy");
-        dis_Quad_velz_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vz(m/s)", "UAV_vz");
-        dis_AVE_ERR_   = std::make_shared<pangolin::Var<std::string>>("ui.AVE_ERR(m)", "AVE_ERR");
-        dis_timestamp_ = std::make_shared<pangolin::Var<std::string>>("ui.TIMESTAMP(s)", "TIMESTAMP");
-        dis_rotor_[0]  = std::make_shared<pangolin::Var<std::string>>("ui.ROTOR1(RPM)", "ROTOR1");
-        dis_rotor_[1]  = std::make_shared<pangolin::Var<std::string>>("ui.ROTOR2(RPM)", "ROTOR2");
-        dis_rotor_[2]  = std::make_shared<pangolin::Var<std::string>>("ui.ROTOR3(RPM)", "ROTOR3");
-        dis_rotor_[3]  = std::make_shared<pangolin::Var<std::string>>("ui.ROTOR4(RPM)", "ROTOR4");
+        clock_ = clock_ + 0.01f;
+        ui_ptr->renderHistoryOpt(state_, pred_trj, err, features, vicon_measurement, rot_err, ref_trj, opt_cost, obstacles_);
+        // unsigned int microsecond = 1000000;
+        // usleep(0.1 * microsecond);
     }
 
-    void Quadrotor::drawQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot)
-    {
+
+    gtsam::Vector3 Quadrotor::getObsbyEllipse(uint8_t index) 
+    { 
+        gtsam::Vector3 point3d{0,0,0};
+        if(index >= obs_num_)
+        {
+            return point3d;
+        }
+        float a  = 1.10;
+        float b  = 0.50;
+        float v  = 0.40;
+        float z  = 1.00;
+
+        // clock_ = 10.0; // static obstacles
+
+        double t = clock_ + index * 2.0 * M_PI / obs_num_ * sqrt(a * a + b * b) / v; // Spread obstacles evenly over one cycle
+
+        double angle = v * t / sqrt(a * a + b * b); 
+        double x = a * cos(angle); 
+        double y = b * sin(angle); 
+
+        // // rotating
+        // double theta = M_PI / 4;
+        // double rotatedX = x * cos(theta) - y * sin(theta); 
+        // double rotatedY = x * sin(theta) + y * cos(theta);
+
+        point3d[0] = x - a/2;
+        point3d[1] = y - b/2;
+        point3d[2] = z;
+        return point3d;
+    }
+
+    Obstacle Quadrotor::getObsbyEllipsev(uint8_t index) 
+    { 
+        Obstacle obstacle;
+        if(index >= obs_num_)
+        {
+            return obstacle; // returns default obstacle (zero position and velocity)
+        }
         
-        gtsam::Vector3 begin;
-        gtsam::Vector3 end;
-        gtsam::Vector3 blue(0,216,230);
-        glPointSize(2.0);
-        begin = p;
-        end = rot.rotate(gtsam::Vector3(axis_dist_ / 2 / 1.414, axis_dist_ / 2 / 1.414, 0)) + p;
-        drawLine(blue, begin, end);
-        end = rot.rotate(gtsam::Vector3(-axis_dist_ / 2 / 1.414, -axis_dist_ / 2 / 1.414, 0)) + p;
-        drawLine(blue, begin, end);
-        end = rot.rotate(gtsam::Vector3(-axis_dist_ / 2 / 1.414, axis_dist_ / 2 / 1.414, 0)) + p;
-        drawLine(blue, begin, end);
-        end = rot.rotate(gtsam::Vector3(axis_dist_ / 2 / 1.414, -axis_dist_ / 2 / 1.414, 0)) + p;
-        drawLine(blue, begin, end);
-        drawFrame(p, rot);
-
-        glColor3f(0, 0, 0);
-        glPointSize(3.0);
-        glBegin(GL_POINTS);
-        for (int i = 0; i < 360; i++)
-        {
-            float x = sin((float)i / 180 * M_PI) * axis_dist_ / 10 + axis_dist_ / 2 / 1.414;
-            float y = cos((float)i / 180 * M_PI) * axis_dist_ / 10 + axis_dist_ / 2 / 1.414;
-            gtsam::Vector3 point = rot.rotate(gtsam::Vector3(x, y, 0)) + begin;
-            glVertex3f(point[0], point[1], point[2]);
-        }
-        for (int i = 0; i < 360; i++)
-        {
-            float x = sin((float)i / 180 * M_PI) * axis_dist_ / 10 + -axis_dist_ / 2 / 1.414;
-            float y = cos((float)i / 180 * M_PI) * axis_dist_ / 10 + -axis_dist_ / 2 / 1.414;
-            gtsam::Vector3 point = rot.rotate(gtsam::Vector3(x, y, 0)) + begin;
-            glVertex3f(point[0], point[1], point[2]);
-        }
-        for (int i = 0; i < 360; i++)
-        {
-            float x = sin((float)i / 180 * M_PI) * axis_dist_ / 10 + -axis_dist_ / 2 / 1.414;
-            float y = cos((float)i / 180 * M_PI) * axis_dist_ / 10 + axis_dist_ / 2 / 1.414;
-            gtsam::Vector3 point = rot.rotate(gtsam::Vector3(x, y, 0)) + begin;
-            glVertex3f(point[0], point[1], point[2]);
-        }
-        for (int i = 0; i < 360; i++)
-        {
-            float x = sin((float)i / 180 * M_PI) * axis_dist_ / 10 + axis_dist_ / 2 / 1.414;
-            float y = cos((float)i / 180 * M_PI) * axis_dist_ / 10 + -axis_dist_ / 2 / 1.414;
-            gtsam::Vector3 point = rot.rotate(gtsam::Vector3(x, y, 0)) + begin;
-            glVertex3f(point[0], point[1], point[2]);
-        }
-        glEnd();
-
-        drawCircle(gtsam::Vector3(0, 0, 0), prop_radius_, gtsam::Vector3(axis_dist_ / 2 / 1.414, axis_dist_ / 2 / 1.414, 0),
-                gtsam::Rot3::identity());
-        drawCircle(gtsam::Vector3(0, 0, 0), prop_radius_, gtsam::Vector3(-axis_dist_ / 2 / 1.414, -axis_dist_ / 2 / 1.414, 0),
-                gtsam::Rot3::identity());
-        drawCircle(gtsam::Vector3(0, 0, 0), prop_radius_, gtsam::Vector3(-axis_dist_ / 2 / 1.414, axis_dist_ / 2 / 1.414, 0),
-                gtsam::Rot3::identity());
-        drawCircle(gtsam::Vector3(0, 0, 0), prop_radius_, gtsam::Vector3(axis_dist_ / 2 / 1.414, -axis_dist_ / 2 / 1.414, 0),
-                gtsam::Rot3::identity());
-            
-    }
-
-    void Quadrotor::drawCircle(gtsam::Vector3 color, float r, gtsam::Vector3 p, gtsam::Rot3 rot)
-    {
-    }
-
-    void Quadrotor::drawLine(gtsam::Vector3 color, gtsam::Vector3 begin, gtsam::Vector3 end)
-    {
-        glBegin(GL_LINES);
-        glColor3f(color(0), color(1), color(2));
-        glVertex3d(begin(0), begin(1), begin(2));
-        glVertex3d(end(0), end(1), end(2));
-        glEnd();
-    }
-
-    void Quadrotor::drawLidarCloud(Features &features)
-    {
-        glColor3f(0.1, 0.2, 0.7);
-        glPointSize(5.0);
-        glBegin(GL_POINTS);
-
-        for (int idx = 0; idx < features.size(); idx++)
-        {
-            gtsam::Vector3 l_body_body(features[idx].x, features[idx].y, features[idx].z);
-            gtsam::Vector3 l_body_w = state_.rot.rotate(l_body_body) + state_.p;
-            glVertex3f(l_body_w.x(), l_body_w.y(), l_body_w.z());
-        }
-
-        glEnd();
-    }
-
-    void Quadrotor::drawFrame(gtsam::Vector3 p, gtsam::Rot3 rot)
-    {
-        gtsam::Vector3 begin = p;
-        gtsam::Vector3 end;
-        end = rot.rotate(gtsam::Vector3(0.1, 0, 0)) + begin;
-        drawLine(gtsam::Vector3(5, 0, 0), begin, end);
-        end = rot.rotate(gtsam::Vector3(0, 0.1, 0)) + begin;
-        drawLine(gtsam::Vector3(0, 5, 0), begin, end);
-        end = rot.rotate(gtsam::Vector3(0, 0, 0.1)) + begin;
-        drawLine(gtsam::Vector3(0, 0, 5), begin, end);
-    }
-
-    void Quadrotor::renderHistoryTrj()
-    {
-        if (!pangolin::ShouldQuit())
-        {
-            // Clear screen and activate view to renderHistoryTrj into
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            trj_.push_back(state_);
-
-            d_cam.Activate(*s_cam);
-            glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-            glLineWidth(2);
-            drawFrame(gtsam::Vector3(0, 0, 0), gtsam::Rot3::identity());
-            for (int i = 0; i < trj_.size() - 1; i++)
-            {
-                drawLine(gtsam::Vector3(0.5, 0, 0.5), trj_[i].p, trj_[i + 1].p);
-            }
-            drawQuadrotor(state_.p, state_.rot);
-
-            last_state_.p = state_.p;
-
-            renderPanel();
-
-            // Swap frames and Process Events
-            pangolin::FinishFrame();
-            usleep(100); // 0.1ms
-        }
-    }
-
-    // Function to generate points on the surface of a sphere
-    std::vector<Quadrotor::Point3D> Quadrotor::generateSpherePoints(float radius, int numTheta, int numPhi) 
-    {
-        std::vector<Point3D> points;
-        for (int i = 0; i < numTheta; ++i) {
-            float theta = 2.0f * M_PI * i / numTheta;
-            for (int j = 0; j < numPhi; ++j) {
-                float phi = M_PI * j / numPhi;
-                Point3D point;
-                point.x = radius * std::sin(phi) * std::cos(theta);
-                point.y = radius * std::sin(phi) * std::sin(theta);
-                point.z = radius * std::cos(phi);
-                points.push_back(point);
-            }
-        }
-        return points;
-    }
-
-    std::vector<Quadrotor::Point3D> Quadrotor::generatePointsOutsideCylinder(int numTheta, float radius, float height) 
-    {
-        std::vector<Point3D> points;
-        std::srand(std::time(0)); // Seed for random number generation
-
-        int height_num = 1000;
-        for(int h = 0; h < height_num; h++)
-        {
-            for (int i = 0; i < numTheta; ++i) {
-                float theta = 2.0f * M_PI * i / numTheta;
-                Point3D point;
-                point.x = radius * std::cos(theta);
-                point.y = radius * std::sin(theta);
-                point.z = height / height_num * h;
-                points.push_back(point);
-            }
-        }
-
-        return points;
-    }
-    gtsam::Vector3 Quadrotor::getObs1()
-    {
-        return gtsam::Vector3(sphereCenter_.x, sphereCenter_.y, sphereCenter_.z);
-    }
-
-    void Quadrotor::renderHistoryOpt(std::vector<State> &trj, boost::optional<gtsam::Vector3 &> err, boost::optional<Features &> features, 
-        boost::optional<gtsam::Vector3&> vicon_measurement, boost::optional<gtsam::Vector3 &> rot_err, boost::optional<std::vector<State> &> state_trj)
-    {
-        clock = clock + 0.01;
-        gtsam::Vector3 obs_v(0.20, 0.20, 0); // m/s
-
-        gtsam::Vector3 error = *err;
+        // Parameters
+        float a = 1.10;  // semi-major axis
+        float b = 0.50;  // semi-minor axis
+        float v = 1.40;  // velocity parameter
+        float z = 1.00;  // fixed height
         
-        if(rot_err)
-        {
-            gtsam::Vector3 rot_error = *rot_err;
-            record_info_ << state_.p[0] << " " << state_.p[1] << " " << state_.p[2] << " " << error[0] << " " << error[1] << " " << error[2] << " " << state_.thrust_torque[0] << " " 
-            << state_.thrust_torque[1] << " " << state_.thrust_torque[2] << " " << state_.thrust_torque[3] << " " << 
-            rot_error[0] << " " << rot_error[1] << " " << rot_error[2] << std::endl;
-        }
-        else
-        {
-            record_info_ << state_.p[0] << " " << state_.p[1] << " " << state_.p[2] << " " << error[0] << " " << error[1] << " " << error[2] << " " << state_.thrust_torque[0] << " " << state_.thrust_torque[1] << " " << state_.thrust_torque[2] << " " << state_.thrust_torque[3] << std::endl;
-        }
+        // Calculate time parameter with even spacing
+        double t = clock_ + index * 2.0 * M_PI / obs_num_ * sqrt(a * a + b * b) / v;
+        
+        // Position calculation
+        double angle = v * t / sqrt(a * a + b * b); 
+        double x = a * cos(angle); 
+        double y = b * sin(angle); 
+        
+        // Velocity calculation (derivative of position)
+        double dx = -a * sin(angle) * (v / sqrt(a * a + b * b));
+        double dy = b * cos(angle) * (v / sqrt(a * a + b * b));
+        
+        // Set obstacle properties
+        obstacle.obs_pos[0] = x - a/2;
+        obstacle.obs_pos[1] = y - b/2;
+        obstacle.obs_pos[2] = z;
+        obstacle.obs_vel[0] = dx;
+        obstacle.obs_vel[1] = dy;
+        obstacle.obs_vel[2] = 0;  // no vertical movement
+        obstacle.obs_type = ObsType::sphere;
 
-        if (!pangolin::ShouldQuit())
-        {
-            // Clear screen and activate view to renderHistoryTrj into
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            if (trj_.size() > HISTORY_TRJ_LENS)
-            {
-                trj_.erase(trj_.begin());
-            }
-
-            trj_.push_back(state_);
-            d_cam.Activate(*s_cam);
-            
-            sphereCenter_ = getEllipsePoint(clock, 0.20, 0.5, 0.2, 1);
-            sphereCenter_.x = sphereCenter_.x + 1.5;
-
-            // for(int i = 0; i < cylinderPoints_.size(); i++)
-            // {
-            //     glColor3f(.3, 0.5, 0.5);
-            //     glPointSize(2.0);
-            //     glBegin(GL_POINTS);
-
-            //     glVertex3f(cylinderPoints_[i].x + 0, cylinderPoints_[i].y - 1.50, cylinderPoints_[i].z + 0.75);
-                
-            //     glEnd();
-            // }
-
-            glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-            glLineWidth(3);
-            drawFrame(gtsam::Vector3(0, 0, 0), gtsam::Rot3::identity());
-            for (int i = 0; i < trj_.size() - 1; i++)
-            
-            {
-                drawLine(gtsam::Vector3(0.5, 0, 0.5), trj_[i].p, trj_[i + 1].p);
-            }
-
-            glLineWidth(3);
-            for (int i = 0; i < trj.size() - 1; i++)
-            {
-                drawLine(gtsam::Vector3(1.0, 0, 0), trj[i].p, trj[i + 1].p);
-            }
-
-            glLineWidth(2);
-            if(state_trj)
-            {
-                int i;
-                for (i = 0; i < (*state_trj).size() - 1; i++)
-                {
-                    drawLine(gtsam::Vector3(0.4f, 0.2f, 0.6f), (*state_trj)[i].p, (*state_trj)[i + 1].p);
-                }
-                drawLine(gtsam::Vector3(0.5f, 0.7f, 0.9f), (*state_trj)[i].p, trj[0].p);
-            }
-
-            drawQuadrotor(state_.p, state_.rot);
-
-            last_state_.p = state_.p;
-
-            if (errs_.size() >= ERRS_LENS)
-            {
-                errs_.erase(errs_.begin());
-            }
-            errs_.push_back(error);
-
-            Features f = *features;
-            drawLidarCloud(f);
-
-            if(vicon_measurement)
-            {
-                glColor3f(0.6, 0.2, 0.5);
-                glPointSize(10.0);
-                glBegin(GL_POINTS);
-                glVertex3f(vicon_measurement->x(), vicon_measurement->y(), vicon_measurement->z());
-                glEnd();
-                
-            }
-            
-            for(uint i = 0; i < 314; i++)
-            {
-                glColor3f(0.3, 0.1, 0.8);
-                glPointSize(5.0);
-                glBegin(GL_POINTS);
-
-                glVertex3f(1.5*sin(float(i)/ 314.0f * 6.28), 1.5*cos(float(i)/ 314.0f * 6.28), 1);
-                
-                glEnd();
-            }
-            
-            for(int i = 0; i < spherePoints_.size(); i++)
-            {
-                glColor3f(1.0, 0., 0.);
-                glPointSize(2.0);
-                glBegin(GL_POINTS);
-                glVertex3f(spherePoints_[i].x + sphereCenter_.x, spherePoints_[i].y + sphereCenter_.y, 
-                    spherePoints_[i].z + sphereCenter_.z);
-
-                glEnd();
-            }
-
-            renderPanel();
-
-            // Swap frames and Process Events
-            pangolin::FinishFrame();
-            usleep(1000);
-        }
+        return obstacle;
     }
-
-    void Quadrotor::renderPanel()
-    {
-        std::string temp_str = std::to_string(state_.thrust_torque[0]);
-        *dis_force_ = temp_str;
-        std::stringstream ss;
-        ss << std::setprecision(15) << state_.thrust_torque[1];
-        *dis_M1_ = ss.str();
-        ss << std::setprecision(15) << state_.thrust_torque[2];
-        *dis_M2_ = ss.str();
-        ss << std::setprecision(15) << state_.thrust_torque[3];
-        *dis_M3_ = ss.str();
-        temp_str = std::to_string(state_.p[0]);
-        *dis_Quad_x_ = temp_str;
-        temp_str = std::to_string(state_.p[1]);
-        *dis_Quad_y_ = temp_str;
-        temp_str = std::to_string(state_.p[2]);
-        *dis_Quad_z_ = temp_str;
-        temp_str = std::to_string(state_.v[0]);
-        *dis_Quad_velx_ = temp_str;
-        temp_str = std::to_string(state_.v[1]);
-        *dis_Quad_vely_ = temp_str;
-        temp_str = std::to_string(state_.v[2]);
-        *dis_Quad_velz_ = temp_str;
-        temp_str = std::to_string(state_.timestamp);
-        *dis_timestamp_ = temp_str;
-        temp_str = std::to_string(input_[0]);
-        *dis_rotor_[0] = temp_str;
-        temp_str = std::to_string(input_[1]);
-        *dis_rotor_[1] = temp_str;
-        temp_str = std::to_string(input_[2]);
-        *dis_rotor_[2] = temp_str;
-        temp_str = std::to_string(input_[3]);
-        *dis_rotor_[3] = temp_str;
-
-        double err_sum = 0;
-        for (uint j = 0; j < errs_.size(); j++)
-        {
-            err_sum += errs_[j].transpose() * errs_[j];
-        }
-        double ave_err = std::sqrt(err_sum / errs_.size());
-        temp_str = std::to_string(ave_err);
-        *dis_AVE_ERR_ = temp_str;
-    }
-
 }

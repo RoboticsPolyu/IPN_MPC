@@ -29,6 +29,8 @@ OME_MEAS_COV:   0.001 # 0.059 deg/s
 DRAG_FORCE_X:   -0.20
 DRAG_FORCE_Y:   -0.23
 DRAG_FORCE_Z:   -0.30
+TRJ_LEN_MAX:     1.0
+OBS_NUM:         10
 
 #Driver delay (s)
 DRIVER_DELAT:    0.05

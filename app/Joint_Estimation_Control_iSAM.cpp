@@ -57,7 +57,7 @@ int main(void)
     Color::Modifier def(Color::FG_DEFAULT);
     Color::Modifier green(Color::FG_GREEN);
 
-    Quadrotor::State predicted_state;
+    State predicted_state;
     
     NonlinearFactorGraph newFactors;
     Values newValues;
@@ -161,7 +161,7 @@ int main(void)
         Values result = isam.calculateEstimate();
         result.print("Current estimate: ");
 
-        std::vector<Quadrotor::State> opt_trj;
+        std::vector<State> opt_trj;
         gtsam::Pose3   i_pose;
         gtsam::Vector3 vel;
         gtsam::Vector3 omega;
@@ -204,7 +204,7 @@ int main(void)
                     std::cout << "REF_INPUT: \n"
                             << circle_generator.inputfm(t0 + ikey * dt).transpose() << std::endl;
             }
-            Quadrotor::State m_state;
+            State m_state;
             m_state.p = i_pose.translation();
             opt_trj.push_back(m_state);
 

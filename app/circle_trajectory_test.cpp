@@ -33,8 +33,8 @@ int main(void)
     DynamicsFactorTm dynamics_factor(X(0), V(0), S(0), U(0), X(1), V(1), S(1), 0.1f, dynamics_noise);
 
     Quadrotor quad;
-    Quadrotor::State state_0;
-    Quadrotor::State state_1, predicted_state;
+    State state_0;
+    State state_1, predicted_state;
     
     dt = 0.01;
     double t0 = 1.0; 
