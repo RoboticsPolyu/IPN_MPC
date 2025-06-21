@@ -94,3 +94,21 @@ typedef struct Point3D
     float timestamp;
     float x, y, z;
 }Point3D;
+
+
+enum ObsType
+{
+    sphere = 0,
+    box    = 1
+};
+
+
+// Define a structure of obstacles
+typedef struct Obstacle 
+{
+    float timestamp;
+    ObsType obs_type;
+    gtsam::Vector3 obs_vel;
+    gtsam::Vector3 obs_pos;
+
+}Obstacle;

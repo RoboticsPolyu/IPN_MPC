@@ -123,9 +123,10 @@ namespace UAVFactor
 
             if(H3)
             {
-               H3->setZero();
+               gtsam::Matrix14 h3; h3.setZero();
                gtsam::Matrix13 J_ai = alpha_* evaluateH_vi(pi)* J_r_ai;
-               H3->block(0, 0, 0, 0) = J_ai* e2;
+               h3.block(0, 0, 0, 0) = J_ai* e2;
+               *H3 = h3;
             }
       }
 

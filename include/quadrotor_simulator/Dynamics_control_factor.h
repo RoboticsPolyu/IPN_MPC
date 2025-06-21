@@ -278,41 +278,9 @@ namespace UAVFactor
         {
             Vector err;
             Matrix36 jac_t_posei;
-            // err = (- Vector1(1.* safe_d_ * safe_d_) 
-            //      + (pi.translation(jac_t_posei) - obs_).transpose() * (pi.translation(jac_t_posei) - obs_)); 
             double d = (pi.translation(jac_t_posei) - obs_).norm();
 
             err = Vector1(1/d - 1/safe_d_/1.1);
-
-            float thr = 0.02;
-
-            // std::cout << " -- PointObs: [ " << err[0] << " ]" << std::endl;
-
-            // if(err(0) > 0)
-            // {
-            //     err(0) = 0;
-            //     if(H1)
-            //     {
-            //         *H1 = gtsam::Matrix16::Zero();
-            //     }
-            // }
-            // else
-            // {
-            //     // std::cout << " -- PointObs: [ " << err[0] << " ]" << std::endl;
-                
-            //     if(H1)
-            //     {
-            //         // if((pi.translation(jac_t_posei) - obs_).norm() < 0.01)
-            //         // {
-            //         //     std::cout << " -- Jacobian nears zero : [ " << (pi.translation(jac_t_posei) - obs_).norm() << " ]" << std::endl;
-            //         //     *H1 = 2 * gtsam::Vector3(0,0,0.10).transpose() * jac_t_posei;
-            //         // }
-            //         // else
-            //         // {
-            //             *H1 =  2 * (pi.translation() - obs_).transpose() * jac_t_posei;
-            //         // }
-            //     }
-            // }
 
             if(err(0) < 0)
             {
@@ -330,10 +298,6 @@ namespace UAVFactor
                     *H1 = - (pi.translation() - obs_).transpose() * jac_t_posei /d /d /d;
                 }
             }
-
-            // std::cout << " -- pi : [ " << pi.translation(jac_t_posei).transpose() << " ]" << std::endl;
-            // std::cout << " -- obs : [ " << obs_.transpose() << " ]" << std::endl;
-            std::cout << " -- PointObs error: [ " << err[0] << " ]" << std::endl;
 
             return err;
         }
@@ -366,8 +330,6 @@ namespace UAVFactor
         {
             Vector err;
             Matrix36 jac_t_posei;
-            // err = (- Vector1(1.* safe_d_ * safe_d_) 
-            //      + (pi.translation(jac_t_posei) - obs_).transpose() * (pi.translation(jac_t_posei) - obs_)); 
             gtsam::Vector3 p_p0 = pi.translation(jac_t_posei) - obs_;
             double d = p_p0.norm();
 

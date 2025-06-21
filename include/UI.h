@@ -41,7 +41,7 @@ namespace QuadrotorSim_SO3
                                                         boost::optional<gtsam::Vector3 &> rot_err = boost::none, 
                                                         boost::optional<std::vector<State> &> ref_trj = boost::none,
                                                         boost::optional<float &> opt_cost = boost::none,
-                                                        boost::optional<std::vector<gtsam::Vector3> &> obstacle_centers = boost::none);
+                                                        boost::optional<std::vector<Obstacle> &> obstacle_centers = boost::none);
         
         gtsam::Vector3 getObs1();
         

@@ -83,6 +83,7 @@ MAX_ITERS: 10
 
 CBF_ALPHA: 1.2
 
+CBF_BETA: 1
 # # method + vel + case_id
 # LOG_NAME: JECM_R1.2
 

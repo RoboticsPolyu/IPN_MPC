@@ -300,7 +300,7 @@ namespace QuadrotorSim_SO3
     // Modified renderHistoryOpt to plot N obstacles
     void UI::renderHistoryOpt(State& state, std::vector<State> &pred_trj, boost::optional<gtsam::Vector3 &> err, boost::optional<Features &> features, 
         boost::optional<gtsam::Vector3&> vicon_measurement, boost::optional<gtsam::Vector3 &> rot_err, boost::optional<std::vector<State> &> ref_trj,
-        boost::optional<float &> opt_cost, boost::optional<std::vector<gtsam::Vector3> &> obstacle_centers)
+        boost::optional<float &> opt_cost, boost::optional<std::vector<Obstacle> &> obstacle_centers)
     {
         clock_ = clock_ + delta_t;
         state_.p = state.p;
@@ -357,8 +357,8 @@ namespace QuadrotorSim_SO3
             // Plot all obstacles
             for (int i = 0; i <  obstacle_centers->size(); i++) 
             {
-                gtsam::Vector3 center = obstacle_centers->at(i);
-                // std::cout << "center.x: " << center.x() << ", center y: " << center.y() << ", center.z: " << center.z() << std::endl;
+                gtsam::Vector3 center = obstacle_centers->at(i).obs_pos;
+                std::cout << "center.x: " << center.x() << ", center y: " << center.y() << ", center.z: " << center.z() << std::endl;
                 if(checkCollision(state, center))
                 {
                     glColor3f(0.3, 0.5, 0.6); // collision

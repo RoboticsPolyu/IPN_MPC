@@ -73,6 +73,7 @@ int main(void)
     double alpha                 = FGO_config["CLF_ALPHA"].as<double>(); 
     uint8_t maxIterations        = FGO_config["MAX_ITERS"].as<double>(); 
     double cbf_alpha             = FGO_config["CBF_ALPHA"].as<double>(); 
+    double beta                  = FGO_config["CBF_BETA"].as<double>();
 
     YAML::Node quad_config      = YAML::LoadFile("../config/quadrotor_TGyro.yaml"); 
 
@@ -188,15 +189,15 @@ int main(void)
     Lidar<Landmarks> lidar(LIDAR_RANGE, LIDAR_RANGE_MIN);
     gtsam::Vector3 vicon_measurement;
     gtsam::Vector4 rotor_input_bak;
-    gtsam::Vector3 obs1(0.f, 0.f, 0.f);
-    std::vector<gtsam::Vector3> obsN;
+    Obstacle obs1;
+    std::vector<Obstacle> obsN;
 
     float obs1_radius = OBS1_RADIUS, safe_d = SAFE_D;
 
     for(int traj_idx = 0; traj_idx < SIM_STEPS; traj_idx++)
     {
         obsN = quadrotor.getObsN();
-
+        std::cout << "ObN size is: " << obsN.size() << std::endl;
         double t0 = traj_idx* dt;
         std::vector<State> opt_trj, ref_trj;
         State ref_state;
@@ -246,15 +247,17 @@ int main(void)
             initial_value.insert(X(idx + 1), pose_idx);
             initial_value.insert(V(idx + 1), vel_idx);
             initial_value.insert(U(idx),     init_input);
-                
-            float d2 = std::sqrt((pose_idx.translation() - obs1).transpose()* (pose_idx.translation() - obs1));
-                
-            if(d2 < obs1_radius + safe_d)
+
+            for(uint16_t obsi = 0; obsi < obsN.size(); obsi++)
             {
-                float scale = (obs1_radius + safe_d)/ d2; 
-                pose_idx = gtsam::Pose3(pose_idx.rotation(), (pose_idx.translation() - obs1)* scale + obs1);
-                // graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1), pose_idx, ref_predict_pose_noise));
-                // graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx, ref_predict_vel_noise));
+                obs1 = obsN[obsi];
+                float d2 = std::sqrt((pose_idx.translation() - obs1.obs_pos).transpose()* (pose_idx.translation() - obs1.obs_pos));
+                
+                if(d2 < obs1_radius + safe_d)
+                {
+                    float scale = (obs1_radius + safe_d)/ d2; 
+                    pose_idx = gtsam::Pose3(pose_idx.rotation(), (pose_idx.translation() - obs1.obs_pos)* scale + obs1.obs_pos);
+                }
             }
 
             // gtsam::Vector4 init_input = circle_generator.inputfm(t0 + idx * dt);
@@ -285,7 +288,14 @@ int main(void)
             {
                 obs1 = obsN[obsi];
                 // graph.add(PointObsFactor(X(idx+1), obs1, obs1_radius + safe_d, point_obs_noise));
-                graph.add(CBFPdFactor(X(idx+1), V(idx+1), obs1, obs1_radius + safe_d, cbf_alpha, point_obs_noise));
+                if(idx == OPT_LENS_TRAJ - 1)
+                {
+                    graph.add(CBFPdFactor(X(idx+1), V(idx+1), obs1.obs_pos, obs1_radius + safe_d, cbf_alpha, point_obs_noise));
+                }
+                else
+                {
+                    graph.add(VeCBFPdFactor(X(idx+1), V(idx+1), U(idx+1), obs1.obs_pos, obs1.obs_vel, obs1_radius + safe_d, cbf_alpha, beta, point_obs_noise));
+                }
             }
 
             if (idx == 0)

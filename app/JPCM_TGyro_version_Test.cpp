@@ -183,8 +183,8 @@ int main(void)
     for(int traj_idx = 0; traj_idx < SIM_STEPS; traj_idx++)
     {
         obs1 = quadrotor.getObs1();
-        obsN = quadrotor.getObsN();
-        std::cout << " Obstacles size is " << obsN.size() << std::endl;
+        // obsN = quadrotor.getObsN();
+        // std::cout << " Obstacles size is " << obsN.size() << std::endl;
         double t0 = traj_idx* dt;
 
         if(traj_idx == 0)
@@ -366,11 +366,11 @@ int main(void)
                 // }
             }
 
-            for(uint16_t obsi = 0; obsi < obsN.size(); obsi++)
-            {
-                obs1 = obsN[obsi];
-                graph.add(PointObsFactor(X(idx+1), obs1, obs1_radius + safe_d, point_obs_noise));
-            }
+            // for(uint16_t obsi = 0; obsi < obsN.size(); obsi++)
+            // {
+            //     obs1 = obsN[obsi];
+            //     graph.add(PointObsFactor(X(idx+1), obs1, obs1_radius + safe_d, point_obs_noise));
+            // }
 
             if (idx == 0)
             {                

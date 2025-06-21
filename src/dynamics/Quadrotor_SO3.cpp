@@ -556,4 +556,41 @@ namespace QuadrotorSim_SO3
         return point3d;
     }
 
+    Obstacle Quadrotor::getObsbyEllipsev(uint8_t index) 
+    { 
+        Obstacle obstacle;
+        if(index >= obs_num_)
+        {
+            return obstacle; // returns default obstacle (zero position and velocity)
+        }
+        
+        // Parameters
+        float a = 1.10;  // semi-major axis
+        float b = 0.50;  // semi-minor axis
+        float v = 1.40;  // velocity parameter
+        float z = 1.00;  // fixed height
+        
+        // Calculate time parameter with even spacing
+        double t = clock_ + index * 2.0 * M_PI / obs_num_ * sqrt(a * a + b * b) / v;
+        
+        // Position calculation
+        double angle = v * t / sqrt(a * a + b * b); 
+        double x = a * cos(angle); 
+        double y = b * sin(angle); 
+        
+        // Velocity calculation (derivative of position)
+        double dx = -a * sin(angle) * (v / sqrt(a * a + b * b));
+        double dy = b * cos(angle) * (v / sqrt(a * a + b * b));
+        
+        // Set obstacle properties
+        obstacle.obs_pos[0] = x - a/2;
+        obstacle.obs_pos[1] = y - b/2;
+        obstacle.obs_pos[2] = z;
+        obstacle.obs_vel[0] = dx;
+        obstacle.obs_vel[1] = dy;
+        obstacle.obs_vel[2] = 0;  // no vertical movement
+        obstacle.obs_type = ObsType::sphere;
+
+        return obstacle;
+    }
 }

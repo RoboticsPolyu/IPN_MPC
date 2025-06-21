@@ -104,11 +104,11 @@ namespace QuadrotorSim_SO3
             return ui_ptr->getObs1();
         }
         
-        std::vector<gtsam::Vector3> getObsN()
+        std::vector<Obstacle> getObsN()
         {
             for(uint8_t i = 0; i < obs_num_; i++)
             {
-                obstacles_[i] = getObsbyEllipse(i);
+                obstacles_[i] = getObsbyEllipsev(i);
             }
             return obstacles_;
         }
@@ -122,8 +122,10 @@ namespace QuadrotorSim_SO3
         // Control Allocation's effectiveness matrix
         Eigen::Matrix4d effectiveness_;
 
-        gtsam::Vector3 Quadrotor::getObsbyEllipse(uint8_t index);
-
+        gtsam::Vector3 getObsbyEllipse(uint8_t index);
+        
+        Obstacle getObsbyEllipsev(uint8_t index);         
+        
         double g_; // gravity
         double mass_;
         Eigen::Matrix3d J_; // Inertia
@@ -158,7 +160,8 @@ namespace QuadrotorSim_SO3
         double ANGULAR_SPEED_COV  = 0.0;
 
         Geometry geometry_;
-        std::vector<gtsam::Vector3> obstacles_;
+        std::vector<Obstacle> obstacles_;
+
         uint16_t obs_num_ = 0;
         std::shared_ptr<UI> ui_ptr;
     };
