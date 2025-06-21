@@ -1,100 +1,101 @@
-# Factor Graph-Based MPC Implementation
 
-We have implemented factor graph-based Model Predictive Control (MPC) in real-world experiments. The code is available in the following repository:
+# Factor Graph-Based Model Predictive Control (MPC) Implementation
 
+This repository presents a factor graph-based Model Predictive Control (MPC) implementation for Unmanned Aerial Vehicles (UAVs), validated through real-world experiments. The source code is publicly accessible, with details provided below.
+
+## Repository
+Access the code here:  
 [GitHub Repository: RoboticsPolyu/jpcm](https://github.com/RoboticsPolyu/jpcm)
 
 ## Contact
-For access to the code or further inquiries, please reach out to me at:  
+For code access, collaboration, or inquiries, please contact:  
 **Email**: [peiwen1.yang@connect.polyu.hk](mailto:peiwen1.yang@connect.polyu.hk)
 
 ## Note
-Due to time constraints, the repository currently lacks detailed documentation and regular maintenance. I appreciate your understanding and welcome any feedback or contributions to improve it.
+The repository is currently under active development, with limited documentation due to time constraints. Contributions, feedback, or suggestions to enhance the codebase are highly appreciated.
 
-Thank you for your interest!
+---
 
-# Tightly Joined Positioning and Control Model for Unmanned Aerial Vehicles Based on Factor Graph Optimization
+# Tightly Joined Positioning and Control Model (JPCM) for UAVs Using Factor Graph Optimization
 
 ## Abstract
+Unmanned Aerial Vehicles (UAVs) rely heavily on robust navigation systems for mission execution. Traditional navigation pipelines separate positioning and control into sequential processes, which struggle to handle uncertainties from measurement noise, environmental disturbances, and nonlinear dynamics. This decoupling compromises UAV reliability in dynamic environments, such as urban areas where Global Navigation Satellite System (GNSS) signals are degraded by reflections from high-rise buildings or where complex wind patterns challenge control algorithms. To address these issues, we propose a **Tightly Joined Positioning and Control Model (JPCM)** based on **Factor Graph Optimization (FGO)**. The JPCM integrates sensor measurements and control constraints into a unified probabilistic factor graph, where positioning data and Model Predictive Control (MPC) are formulated as factors. By solving this factor graph, the model leverages the complementary nature of positioning and control, achieving enhanced navigation resilience. We validate the approach using a simulated quadrotor system, demonstrating superior trajectory tracking performance.
 
-The execution of flight missions by unmanned aerial vehicles (UAV) primarily relies on navigation. In particular, the navigation pipeline has traditionally been divided into positioning and control, operating in a sequential loop. However, the existing navigation pipeline, where the positioning and control are decoupled, struggles to adapt to ubiquitous uncertainties arising from measurement noise, abrupt disturbances, and nonlinear dynamics. As a result, the navigation reliability of the UAV is significantly challenged in complex dynamic areas. For example, the ubiquitous global navigation satellite system (GNSS) positioning can be degraded by the signal reflections from surrounding high-rising buildings in complex urban areas, leading to significantly increased positioning uncertainty. An additional challenge is introduced to the control algorithm due to the complex wind disturbances in urban canyons. Given the fact that the system positioning and control are highly correlated with each other, this research proposes a **tightly joined positioning and control model (JPCM) based on factor graph optimization (FGO)**. In particular, the proposed JPCM combines sensor measurements from positioning and control constraints into a unified probabilistic factor graph. Specifically, the positioning measurements are formulated as the factors in the factor graph. In addition, the model predictive control (MPC) is also formulated as the additional factors in the factor graph. By solving the factor graph contributed by both the positioning-related factors and the MPC-based factors, the complementariness of positioning and control can be deeply exploited. Finally, we validate the effectiveness and resilience of the proposed method using a simulated quadrotor system which shows significantly improved trajectory following performance. 
-
-The simulation video is here: https://youtu.be/QBPwTr4mFy4
-
-Experimental version code: git@github.com:RoboticsPolyu/jpcm.git (FGO-MPC is highly recommended for use in your research or engineering projects).  
-
-This repository depends on GTSAM, Pangolin, and so on.
+**Simulation Video**: [YouTube Link](https://youtu.be/QBPwTr4mFy4)  
+**Code Repository**: [git@github.com:RoboticsPolyu/jpcm.git](git@github.com:RoboticsPolyu/jpcm.git)  
+**Recommended Use**: The FGO-MPC framework is ideal for research and engineering applications in UAV navigation.  
+**Dependencies**: GTSAM, Pangolin, and related libraries.
 
 ## Authors
-Peiwen Yang, Weisong Wen*, Member, IEEE, Shiyu Bai, Member, IEEE, and Li-Ta Hsu, Senior Member, IEEE
+- **Peiwen Yang** (peiwen1.yang@connect.polyu.hk)  
+- **Weisong Wen*** (Corresponding Author, welson.wen@polyu.edu.hk)  
+- **Shiyu Bai**, Member, IEEE  
+- **Li-Ta Hsu**, Senior Member, IEEE  
+_Affiliation_: Department of Aeronautical and Aviation Engineering, The Hong Kong Polytechnic University, Hong Kong, China.
 
 ## Updates
-1. Dynamic Obstacle Avoidance Based on **Control Barrier Functions**
+- **Dynamic Obstacle Avoidance**: Integrated **Control Barrier Functions (CBF)** with factors `CBFPdFactor` and `VeCBFPdFactor`.  
+  - Reference: [VeCBFPdFactor Mathematical Formulation.pdf](https://github.com/RoboticsPolyu/jpcm/blob/main/docs/VeCBFPdFactor_Mathematical_Formulation.pdf)  
+  - Test Script: `JPCM_TGyro_CBF_Test.cpp`
 
-Factor CBFPdFactor and factor VeCBFPdFactor (VeCBFPdFactor Mathematical Formulation.pdf)
+## Problem Description
+UAV navigation in smart cities faces safety challenges due to environmental uncertainties, such as GNSS signal degradation and wind disturbances in urban canyons. The following figure illustrates these challenges (sourced from Google Earth):
 
-Run JPCM_TGyro_CBF_Test.cpp 
+![Safety Challenges](img/safety_challenges.png)
 
-## Problem description
-The safety challenges of intelligent transportation in smart cities (the background figure is from Google Earth).
+## Unified Factor Graph Framework
+The JPCM integrates positioning and control constraints into a single factor graph, enabling joint optimization. Below are visual representations of the pipeline and factor graph:
 
-<div align=center><img src="img/safety_challenges.png" width="70%"></div>
+| Pipeline Overview | Factor Graph Structure |
+|-------------------|-----------------------|
+| ![Pipeline](img/PIPELINE.png) | ![Factor Graph](img/Factor_graph.png) |
 
-## The unified factor graph
-![image](img/PIPELINE.png)|![image](img/Factor_graph.png)
----|---
+## Usage Instructions
+### 1. MPC and JPCM Configuration
+- **Module**: `Joint_Estimation_Control`
+- **Configuration File**: Modify `factor_graph.yaml` to adjust parameters. For MPC-specific settings, update:
+  ```yaml
+  PRI_VICON_COV: 0.001
+  PRI_VICON_VEL_COV: 0.001
+  ```
+- **Inequality Constraints**: Rotational speed constraints are defined in `hin_Joint_Estimation_Control`. Adjust:
+  ```yaml
+  CLF_HIGH: 18000
+  CLF_LOW: 1000
+  CLF_THR: 100
+  CLF_ALPHA: 1
+  ```
 
-## Usage
+### 2. JPCM with Sliding Window
+- **Module**: `SW_Joint_Estimation_Control`
+- **Description**: Implements a sliding window approach for improved computational efficiency.
 
-MPC and JPCM: 
-Joint_Estimation_Control
+## Simulation Results
+### Position Tracking
+The figures below compare the tracking performance of MPC and JPCM (linear speed: 5 m/s, radius: 1.5 m). The red and blue lines represent MPC and JPCM paths, respectively.
 
-You could modify factor_graph.yaml to adjust the parameters. If you want to run MPC, please modify parameters: 
+| Paths of MPC and JPCM | Control Input |
+|-----------------------|---------------|
+| ![Paths](img/Paths_of_MPC_and_JPCM.png) | ![Control Input](img/Control_input.png) |
 
-```PRI_VICON_COV: 0.001 
-PRI_VICON_VEL_COV: 0.001
-```
+### Disturbance Rejection
+The JPCM demonstrates robust recovery from environmental disturbances:
 
-There are inequality constraints, which are constraints on the rotational speed：
-hin_Joint_Estimation_Control
+| Rapid Wind Recovery | Aerodynamic Drag Elimination |
+|---------------------|------------------------------|
+| ![Recovery](img/Recovery.png) | ![JCPM-Drag](img/JPCM-Drag.png) |
 
-You could modify parameters:
+- **Left**: Recovery process after encountering rapid winds.  
+- **Right**: JPCM-Drag effectively mitigates aerodynamic drag effects.
 
-```CLF_HIGH:  18000
-CLF_LOW:   1000
-CLF_THR:   100
-CLF_ALPHA: 1
-```
+## Acknowledgments
+This research is supported by:  
+- **MEITUAN ACADEMY OF ROBOTICS SHENZHEN**: Project “Vision Aided GNSS-RTK Positioning for UAV System in Urban Canyons (ZGHQ)”.  
+- **PolyU Research Institute for Advanced Manufacturing (RIAM)**: Project “Unmanned Aerial Vehicle Aided High Accuracy Addictive Manufacturing for Carbon Fiber Reinforced Thermoplastic Composites Material (CD8S)”.
 
-JPCM with Sliding Window:
+## Author Details
+- **Peiwen Yang**: Ph.D. student, Department of Aeronautical and Aviation Engineering, The Hong Kong Polytechnic University. M.S. (2019) from Beijing Institute of Technology. Research interests: aerial vehicle control, computer vision, robotics.  
+  _Email_: peiwen1.yang@connect.polyu.hk  
+- **Weisong Wen** (Corresponding Author): Department of Aeronautical and Aviation Engineering, The Hong Kong Polytechnic University.  
+  _Email_: welson.wen@polyu.edu.hk
 
-SW_Joint_Estimation_Control
-
-## The simulation results
-
-### Position tracking
-
-<center class="half">
-<img src="img/Paths_of_MPC_and_JPCM.png" width="45%" />
-<img src="img/Control_input.png" width="45%" />
-</center>
-
-The paths of MPC and JPCM (linear speed = 5m/s, radius = 1.5m). The red solid line and blue solid line represent the tracking path based on MPC and the tracking path based on JPCM, respectively.
-
-### Disturbances
-
-
-![image](img/Recovery.png "Recovery process after encountering rapid winds" ) | ![image](img/JPCM-Drag.png "JCPM-Drag can eliminate aerodynamic drag effects")
----|---
-
-Left: Recovery process after encountering rapid winds
-
-Right: JCPM-Drag can eliminate aerodynamic drag effects
-
-## Acknowledgment 
-This paper is funded by the MEITUAN ACADEMY OF ROBOTICS SHENZHEN under the project “Vision Aided GNSS-RTK Positioning for UAV System in Urban Canyons (ZGHQ)”. This paper is also funded by the PolyU Research Institute for Advanced Manufacturing (RIAM) under the project “Unmanned Aerial Vehicle Aided High Accuracy Addictive Manufacturing for Carbon Fiber Reinforced Thermoplastic Composites Material (CD8S)”. 
-
-## Author details:
-YANG, Peiwen (peiwen1.yang@connect.polyu.hk): Peiwen Yang received the M.S. degree in the School of Information and Electronics, Beijing Institute of Technology, Beijing, China, in 2019. He is currently a Ph.D. student in the Department of Aeronautical and Aviation Engineering, at the Hong Kong Polytechnic University. His current research interests include aerial vehicle control, computer vision, and robotics.
-
-Weisong, Wen is the corresponding author. The authors are with the Department of Aeronautical and Aviation Engineering, The Hong Kong Polytechnic University, HongKong, China (e-mail: welson.wen@polyu.edu.hk).
