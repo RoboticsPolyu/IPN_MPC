@@ -29,7 +29,7 @@ int main(void)
     clock_t start, end;
 
     // Configuration file 
-    YAML::Node FGO_config        = YAML::LoadFile("../config/factor_graph_TGyro.yaml");  
+    YAML::Node FGO_config        = YAML::LoadFile("../config/factor_graph_TGyro_CBF.yaml");  
     double PRI_VICON_COV         = FGO_config["PRI_VICON_COV"].as<double>();
     double PRI_VICON_VEL_COV     = FGO_config["PRI_VICON_VEL_COV"].as<double>();   
     double CONTROL_P_COV_X       = FGO_config["CONTROL_P_COV_X"].as<double>();
@@ -75,7 +75,7 @@ int main(void)
     double cbf_alpha             = FGO_config["CBF_ALPHA"].as<double>(); 
     double beta                  = FGO_config["CBF_BETA"].as<double>();
 
-    YAML::Node quad_config      = YAML::LoadFile("../config/quadrotor_TGyro.yaml"); 
+    YAML::Node quad_config      = YAML::LoadFile("../config/quadrotor_TGyro_CBF.yaml"); 
 
     double RADIUS               = quad_config["RADIUS"].as<double>();
     double LINEAR_VEL           = quad_config["LINEAR_VEL"].as<double>();
@@ -158,7 +158,7 @@ int main(void)
 
     dt = 0.01f; // Model predictive control duration
 
-    Quadrotor quadrotor;
+    Quadrotor quadrotor("../config/quadrotor_TGyro_CBF.yaml");
     State predicted_state;
     std::default_random_engine meas_x_gen;
     std::default_random_engine meas_y_gen;
@@ -190,14 +190,13 @@ int main(void)
     gtsam::Vector3 vicon_measurement;
     gtsam::Vector4 rotor_input_bak;
     Obstacle obs1;
-    std::vector<Obstacle> obsN;
+    std::vector<Obstacle> obstacles;
 
     float safe_d = SAFE_D;
 
     for(int traj_idx = 0; traj_idx < SIM_STEPS; traj_idx++)
     {
-        obsN = quadrotor.getObsN();
-        std::cout << "ObN size is: " << obsN.size() << std::endl;
+        obstacles = quadrotor.getObstacles();
         double t0 = traj_idx* dt;
         std::vector<State> opt_trj, ref_trj;
         State ref_state;
@@ -248,9 +247,9 @@ int main(void)
             initial_value.insert(V(idx + 1), vel_idx);
             initial_value.insert(U(idx),     init_input);
 
-            for(uint16_t obsi = 0; obsi < obsN.size(); obsi++)
+            for(uint16_t obsi = 0; obsi < obstacles.size(); obsi++)
             {
-                obs1 = obsN[obsi];
+                obs1 = obstacles[obsi];
                 float d2 = std::sqrt((pose_idx.translation() - obs1.obs_pos).transpose()* (pose_idx.translation() - obs1.obs_pos));
                 
                 if(d2 < obs1.obs_size + safe_d)
@@ -284,18 +283,18 @@ int main(void)
                 graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx,  ref_predict_vel_noise));
             }
 
-            for(uint16_t obsi = 0; obsi < obsN.size(); obsi++)
+            for(uint16_t obsi = 0; obsi < obstacles.size(); obsi++)
             {
-                obs1 = obsN[obsi];
+                obs1 = obstacles[obsi];
                 // graph.add(PointObsFactor(X(idx+1), obs1, obs1_radius + safe_d, point_obs_noise));
-                if(idx == OPT_LENS_TRAJ - 1)
-                {
+                // if(idx == OPT_LENS_TRAJ - 1)
+                // {
                     graph.add(CBFPdFactor(X(idx+1), V(idx+1), obs1.obs_pos, obs1.obs_size + safe_d, cbf_alpha, point_obs_noise));
-                }
-                else
-                {
-                    graph.add(VeCBFPdFactor(X(idx+1), V(idx+1), U(idx+1), obs1.obs_pos, obs1.obs_vel, obs1.obs_size + safe_d, cbf_alpha, beta, point_obs_noise));
-                }
+                // }
+                // else
+                // {
+                //     graph.add(VeCBFPdFactor(X(idx+1), V(idx+1), U(idx+1), obs1.obs_pos, obs1.obs_vel, obs1.obs_size + safe_d, cbf_alpha, beta, point_obs_noise));
+                // }
             }
 
             if (idx == 0)

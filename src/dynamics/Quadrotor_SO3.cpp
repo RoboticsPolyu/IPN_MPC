@@ -10,18 +10,18 @@ namespace QuadrotorSim_SO3
 
     Quadrotor::Quadrotor(void)
     {
-        // Existing constructor code
-        YAML::Node config = YAML::LoadFile("../config/quadrotor_TGyro.yaml");  
-        g_ = config["g"].as<double>();
-        mass_ = config["mass"].as<double>();
-        kf_ = config["k_f"].as<double>();
-        km_ = config["k_m"].as<double>();
-        motor_time_constant_ = config["time_constant"].as<double>();
+          // Existing constructor code
+        YAML::Node config               = YAML::LoadFile("../config/quadrotor_TGyro.yaml");
+                   g_                   = config["g"].as<double>();
+                   mass_                = config["mass"].as<double>();
+                   kf_                  = config["k_f"].as<double>();
+                   km_                  = config["k_m"].as<double>();
+                   motor_time_constant_ = config["time_constant"].as<double>();
 
         double Ixx = config["Ixx"].as<double>();
         double Iyy = config["Iyy"].as<double>();
         double Izz = config["Izz"].as<double>();
-        J_ = Eigen::Vector3d(Ixx, Iyy, Izz).asDiagonal();
+               J_  = Eigen::Vector3d(Ixx, Iyy, Izz).asDiagonal();
 
         prop_radius_ = 0.062;
         arm_length_  = 0.26;
@@ -29,9 +29,9 @@ namespace QuadrotorSim_SO3
         max_rpm_     = 35000;
         esc_factor_  = 1;
 
-        state_.p = Eigen::Vector3d::Zero();
-        state_.v = Eigen::Vector3d::Zero();
-        state_.rot = gtsam::Rot3::identity();
+        state_.p         = Eigen::Vector3d::Zero();
+        state_.v         = Eigen::Vector3d::Zero();
+        state_.rot       = gtsam::Rot3::identity();
         state_.body_rate = Eigen::Vector3d::Zero();
         state_.motor_rpm = Eigen::Array4d::Zero();
 
@@ -40,56 +40,161 @@ namespace QuadrotorSim_SO3
         external_force_.setZero();
         external_torque_.setZero();
 
-        // YAML::Node config   = YAML::LoadFile("../config/quadrotor_TGyro.yaml");
-        THRUST_NOISE_MEAN   = config["THRUST_NOISE_MEAN"].as<double>();
-        THRUST_NOISE_COV    = config["THRUST_NOISE_COV"].as<double>();
-        ANGULAR_SPEED_MEAN  = config["ANGULAR_SPEED_MEAN"].as<double>();
-        ANGULAR_SPEED_COV   = config["ANGULAR_SPEED_COV"].as<double>();
-        double DRAG_FORCE_X = config["DRAG_FORCE_X"].as<double>();
-        double DRAG_FORCE_Y = config["DRAG_FORCE_Y"].as<double>();
-        double DRAG_FORCE_Z = config["DRAG_FORCE_Z"].as<double>();
-        float trj_len_max   = config["TRJ_LEN_MAX"].as<double>();
-        obs_num_            = config["OBS_NUM"].as<uint16_t>();
-        double OBS1_RADIUS  = config["OBS1_RADIUS"].as<double>();
-        // double SAFE_D       = config["SAFE_D"].as<double>();
-        drag_force_params_  = Eigen::Vector3d(DRAG_FORCE_X, DRAG_FORCE_Y, DRAG_FORCE_Z);
+          // YAML::Node config   = YAML::LoadFile("../config/quadrotor_TGyro.yaml");
+               THRUST_NOISE_MEAN  = config["THRUST_NOISE_MEAN"].as<double>();
+               THRUST_NOISE_COV   = config["THRUST_NOISE_COV"].as<double>();
+               ANGULAR_SPEED_MEAN = config["ANGULAR_SPEED_MEAN"].as<double>();
+               ANGULAR_SPEED_COV  = config["ANGULAR_SPEED_COV"].as<double>();
+        double DRAG_FORCE_X       = config["DRAG_FORCE_X"].as<double>();
+        double DRAG_FORCE_Y       = config["DRAG_FORCE_Y"].as<double>();
+        double DRAG_FORCE_Z       = config["DRAG_FORCE_Z"].as<double>();
+        float  trj_len_max        = config["TRJ_LEN_MAX"].as<double>();
+               obs_num_           = config["OBS_NUM"].as<uint16_t>();
+        double OBS1_RADIUS        = config["OBS1_RADIUS"].as<double>();
+        uint16_t static_obs_num_  = config["STATIC_OBS_NUM"].as<uint16_t>();
+
+          // double SAFE_D       = config["SAFE_D"].as<double>();
+        drag_force_params_ = Eigen::Vector3d(DRAG_FORCE_X, DRAG_FORCE_Y, DRAG_FORCE_Z);
         obstacles_.resize(obs_num_);
 
         ui_ptr = std::make_shared<UI>(trj_len_max, obs_num_, OBS1_RADIUS);
-        static_obstacles_.clear(); // Clear previous obstacles
+        static_obstacles_.clear();  // Clear previous obstacles
 
         const float circleRadius = 1.5f;
-        const float maxRadius = 0.20f;
-        const float minRadius = 0.03f;
-        const float centerZ = 1.0f;
+        const float maxRadius    = 0.20f;
+        const float minRadius    = 0.03f;
+        const float centerZ      = 1.0f;
 
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::uniform_real_distribution<double> angleDist(M_PI/2, 3*M_PI/2); // Left half-circle
+        std::uniform_real_distribution<double> angleDist(M_PI/2, 3*M_PI/2);  // Left half-circle
         std::uniform_real_distribution<double> radiusDist(minRadius, maxRadius);
 
-        for (int i = 0; i < 15; ++i) {
+        for (int i = 0; i < static_obs_num_; ++i) {
             Obstacle obstacle;
             bool collision;
-            int attempts = 0;
-            const int maxAttempts = 100; // Prevent infinite loops
+            int   attempts        = 0;
+            const int maxAttempts = 100;  // Prevent infinite loops
 
             do {
-                collision = false;
-                double theta = angleDist(gen);
-                double r = radiusDist(gen);
-                double x = circleRadius * std::cos(theta);
-                double y = circleRadius * std::sin(theta);
+                       collision = false;
+                double theta     = angleDist(gen);
+                double r         = radiusDist(gen);
+                double x         = circleRadius * std::cos(theta);
+                double y         = circleRadius * std::sin(theta);
 
-                obstacle.obs_pos = gtsam::Vector3(x, y, centerZ);
-                obstacle.obs_vel = gtsam::Vector3::Zero();
+                obstacle.obs_pos  = gtsam::Vector3(x, y, centerZ);
+                obstacle.obs_vel  = gtsam::Vector3::Zero();
                 obstacle.obs_size = r;
 
-                // Check collision with existing obstacles
+                  // Check collision with existing obstacles
                 for (const auto& existing : static_obstacles_) {
-                    double dx = existing.obs_pos.x() - obstacle.obs_pos.x();
-                    double dy = existing.obs_pos.y() - obstacle.obs_pos.y();
-                    double dz = existing.obs_pos.z() - obstacle.obs_pos.z();
+                    double dx       = existing.obs_pos.x() - obstacle.obs_pos.x();
+                    double dy       = existing.obs_pos.y() - obstacle.obs_pos.y();
+                    double dz       = existing.obs_pos.z() - obstacle.obs_pos.z();
+                    double distance = std::sqrt(dx*dx + dy*dy + dz*dz);
+
+                    if (distance < (existing.obs_size + obstacle.obs_size)) {
+                        collision = true;
+                        break;
+                    }
+                }
+
+                if (++attempts >= maxAttempts) {
+                    std::cerr << "Warning: Max attempts reached. Skipping obstacle." << std::endl;
+                    break;
+                }
+            } while (collision);
+
+            if (!collision) {
+                static_obstacles_.push_back(obstacle);
+            }
+        }
+    }
+
+    Quadrotor::Quadrotor(const std::string & yaml_file)
+    {
+          // Existing constructor code
+        YAML::Node config               = YAML::LoadFile(yaml_file);
+                   g_                   = config["g"].as<double>();
+                   mass_                = config["mass"].as<double>();
+                   kf_                  = config["k_f"].as<double>();
+                   km_                  = config["k_m"].as<double>();
+                   motor_time_constant_ = config["time_constant"].as<double>();
+
+        double Ixx = config["Ixx"].as<double>();
+        double Iyy = config["Iyy"].as<double>();
+        double Izz = config["Izz"].as<double>();
+               J_  = Eigen::Vector3d(Ixx, Iyy, Izz).asDiagonal();
+
+        prop_radius_ = 0.062;
+        arm_length_  = 0.26;
+        min_rpm_     = 1200;
+        max_rpm_     = 35000;
+        esc_factor_  = 1;
+
+        state_.p         = Eigen::Vector3d::Zero();
+        state_.v         = Eigen::Vector3d::Zero();
+        state_.rot       = gtsam::Rot3::identity();
+        state_.body_rate = Eigen::Vector3d::Zero();
+        state_.motor_rpm = Eigen::Array4d::Zero();
+
+        input_ = Eigen::Array4d::Zero();
+
+        external_force_.setZero();
+        external_torque_.setZero();
+
+          // YAML::Node config   = YAML::LoadFile("../config/quadrotor_TGyro.yaml");
+               THRUST_NOISE_MEAN  = config["THRUST_NOISE_MEAN"].as<double>();
+               THRUST_NOISE_COV   = config["THRUST_NOISE_COV"].as<double>();
+               ANGULAR_SPEED_MEAN = config["ANGULAR_SPEED_MEAN"].as<double>();
+               ANGULAR_SPEED_COV  = config["ANGULAR_SPEED_COV"].as<double>();
+        double DRAG_FORCE_X       = config["DRAG_FORCE_X"].as<double>();
+        double DRAG_FORCE_Y       = config["DRAG_FORCE_Y"].as<double>();
+        double DRAG_FORCE_Z       = config["DRAG_FORCE_Z"].as<double>();
+        float  trj_len_max        = config["TRJ_LEN_MAX"].as<double>();
+               obs_num_           = config["OBS_NUM"].as<uint16_t>();
+        double OBS1_RADIUS        = config["OBS1_RADIUS"].as<double>();
+        uint16_t static_obs_num_  = config["STATIC_OBS_NUM"].as<uint16_t>();
+          // double SAFE_D       = config["SAFE_D"].as<double>();
+        drag_force_params_ = Eigen::Vector3d(DRAG_FORCE_X, DRAG_FORCE_Y, DRAG_FORCE_Z);
+        obstacles_.resize(obs_num_);
+
+        ui_ptr = std::make_shared<UI>(trj_len_max, obs_num_, OBS1_RADIUS);
+        static_obstacles_.clear();  // Clear previous obstacles
+
+        const float circleRadius = 1.5f;
+        const float maxRadius    = 0.20f;
+        const float minRadius    = 0.03f;
+        const float centerZ      = 1.0f;
+
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<double> angleDist(M_PI/2, 3*M_PI/2);  // Left half-circle
+        std::uniform_real_distribution<double> radiusDist(minRadius, maxRadius);
+
+        for (int i = 0; i < static_obs_num_; ++i) {
+            Obstacle obstacle;
+            bool collision;
+            int   attempts        = 0;
+            const int maxAttempts = 100;  // Prevent infinite loops
+
+            do {
+                       collision = false;
+                double theta     = angleDist(gen);
+                double r         = radiusDist(gen);
+                double x         = circleRadius * std::cos(theta);
+                double y         = circleRadius * std::sin(theta);
+
+                obstacle.obs_pos  = gtsam::Vector3(x, y, centerZ);
+                obstacle.obs_vel  = gtsam::Vector3::Zero();
+                obstacle.obs_size = r;
+
+                  // Check collision with existing obstacles
+                for (const auto& existing : static_obstacles_) {
+                    double dx       = existing.obs_pos.x() - obstacle.obs_pos.x();
+                    double dy       = existing.obs_pos.y() - obstacle.obs_pos.y();
+                    double dz       = existing.obs_pos.z() - obstacle.obs_pos.z();
                     double distance = std::sqrt(dx*dx + dy*dy + dz*dz);
 
                     if (distance < (existing.obs_size + obstacle.obs_size)) {
@@ -133,24 +238,24 @@ namespace QuadrotorSim_SO3
         }
 
         Eigen::Vector3d drag_force = - state_.rot.matrix() * Eigen::Matrix3d(drag_force_params_.asDiagonal()) * state_.rot.matrix().transpose() * state_.v;
-        Eigen::Vector3d v_dot      = - Eigen::Vector3d(0, 0, g_) + state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ 
+        Eigen::Vector3d v_dot      = - Eigen::Vector3d(0, 0, g_) + state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_
                                      + external_force_ / mass_ + drag_force;
 
         Eigen::Vector3d p_dot = state_.v;
 
-        // J* body_rate_dot = torque - J.cross(J* body_rate)
+          // J* body_rate_dot = torque - J.cross(J* body_rate)
         Eigen::Vector3d body_rate_dot = J_.inverse() * (torque - state_.body_rate.cross(J_ * state_.body_rate) + external_torque_);
 
-        // Predict state
-        predicted_state_.p         = state_.p + p_dot * dt;                                                   
-        predicted_state_.v         = state_.v + v_dot * dt;                                                    
+          // Predict state
+        predicted_state_.p = state_.p + p_dot * dt;
+        predicted_state_.v = state_.v + v_dot * dt;
                                      
-        // predicted_state_.motor_rpm = state_.motor_rpm + (motor_rpm - state_.motor_rpm) / motor_time_constant_;
+          // predicted_state_.motor_rpm = state_.motor_rpm + (motor_rpm - state_.motor_rpm) / motor_time_constant_;
         predicted_state_.rot       = state_.rot * gtsam::Rot3::Expmap(state_.body_rate * dt);
-        predicted_state_.body_rate = state_.body_rate + body_rate_dot * dt;                                        
+        predicted_state_.body_rate = state_.body_rate + body_rate_dot * dt;
 
         state_ = predicted_state_;
-        // Don't go below zero, simulate floor
+          // Don't go below zero, simulate floor
         if (state_.p(2) < 0.0 && state_.v(2) < 0)
         {
             state_.p(2) = 0;
@@ -164,15 +269,15 @@ namespace QuadrotorSim_SO3
         Eigen::Matrix3d cur_rotm;
         for (int i = 0; i < 3; i++)
         {
-            est_state.p(i)     = x[0 + i];
-            est_state.v(i)     = x[3 + i];
-            cur_rotm(i, 0)     = x[6 + i];
-            cur_rotm(i, 1)     = x[9 + i];
-            cur_rotm(i, 2)     = x[12 + i];
+            est_state.p(i)         = x[0 + i];
+            est_state.v(i)         = x[3 + i];
+            cur_rotm(i, 0)         = x[6 + i];
+            cur_rotm(i, 1)         = x[9 + i];
+            cur_rotm(i, 2)         = x[12 + i];
             est_state.body_rate(i) = x[15 + i];
         }
 
-        // Re-orthonormalize R (polar decomposition)
+          // Re-orthonormalize R (polar decomposition)
         Eigen::LLT<Eigen::Matrix3d> llt(cur_rotm.transpose() * cur_rotm);
         Eigen::Matrix3d P = llt.matrixL();
         Eigen::Matrix3d R = cur_rotm * P.inverse();
@@ -184,9 +289,9 @@ namespace QuadrotorSim_SO3
         std::normal_distribution<double> thrust_noise(THRUST_NOISE_MEAN, THRUST_NOISE_COV);
         double at_noise = thrust_noise(generator_);
 
-        double thrust = x[18] + at_noise; // cur force
+        double thrust = x[18] + at_noise;  // cur force
 
-        Eigen::Vector3d torque(x[19], x[20], x[21]); // cur torque
+        Eigen::Vector3d torque(x[19], x[20], x[21]);  // cur torque
 
         vnorm = est_state.v;
         if (vnorm.norm() != 0)
@@ -203,7 +308,7 @@ namespace QuadrotorSim_SO3
 
         Eigen::Matrix3d r_dot = est_state.rot.matrix() * gtsam::skewSymmetric(est_state.body_rate);
 
-        // J* body_rate_dot = torque - J.cross(J* body_rate)
+          // J* body_rate_dot = torque - J.cross(J* body_rate)
         Eigen::Vector3d body_rate_dot = J_.inverse() * (torque - est_state.body_rate.cross(J_ * est_state.body_rate) + external_torque_);
 
         for (int i = 0; i < 3; i++)
@@ -237,16 +342,16 @@ namespace QuadrotorSim_SO3
         Eigen::Matrix3d r = state_.rot.matrix();
         for (int i = 0; i < 3; i++)
         {
-            x[0 + i] = state_.p(i);
-            x[3 + i] = state_.v(i);
-            x[6 + i] = r(i, 0);
-            x[9 + i] = r(i, 1);
+            x[0 + i]  = state_.p(i);
+            x[3 + i]  = state_.v(i);
+            x[6 + i]  = r(i, 0);
+            x[9 + i]  = r(i, 1);
             x[12 + i] = r(i, 2);
             x[15 + i] = state_.body_rate(i);
         }
 
-        // float sin_force = 0.1* sin()
-        // state_.thrust_torque[0] = state_.thrust_torque[0];
+          // float sin_force = 0.1* sin()
+          // state_.thrust_torque[0] = state_.thrust_torque[0];
 
         for (int i = 0; i < 4; i++)
         {
@@ -254,17 +359,17 @@ namespace QuadrotorSim_SO3
             x[18 + i] = state_.thrust_torque[i];
         }
 
-        thrust_torque_ = fm; // control at future dt.
+        thrust_torque_ = fm;  // control at future dt.
         integrate(boost::ref(*this), x, 0.0, dt, dt);
 
         Eigen::Matrix3d cur_rotm;
         for (int i = 0; i < 3; i++)
         {
-            state_.p(i)     = x[0 + i];
-            state_.v(i)     = x[3 + i];
-            cur_rotm(i, 0)  = x[6 + i];
-            cur_rotm(i, 1)  = x[9 + i];
-            cur_rotm(i, 2)  = x[12 + i];
+            state_.p(i)         = x[0 + i];
+            state_.v(i)         = x[3 + i];
+            cur_rotm(i, 0)      = x[6 + i];
+            cur_rotm(i, 1)      = x[9 + i];
+            cur_rotm(i, 2)      = x[12 + i];
             state_.body_rate(i) = x[15 + i];
         }
 
@@ -273,7 +378,7 @@ namespace QuadrotorSim_SO3
             state_.thrust_torque[i] = x[18 + i];
         }
 
-        // Re-orthonormalize R (polar decomposition)
+          // Re-orthonormalize R (polar decomposition)
         Eigen::LLT<Eigen::Matrix3d> llt(cur_rotm.transpose() * cur_rotm);
         Eigen::Matrix3d P = llt.matrixL();
         Eigen::Matrix3d R = cur_rotm * P.inverse();
@@ -283,22 +388,22 @@ namespace QuadrotorSim_SO3
         std::normal_distribution<double> angular_speed_noise(ANGULAR_SPEED_MEAN, ANGULAR_SPEED_COV);
         gtsam::Vector3 ome_noise = gtsam::Vector3(angular_speed_noise(generator_), angular_speed_noise(generator_), 0.01* angular_speed_noise(generator_));
 
-        state_.p = state_.p;
-        state_.v = state_.v;
+        state_.p         = state_.p;
+        state_.v         = state_.v;
         state_.body_rate = state_.body_rate + ome_noise;
 
-        // printCurState();
+          // printCurState();
     }
 
     Eigen::Matrix4d Quadrotor::ComputeEffectivenessMatrix()
     {
         Eigen::Matrix4d effectivenessMatrix;
 
-        // effectivenessMatrix << 
-        //     kf_, kf_, kf_, kf_,
-        //     0, 0, arm_length_ * kf_, - arm_length_ * kf_,
-        //     - arm_length_ * kf_, arm_length_ * kf_, 0, 0,
-        //     km_, km_, -km_, -km_;
+          // effectivenessMatrix << 
+          //     kf_, kf_, kf_, kf_,
+          //     0, 0, arm_length_ * kf_, - arm_length_ * kf_,
+          //     - arm_length_ * kf_, arm_length_ * kf_, 0, 0,
+          //     km_, km_, -km_, -km_;
         double dx0 = 0.10f;
         double dx1 = 0.10f;
 
@@ -316,17 +421,17 @@ namespace QuadrotorSim_SO3
         effectiveness_ = ComputeEffectivenessMatrix();
 
         Eigen::Vector4d thrust;
-        thrust = effectiveness_.inverse()* thrust_torque_;
+                        thrust   = effectiveness_.inverse()* thrust_torque_;
         Eigen::Vector4d identity = Eigen::Vector4d::Identity();
 
-        // esc_factor* Actuator_Ouput^2 + (1 - esc_factor)* Actuator_Output - rotor_thrust = 0
+          // esc_factor* Actuator_Ouput^2 + (1 - esc_factor)* Actuator_Output - rotor_thrust = 0
         
         Eigen::Vector4d actuator_output;
         double a = esc_factor_;
         double b = 1 - esc_factor_;
     
         actuator_output = (- b * identity + (Eigen::Vector4d)(b * b * identity - 4 * a * (- thrust)).array().sqrt()) / (2 * a);
-        input_ = actuator_output;
+        input_          = actuator_output;
         
         return actuator_output;
     }
@@ -343,7 +448,7 @@ namespace QuadrotorSim_SO3
         thrust_torque = effectiveness_* actuator_output;
         return thrust_torque;
 
-        // esc_factor* Actuator_Ouput^2 + (1 - esc_factor)* Actuator_Output - rotor_thrust = 0
+          // esc_factor* Actuator_Ouput^2 + (1 - esc_factor)* Actuator_Output - rotor_thrust = 0
     }
 
     void Quadrotor::printCurState()
@@ -572,8 +677,8 @@ namespace QuadrotorSim_SO3
     {
         clock_ = clock_ + 0.01f;
         ui_ptr->renderHistoryOpt(state_, pred_trj, err, features, vicon_measurement, rot_err, ref_trj, opt_cost, obstacles_);
-        // unsigned int microsecond = 1000000;
-        // usleep(0.1 * microsecond);
+          // unsigned int microsecond = 1000000;
+          // usleep(0.1 * microsecond);
     }
 
 
@@ -584,23 +689,23 @@ namespace QuadrotorSim_SO3
         {
             return point3d;
         }
-        float a  = 1.10;
-        float b  = 0.50;
-        float v  = 0.40;
-        float z  = 1.00;
+        float a = 1.10;
+        float b = 0.50;
+        float v = 0.40;
+        float z = 1.00;
 
-        // clock_ = 10.0; // static obstacles
+          // clock_ = 10.0; // static obstacles
 
-        double t = clock_ + index * 2.0 * M_PI / obs_num_ * sqrt(a * a + b * b) / v; // Spread obstacles evenly over one cycle
+        double t = clock_ + index * 2.0 * M_PI / obs_num_ * sqrt(a * a + b * b) / v;  // Spread obstacles evenly over one cycle
 
-        double angle = v * t / sqrt(a * a + b * b); 
-        double x = a * cos(angle); 
-        double y = b * sin(angle); 
+        double angle = v * t / sqrt(a * a + b * b);
+        double x     = a * cos(angle);
+        double y     = b * sin(angle);
 
-        // // rotating
-        // double theta = M_PI / 4;
-        // double rotatedX = x * cos(theta) - y * sin(theta); 
-        // double rotatedY = x * sin(theta) + y * cos(theta);
+          // // rotating
+          // double theta = M_PI / 4;
+          // double rotatedX = x * cos(theta) - y * sin(theta); 
+          // double rotatedY = x * sin(theta) + y * cos(theta);
 
         point3d[0] = x - a/2;
         point3d[1] = y - b/2;
@@ -609,18 +714,18 @@ namespace QuadrotorSim_SO3
     }
 
     bool checkCollision(const Obstacle& a, const Obstacle& b) {
-        double dx = a.obs_pos.x() - b.obs_pos.x();
-        double dy = a.obs_pos.y() - b.obs_pos.y();
-        double distance_sq = dx*dx + dy*dy;
+        double dx           = a.obs_pos.x() - b.obs_pos.x();
+        double dy           = a.obs_pos.y() - b.obs_pos.y();
+        double distance_sq  = dx*dx + dy*dy;
         double min_distance = a.obs_size + b.obs_size;
         return distance_sq < (min_distance * min_distance);
     }
 
     void Quadrotor::initializeObstacles() {
         const float circleRadius = 1.5f;
-        const float maxRadius = 0.20f;
-        const float minRadius = 0.03f;
-        const float centerZ = 1.0f;
+        const float maxRadius    = 0.20f;
+        const float minRadius    = 0.10f;
+        const float centerZ      = 1.0f;
 
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -628,21 +733,21 @@ namespace QuadrotorSim_SO3
         std::uniform_real_distribution<double> radiusDist(minRadius, maxRadius);
         std::uniform_real_distribution<double> velDist(-0.1, 0.1);
 
-        for (int i = 0; i < 5; ++i) {
+        for (int i = 0; i < static_obs_num_; ++i) {
             Obstacle obstacle;
             bool collision;
-            int attempts = 0;
+            int   attempts        = 0;
             const int maxAttempts = 100;
 
             do {
-                collision = false;
-                double theta = angleDist(gen);
-                double r = radiusDist(gen);
-                double x = circleRadius * std::cos(theta);
-                double y = circleRadius * std::sin(theta);
+                       collision = false;
+                double theta     = angleDist(gen);
+                double r         = radiusDist(gen);
+                double x         = circleRadius * std::cos(theta);
+                double y         = circleRadius * std::sin(theta);
 
-                obstacle.obs_pos = gtsam::Vector3(x, y, centerZ);
-                obstacle.obs_vel = gtsam::Vector3(velDist(gen), velDist(gen), 0.0);
+                obstacle.obs_pos  = gtsam::Vector3(x, y, centerZ);
+                obstacle.obs_vel  = gtsam::Vector3(velDist(gen), velDist(gen), 0.0);
                 obstacle.obs_size = r;
 
                 for (const auto& existing : static_obstacles_) {
@@ -665,8 +770,8 @@ namespace QuadrotorSim_SO3
     }
 
     void Quadrotor::resolveCollisions() {
-        const double response_factor = 0.5; // How much to push apart
-        const double min_separation = 0.01; // Minimum enforced separation
+        const double response_factor = 0.5;   // How much to push apart
+        const double min_separation  = 0.01;  // Minimum enforced separation
         
         for (size_t i = 0; i < static_obstacles_.size(); ++i) {
             for (size_t j = i+1; j < static_obstacles_.size(); ++j) {
@@ -674,25 +779,25 @@ namespace QuadrotorSim_SO3
                 Obstacle& b = static_obstacles_[j];
                 
                 if (checkCollision(a, b)) {
-                    // Calculate collision normal and overlap
-                    gtsam::Vector3 delta = a.obs_pos - b.obs_pos;
-                    double distance = delta.norm();
-                    double overlap = (a.obs_size + b.obs_size) - distance;
+                      // Calculate collision normal and overlap
+                    gtsam::Vector3 delta    = a.obs_pos - b.obs_pos;
+                    double         distance = delta.norm();
+                    double         overlap  = (a.obs_size + b.obs_size) - distance;
                     
                     if (distance > 0) {
                         gtsam::Vector3 collision_normal = delta / distance;
                         
-                        // Push apart
-                        double push = response_factor * overlap;
-                        a.obs_pos += collision_normal * push;
-                        b.obs_pos -= collision_normal * push;
+                          // Push apart
+                        double push       = response_factor * overlap;
+                               a.obs_pos += collision_normal * push;
+                               b.obs_pos -= collision_normal * push;
                         
-                        // Adjust velocities to avoid sticking
+                          // Adjust velocities to avoid sticking
                         double dot_product = a.obs_vel.dot(collision_normal) - b.obs_vel.dot(collision_normal);
                         if (dot_product < 0) { // Moving toward each other
-                            gtsam::Vector3 impulse = collision_normal * dot_product;
-                            a.obs_vel -= impulse * 0.5;
-                            b.obs_vel += impulse * 0.5;
+                            gtsam::Vector3 impulse    = collision_normal * dot_product;
+                                           a.obs_vel -= impulse * 0.5;
+                                           b.obs_vel += impulse * 0.5;
                         }
                     }
                 }
@@ -703,45 +808,45 @@ namespace QuadrotorSim_SO3
 
     template<typename T>
     const T& clamp(const T& value, const T& min, const T& max) {
-        return (value < min) ? min : (max < value) ? max : value;
+        return (value < min) ? min: (max < value) ? max: value;
     }
 
     void Quadrotor::updateObstaclePositions(double dt) {
-        // First update all positions
+          // First update all positions
         for (auto& obstacle : static_obstacles_) {
             obstacle.obs_pos += obstacle.obs_vel * dt;
         }
         
-        // Then resolve any collisions
+          // Then resolve any collisions
         resolveCollisions();
         
-        // Add some randomness to movement
+          // Add some randomness to movement
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_real_distribution<double> velChange(-0.02, 0.02);
         
         for (auto& obstacle : static_obstacles_) {
-            // Slightly modify velocity
+              // Slightly modify velocity
             obstacle.obs_vel.x() += velChange(gen);
             obstacle.obs_vel.y() += velChange(gen);
             
-            // Keep velocity within bounds
+              // Keep velocity within bounds
             for (int i = 0; i < 2; i++) {
-                if (obstacle.obs_vel(i) > 0.1) obstacle.obs_vel(i) = 0.1;
+                if (obstacle.obs_vel(i) > 0.1) obstacle.obs_vel(i)  = 0.1;
                 if (obstacle.obs_vel(i) < -0.1) obstacle.obs_vel(i) = -0.1;
             }
             
-            // Boundary checking
+              // Boundary checking
             const double maxX = 2.0, minX = -2.0;
             const double maxY = 2.0, minY = -2.0;
             
             if (obstacle.obs_pos.x() > maxX || obstacle.obs_pos.x() < minX) {
                 obstacle.obs_vel.x() *= -1;
-                obstacle.obs_pos.x() = clamp(obstacle.obs_pos.x(), minX, maxX);
+                obstacle.obs_pos.x()  = clamp(obstacle.obs_pos.x(), minX, maxX);
             }
             if (obstacle.obs_pos.y() > maxY || obstacle.obs_pos.y() < minY) {
                 obstacle.obs_vel.y() *= -1;
-                obstacle.obs_pos.y() = clamp(obstacle.obs_pos.y(), minY, maxY);
+                obstacle.obs_pos.y()  = clamp(obstacle.obs_pos.y(), minY, maxY);
             }
         }
     }
@@ -749,48 +854,46 @@ namespace QuadrotorSim_SO3
 
     Obstacle Quadrotor::getObsbyEllipsev(uint8_t index) 
     { 
-        uint8_t static_obs_num = 15;
-
         Obstacle obstacle;
         if(index >= obs_num_)
         {
-            return obstacle; // returns default obstacle (zero position and velocity)
+            return obstacle;  // returns default obstacle (zero position and velocity)
         }
         
-        if(index > static_obs_num - 1)
+        if(index > static_obs_num_ - 1)
         {
-            // Parameters
+                             // Parameters
             float a = 1.10;  // semi-major axis
             float b = 0.50;  // semi-minor axis
             float v = 1.40;  // velocity parameter
             float z = 1.00;  // fixed height
             
-            // Calculate time parameter with even spacing
-            double t = clock_ + (index - static_obs_num + 1) * 2.0 * M_PI / (obs_num_ - static_obs_num) * sqrt(a * a + b * b) / v;
+              // Calculate time parameter with even spacing
+            double t = clock_ + (index - static_obs_num_ + 1) * 2.0 * M_PI / (obs_num_ - static_obs_num_) * sqrt(a * a + b * b) / v;
             
-            // Position calculation
-            double angle = v * t / sqrt(a * a + b * b); 
-            double x = a * cos(angle); 
-            double y = b * sin(angle); 
+              // Position calculation
+            double angle = v * t / sqrt(a * a + b * b);
+            double x     = a * cos(angle);
+            double y     = b * sin(angle);
             
-            // Velocity calculation (derivative of position)
+              // Velocity calculation (derivative of position)
             double dx = -a * sin(angle) * (v / sqrt(a * a + b * b));
             double dy = b * cos(angle) * (v / sqrt(a * a + b * b));
             
-            // Set obstacle properties
+              // Set obstacle properties
             obstacle.obs_pos[0] = x - a/2;
             obstacle.obs_pos[1] = y - b/2;
             obstacle.obs_pos[2] = z;
             obstacle.obs_vel[0] = dx;
             obstacle.obs_vel[1] = dy;
-            obstacle.obs_vel[2] = 0;  // no vertical movement
-            obstacle.obs_type = ObsType::sphere;
-            obstacle.obs_size = 0.10;
+            obstacle.obs_vel[2] = 0;                // no vertical movement
+            obstacle.obs_type   = ObsType::sphere;
+            obstacle.obs_size   = 0.10;
             return obstacle;
         }
         else
         {
-            // updateObstaclePositions(dt_);
+              // updateObstaclePositions(dt_);
             return static_obstacles_[index];
         }
     }

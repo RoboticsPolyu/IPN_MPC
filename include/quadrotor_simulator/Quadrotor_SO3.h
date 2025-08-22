@@ -30,6 +30,8 @@ namespace QuadrotorSim_SO3
 
         Quadrotor();
 
+        Quadrotor(const std::string & yaml_file);
+
         const State &getState(void) const;
 
         void setState(const State &state);
@@ -104,7 +106,7 @@ namespace QuadrotorSim_SO3
             return ui_ptr->getObs1();
         }
         
-        std::vector<Obstacle> getObsN()
+        std::vector<Obstacle> getObstacles()
         {
             for(uint8_t i = 0; i < obs_num_; i++)
             {
@@ -171,6 +173,7 @@ namespace QuadrotorSim_SO3
         std::vector<Obstacle> static_obstacles_;
         
         uint16_t obs_num_ = 0;
+        uint16_t static_obs_num_ = 0;
         std::shared_ptr<UI> ui_ptr;
     };
 }
