@@ -155,6 +155,7 @@ int main(void)
     
     for(int traj_idx = 0; traj_idx < SIM_STEPS; traj_idx++)
     {
+        std::vector<State> opt_trj, ref_trj;
         double t0 = traj_idx* dt;
 
         if(traj_idx == 0)
@@ -198,6 +199,12 @@ int main(void)
             initial_value.insert(V(idx + 1), vel_idx);
             initial_value.insert(S(idx + 1), omega_idx);
             
+            State ref_state;
+            ref_state.p   = pose_idx.translation();
+            ref_state.rot = pose_idx.rotation();
+            ref_state.v   = vel_idx;
+            ref_trj.push_back(ref_state);
+
             gtsam::Vector4 init_input = circle_generator.inputfm(t0 + idx * dt);
             if(idx != 0)
             {
@@ -264,8 +271,6 @@ int main(void)
 
         std::cout << "###################### begin optimize ######################" << std::endl;
         Values result = optimizer.optimize();
-
-        std::vector<State> opt_trj;
 
         gtsam::Pose3   i_pose;
         gtsam::Vector3 vel;
@@ -371,12 +376,14 @@ int main(void)
         gtsam::Vector3 tar_omega        = circle_generator.omega(t0 + 1 * dt);
         gtsam::Vector4 ref_input        = circle_generator.inputfm(t0);
 
-        gtsam::Vector3 err              = predicted_state.p - tar_position;
+        gtsam::Vector3 pos_err          = predicted_state.p - tar_position;
         gtsam::Vector3 pred_theta       = gtsam::Rot3::Logmap(predicted_state.rot);
         gtsam::Vector3 rot_err          = tar_rotation.rpy() - predicted_state.rot.rpy();
         // actuator_outputs = quadrotor.CumputeRotorsVel();
         
-        quadrotor.renderHistoryOpt(opt_trj, err, landmarkk, vicon_measurement, rot_err);
+        float opt_cost = -1.0;
+        
+        quadrotor.renderHistoryOpt(opt_trj, pos_err, boost::none, vicon_measurement, rot_err, ref_trj, opt_cost);
 
         /* real position, real attituede, real vel, rel augular speed, input their corr references */
         JEC_log << predicted_pose.translation().x() << " " << predicted_pose.translation().y() << " " << predicted_pose.translation().z() << " " 

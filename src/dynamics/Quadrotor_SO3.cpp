@@ -56,6 +56,58 @@ namespace QuadrotorSim_SO3
         obstacles_.resize(obs_num_);
 
         ui_ptr = std::make_shared<UI>(trj_len_max, obs_num_, OBS1_RADIUS);
+        static_obstacles_.clear(); // Clear previous obstacles
+
+        const float circleRadius = 1.5f;
+        const float maxRadius = 0.20f;
+        const float minRadius = 0.03f;
+        const float centerZ = 1.0f;
+
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<double> angleDist(M_PI/2, 3*M_PI/2); // Left half-circle
+        std::uniform_real_distribution<double> radiusDist(minRadius, maxRadius);
+
+        for (int i = 0; i < 15; ++i) {
+            Obstacle obstacle;
+            bool collision;
+            int attempts = 0;
+            const int maxAttempts = 100; // Prevent infinite loops
+
+            do {
+                collision = false;
+                double theta = angleDist(gen);
+                double r = radiusDist(gen);
+                double x = circleRadius * std::cos(theta);
+                double y = circleRadius * std::sin(theta);
+
+                obstacle.obs_pos = gtsam::Vector3(x, y, centerZ);
+                obstacle.obs_vel = gtsam::Vector3::Zero();
+                obstacle.obs_size = r;
+
+                // Check collision with existing obstacles
+                for (const auto& existing : static_obstacles_) {
+                    double dx = existing.obs_pos.x() - obstacle.obs_pos.x();
+                    double dy = existing.obs_pos.y() - obstacle.obs_pos.y();
+                    double dz = existing.obs_pos.z() - obstacle.obs_pos.z();
+                    double distance = std::sqrt(dx*dx + dy*dy + dz*dz);
+
+                    if (distance < (existing.obs_size + obstacle.obs_size)) {
+                        collision = true;
+                        break;
+                    }
+                }
+
+                if (++attempts >= maxAttempts) {
+                    std::cerr << "Warning: Max attempts reached. Skipping obstacle." << std::endl;
+                    break;
+                }
+            } while (collision);
+
+            if (!collision) {
+                static_obstacles_.push_back(obstacle);
+            }
+        }
     }
 
     void Quadrotor::step(double dt)
@@ -134,7 +186,7 @@ namespace QuadrotorSim_SO3
 
         double thrust = x[18] + at_noise; // cur force
 
-        Eigen::Vector3d moment(x[19], x[20], x[21]); // cur moment
+        Eigen::Vector3d torque(x[19], x[20], x[21]); // cur torque
 
         vnorm = est_state.v;
         if (vnorm.norm() != 0)
@@ -151,8 +203,8 @@ namespace QuadrotorSim_SO3
 
         Eigen::Matrix3d r_dot = est_state.rot.matrix() * gtsam::skewSymmetric(est_state.body_rate);
 
-        // J* body_rate_dot = moment - J.cross(J* body_rate)
-        Eigen::Vector3d body_rate_dot = J_.inverse() * (moment - est_state.body_rate.cross(J_ * est_state.body_rate) + external_torque_);
+        // J* body_rate_dot = torque - J.cross(J* body_rate)
+        Eigen::Vector3d body_rate_dot = J_.inverse() * (torque - est_state.body_rate.cross(J_ * est_state.body_rate) + external_torque_);
 
         for (int i = 0; i < 3; i++)
         {
@@ -473,9 +525,9 @@ namespace QuadrotorSim_SO3
     {
         return external_torque_;
     }
-    void Quadrotor::setExternalMoment(const Eigen::Vector3d &moment)
+    void Quadrotor::setExternalMoment(const Eigen::Vector3d &torque)
     {
-        external_torque_ = moment;
+        external_torque_ = torque;
     }
 
     double Quadrotor::getMaxRPM(void) const
@@ -556,41 +608,190 @@ namespace QuadrotorSim_SO3
         return point3d;
     }
 
+    bool checkCollision(const Obstacle& a, const Obstacle& b) {
+        double dx = a.obs_pos.x() - b.obs_pos.x();
+        double dy = a.obs_pos.y() - b.obs_pos.y();
+        double distance_sq = dx*dx + dy*dy;
+        double min_distance = a.obs_size + b.obs_size;
+        return distance_sq < (min_distance * min_distance);
+    }
+
+    void Quadrotor::initializeObstacles() {
+        const float circleRadius = 1.5f;
+        const float maxRadius = 0.20f;
+        const float minRadius = 0.03f;
+        const float centerZ = 1.0f;
+
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<double> angleDist(M_PI/2, 3*M_PI/2);
+        std::uniform_real_distribution<double> radiusDist(minRadius, maxRadius);
+        std::uniform_real_distribution<double> velDist(-0.1, 0.1);
+
+        for (int i = 0; i < 5; ++i) {
+            Obstacle obstacle;
+            bool collision;
+            int attempts = 0;
+            const int maxAttempts = 100;
+
+            do {
+                collision = false;
+                double theta = angleDist(gen);
+                double r = radiusDist(gen);
+                double x = circleRadius * std::cos(theta);
+                double y = circleRadius * std::sin(theta);
+
+                obstacle.obs_pos = gtsam::Vector3(x, y, centerZ);
+                obstacle.obs_vel = gtsam::Vector3(velDist(gen), velDist(gen), 0.0);
+                obstacle.obs_size = r;
+
+                for (const auto& existing : static_obstacles_) {
+                    if (checkCollision(obstacle, existing)) {
+                        collision = true;
+                        break;
+                    }
+                }
+
+                if (++attempts >= maxAttempts) {
+                    std::cerr << "Warning: Max attempts reached. Skipping obstacle." << std::endl;
+                    break;
+                }
+            } while (collision);
+
+            if (!collision) {
+                static_obstacles_.push_back(obstacle);
+            }
+        }
+    }
+
+    void Quadrotor::resolveCollisions() {
+        const double response_factor = 0.5; // How much to push apart
+        const double min_separation = 0.01; // Minimum enforced separation
+        
+        for (size_t i = 0; i < static_obstacles_.size(); ++i) {
+            for (size_t j = i+1; j < static_obstacles_.size(); ++j) {
+                Obstacle& a = static_obstacles_[i];
+                Obstacle& b = static_obstacles_[j];
+                
+                if (checkCollision(a, b)) {
+                    // Calculate collision normal and overlap
+                    gtsam::Vector3 delta = a.obs_pos - b.obs_pos;
+                    double distance = delta.norm();
+                    double overlap = (a.obs_size + b.obs_size) - distance;
+                    
+                    if (distance > 0) {
+                        gtsam::Vector3 collision_normal = delta / distance;
+                        
+                        // Push apart
+                        double push = response_factor * overlap;
+                        a.obs_pos += collision_normal * push;
+                        b.obs_pos -= collision_normal * push;
+                        
+                        // Adjust velocities to avoid sticking
+                        double dot_product = a.obs_vel.dot(collision_normal) - b.obs_vel.dot(collision_normal);
+                        if (dot_product < 0) { // Moving toward each other
+                            gtsam::Vector3 impulse = collision_normal * dot_product;
+                            a.obs_vel -= impulse * 0.5;
+                            b.obs_vel += impulse * 0.5;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+    template<typename T>
+    const T& clamp(const T& value, const T& min, const T& max) {
+        return (value < min) ? min : (max < value) ? max : value;
+    }
+
+    void Quadrotor::updateObstaclePositions(double dt) {
+        // First update all positions
+        for (auto& obstacle : static_obstacles_) {
+            obstacle.obs_pos += obstacle.obs_vel * dt;
+        }
+        
+        // Then resolve any collisions
+        resolveCollisions();
+        
+        // Add some randomness to movement
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<double> velChange(-0.02, 0.02);
+        
+        for (auto& obstacle : static_obstacles_) {
+            // Slightly modify velocity
+            obstacle.obs_vel.x() += velChange(gen);
+            obstacle.obs_vel.y() += velChange(gen);
+            
+            // Keep velocity within bounds
+            for (int i = 0; i < 2; i++) {
+                if (obstacle.obs_vel(i) > 0.1) obstacle.obs_vel(i) = 0.1;
+                if (obstacle.obs_vel(i) < -0.1) obstacle.obs_vel(i) = -0.1;
+            }
+            
+            // Boundary checking
+            const double maxX = 2.0, minX = -2.0;
+            const double maxY = 2.0, minY = -2.0;
+            
+            if (obstacle.obs_pos.x() > maxX || obstacle.obs_pos.x() < minX) {
+                obstacle.obs_vel.x() *= -1;
+                obstacle.obs_pos.x() = clamp(obstacle.obs_pos.x(), minX, maxX);
+            }
+            if (obstacle.obs_pos.y() > maxY || obstacle.obs_pos.y() < minY) {
+                obstacle.obs_vel.y() *= -1;
+                obstacle.obs_pos.y() = clamp(obstacle.obs_pos.y(), minY, maxY);
+            }
+        }
+    }
+
+
     Obstacle Quadrotor::getObsbyEllipsev(uint8_t index) 
     { 
+        uint8_t static_obs_num = 15;
+
         Obstacle obstacle;
         if(index >= obs_num_)
         {
             return obstacle; // returns default obstacle (zero position and velocity)
         }
         
-        // Parameters
-        float a = 1.10;  // semi-major axis
-        float b = 0.50;  // semi-minor axis
-        float v = 1.40;  // velocity parameter
-        float z = 1.00;  // fixed height
-        
-        // Calculate time parameter with even spacing
-        double t = clock_ + index * 2.0 * M_PI / obs_num_ * sqrt(a * a + b * b) / v;
-        
-        // Position calculation
-        double angle = v * t / sqrt(a * a + b * b); 
-        double x = a * cos(angle); 
-        double y = b * sin(angle); 
-        
-        // Velocity calculation (derivative of position)
-        double dx = -a * sin(angle) * (v / sqrt(a * a + b * b));
-        double dy = b * cos(angle) * (v / sqrt(a * a + b * b));
-        
-        // Set obstacle properties
-        obstacle.obs_pos[0] = x - a/2;
-        obstacle.obs_pos[1] = y - b/2;
-        obstacle.obs_pos[2] = z;
-        obstacle.obs_vel[0] = dx;
-        obstacle.obs_vel[1] = dy;
-        obstacle.obs_vel[2] = 0;  // no vertical movement
-        obstacle.obs_type = ObsType::sphere;
-
-        return obstacle;
+        if(index > static_obs_num - 1)
+        {
+            // Parameters
+            float a = 1.10;  // semi-major axis
+            float b = 0.50;  // semi-minor axis
+            float v = 1.40;  // velocity parameter
+            float z = 1.00;  // fixed height
+            
+            // Calculate time parameter with even spacing
+            double t = clock_ + (index - static_obs_num + 1) * 2.0 * M_PI / (obs_num_ - static_obs_num) * sqrt(a * a + b * b) / v;
+            
+            // Position calculation
+            double angle = v * t / sqrt(a * a + b * b); 
+            double x = a * cos(angle); 
+            double y = b * sin(angle); 
+            
+            // Velocity calculation (derivative of position)
+            double dx = -a * sin(angle) * (v / sqrt(a * a + b * b));
+            double dy = b * cos(angle) * (v / sqrt(a * a + b * b));
+            
+            // Set obstacle properties
+            obstacle.obs_pos[0] = x - a/2;
+            obstacle.obs_pos[1] = y - b/2;
+            obstacle.obs_pos[2] = z;
+            obstacle.obs_vel[0] = dx;
+            obstacle.obs_vel[1] = dy;
+            obstacle.obs_vel[2] = 0;  // no vertical movement
+            obstacle.obs_type = ObsType::sphere;
+            obstacle.obs_size = 0.10;
+            return obstacle;
+        }
+        else
+        {
+            // updateObstaclePositions(dt_);
+            return static_obstacles_[index];
+        }
     }
 }

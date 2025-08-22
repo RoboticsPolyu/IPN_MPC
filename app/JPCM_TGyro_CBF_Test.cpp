@@ -117,19 +117,19 @@ int main(void)
     JEC_log.open(file_name);
 
     double dt = 0.001f, radius = RADIUS, linear_vel = LINEAR_VEL;
-    Trajectory::circle_generator fig8_gen(radius, linear_vel, dt);
+    Trajectory::circle_generator fig_gen(radius, linear_vel, dt);
 
-    // Trajectory::figure_eight_generator fig8_gen(radius, linear_vel, dt);  // scale=1m, speed=1rad/s, dt=0.01s
+    // Trajectory::figure_eight_generator fig_gen(radius, linear_vel, dt);  // scale=1m, speed=1rad/s, dt=0.01s
     
     traj_state state;
     state.t = 0.0;
-    state.pos      = fig8_gen.pos(0.0);
-    state.vel      = fig8_gen.vel(0.0);
-    state.rotation = gtsam::Rot3::Expmap(fig8_gen.theta(0.0)).toQuaternion();
+    state.pos      = fig_gen.pos(0.0);
+    state.vel      = fig_gen.vel(0.0);
+    state.rotation = gtsam::Rot3::Expmap(fig_gen.theta(0.0)).toQuaternion();
 
     state.angular_speed = gtsam::Vector3::Zero();
-    state.acc           = fig8_gen.thrust(0.0);
-    state.motor         = fig8_gen.input(0.0);
+    state.acc           = fig_gen.thrust(0.0);
+    state.motor         = fig_gen.input(0.0);
 
     gtsam::LevenbergMarquardtParams parameters;
     parameters.absoluteErrorTol = 100;
@@ -192,7 +192,7 @@ int main(void)
     Obstacle obs1;
     std::vector<Obstacle> obsN;
 
-    float obs1_radius = OBS1_RADIUS, safe_d = SAFE_D;
+    float safe_d = SAFE_D;
 
     for(int traj_idx = 0; traj_idx < SIM_STEPS; traj_idx++)
     {
@@ -204,11 +204,11 @@ int main(void)
 
         if(traj_idx == 0)
         {
-            predicted_state.p         = fig8_gen.pos(0.0);
-            gtsam::Rot3 rot           = gtsam::Rot3::Expmap(fig8_gen.theta(0.0)).toQuaternion();
+            predicted_state.p         = fig_gen.pos(0.0);
+            gtsam::Rot3 rot           = gtsam::Rot3::Expmap(fig_gen.theta(0.0)).toQuaternion();
             predicted_state.rot       = rot; 
-            predicted_state.v         = fig8_gen.vel(0.0);
-            predicted_state.body_rate = fig8_gen.omega(0.0);
+            predicted_state.v         = fig_gen.vel(0.0);
+            predicted_state.body_rate = fig_gen.omega(0.0);
 
             quadrotor.setState(predicted_state);
         }
@@ -234,9 +234,9 @@ int main(void)
             DynamicsFactorTGyro dynamics_factor(X(idx), V(idx), U(idx), X(idx + 1), V(idx + 1), dt, mass, drag_k, dynamics_noise);
             graph.add(dynamics_factor);
             
-            gtsam::Pose3   pose_idx(gtsam::Rot3::Expmap(fig8_gen.theta(t0 + (idx + 1) * dt)), fig8_gen.pos(t0 + (idx + 1) * dt));
-            gtsam::Vector3 vel_idx   = fig8_gen.vel(t0 + (idx + 1) * dt);
-            gtsam::Vector3 omega_idx = fig8_gen.omega(t0 + (idx + 1) * dt);
+            gtsam::Pose3   pose_idx(gtsam::Rot3::Expmap(fig_gen.theta(t0 + (idx + 1) * dt)), fig_gen.pos(t0 + (idx + 1) * dt));
+            gtsam::Vector3 vel_idx   = fig_gen.vel(t0 + (idx + 1) * dt);
+            gtsam::Vector3 omega_idx = fig_gen.omega(t0 + (idx + 1) * dt);
             
             ref_state.p   = pose_idx.translation();
             ref_state.rot = pose_idx.rotation();
@@ -253,9 +253,9 @@ int main(void)
                 obs1 = obsN[obsi];
                 float d2 = std::sqrt((pose_idx.translation() - obs1.obs_pos).transpose()* (pose_idx.translation() - obs1.obs_pos));
                 
-                if(d2 < obs1_radius + safe_d)
+                if(d2 < obs1.obs_size + safe_d)
                 {
-                    float scale = (obs1_radius + safe_d)/ d2; 
+                    float scale = (obs1.obs_size + safe_d)/ d2; 
                     pose_idx = gtsam::Pose3(pose_idx.rotation(), (pose_idx.translation() - obs1.obs_pos)* scale + obs1.obs_pos);
                 }
             }
@@ -290,11 +290,11 @@ int main(void)
                 // graph.add(PointObsFactor(X(idx+1), obs1, obs1_radius + safe_d, point_obs_noise));
                 if(idx == OPT_LENS_TRAJ - 1)
                 {
-                    graph.add(CBFPdFactor(X(idx+1), V(idx+1), obs1.obs_pos, obs1_radius + safe_d, cbf_alpha, point_obs_noise));
+                    graph.add(CBFPdFactor(X(idx+1), V(idx+1), obs1.obs_pos, obs1.obs_size + safe_d, cbf_alpha, point_obs_noise));
                 }
                 else
                 {
-                    graph.add(VeCBFPdFactor(X(idx+1), V(idx+1), U(idx+1), obs1.obs_pos, obs1.obs_vel, obs1_radius + safe_d, cbf_alpha, beta, point_obs_noise));
+                    graph.add(VeCBFPdFactor(X(idx+1), V(idx+1), U(idx+1), obs1.obs_pos, obs1.obs_vel, obs1.obs_size + safe_d, cbf_alpha, beta, point_obs_noise));
                 }
             }
 
@@ -416,12 +416,12 @@ int main(void)
         gtsam::Pose3 predicted_pose = gtsam::Pose3(predicted_state.rot, predicted_state.p);
 
         landmarkk = lidar.Measurement(env, predicted_pose);
-        gtsam::Vector3 tar_position  = fig8_gen.pos(t0 + 1 * dt);
-        gtsam::Vector3 tar_theta     = fig8_gen.theta(t0 + 1 * dt);
+        gtsam::Vector3 tar_position  = fig_gen.pos(t0 + 1 * dt);
+        gtsam::Vector3 tar_theta     = fig_gen.theta(t0 + 1 * dt);
         gtsam::Rot3    tar_rotation  = gtsam::Rot3::Expmap(tar_theta);
-        gtsam::Vector3 tar_vel       = fig8_gen.vel(t0 + 1 * dt);
-        gtsam::Vector3 tar_omega     = fig8_gen.omega(t0 + 1 * dt);
-        gtsam::Vector4 ref_input     = fig8_gen.inputfm(t0);
+        gtsam::Vector3 tar_vel       = fig_gen.vel(t0 + 1 * dt);
+        gtsam::Vector3 tar_omega     = fig_gen.omega(t0 + 1 * dt);
+        gtsam::Vector4 ref_input     = fig_gen.inputfm(t0);
 
         gtsam::Vector3 pos_err       = predicted_state.p - tar_position;
         gtsam::Vector3 pred_theta    = gtsam::Rot3::Logmap(predicted_state.rot);

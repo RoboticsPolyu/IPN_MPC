@@ -9,9 +9,9 @@ namespace QuadrotorSim_SO3
         obs_num_ = obs_num;
         che_dis_ = che_dis;
         
-        float radius = 0.20f; int numTheta = 100; int numPhi = 100;
+        float radius = che_dis_; int numTheta = 100; int numPhi = 100;
         spherePoints_ = generateSpherePoints(radius, numTheta, numPhi);
-        int numPoints = 200; radius = 0.05; float height = 0.50;
+        int numPoints = 200; radius = che_dis_; float height = 0.50;
         cylinderPoints_ = generatePointsOutsideCylinder(numPoints, radius, height);
 
         // Initialize obstacle centers (default N=5)
@@ -281,10 +281,10 @@ namespace QuadrotorSim_SO3
         return obstacles;
     }   
 
-    bool UI::checkCollision(const State &state, const gtsam::Vector3& obstacle_center)
+    bool UI::checkCollision(const State &state, const gtsam::Vector3& obstacle_center, const float r)
     {
         float obs_distance = (state.p - obstacle_center).norm();
-        if(obs_distance >= che_dis_)
+        if(obs_distance >= r)
         {
             return false;
         }
@@ -358,8 +358,9 @@ namespace QuadrotorSim_SO3
             for (int i = 0; i <  obstacle_centers->size(); i++) 
             {
                 gtsam::Vector3 center = obstacle_centers->at(i).obs_pos;
+                float r =  obstacle_centers->at(i).obs_size;
                 std::cout << "center.x: " << center.x() << ", center y: " << center.y() << ", center.z: " << center.z() << std::endl;
-                if(checkCollision(state, center))
+                if(checkCollision(state, center, r))
                 {
                     glColor3f(0.3, 0.5, 0.6); // collision
                     glPointSize(3.0);
@@ -370,18 +371,21 @@ namespace QuadrotorSim_SO3
                     glPointSize(1.0);
                 }
                 glBegin(GL_POINTS);
+                float s = r / che_dis_;
+                std::cout << "s is: " << s << std::endl;
+
                 for (const auto& point : spherePoints_) {
-                    glVertex3f(point.x + center.x(), point.y + center.y(), point.z + center.z());
+                    glVertex3f(point.x * s +  + center.x(), point.y * s + center.y(), point.z * s + center.z());
                 }
                 glEnd();
                 
-                for (int i = 0; i < pred_trj.size(); i++)
+                for (int j = 0; j < pred_trj.size(); j++)
                 {
                     State _state;
-                    _state.p = pred_trj[i].p;
-                    if(checkCollision(_state, center))
+                    _state.p = pred_trj[j].p;
+                    if(checkCollision(_state, center, r))
                     {
-                        drawTrjPColli(pred_trj[i].p);
+                        drawTrjPColli(pred_trj[j].p);
                     }
                 }
             }
@@ -423,6 +427,16 @@ namespace QuadrotorSim_SO3
                 glVertex3f(vicon_measurement->x(), vicon_measurement->y(), vicon_measurement->z());
                 glEnd();
             }
+
+            // // 绘制垂直于 y 轴的平面（y=0.10）
+            // glColor3f(1.0f, 0.5f, 0.5f); // 红色平面
+            // glBegin(GL_QUADS);
+            //     glVertex3f(-2.5f, 0.10f, -2.5f);
+            //     glVertex3f(2.5f, 0.10f, -2.5f);
+            //     glVertex3f(2.5f, 0.10f, 2.5f);
+            //     glVertex3f(-2.5f, 0.10f, 2.5f);
+            // glEnd();
+
             renderPanel();
 
             pangolin::FinishFrame();

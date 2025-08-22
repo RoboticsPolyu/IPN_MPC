@@ -21,7 +21,7 @@ namespace UAVFactor
         // // km_ = 2.5e-9; // from Nate
         // // km = (Cq/Ct)*Dia*kf
         // // Cq/Ct for 8 inch props from UIUC prop db ~ 0.07
-        // km_ = 0.07 * (3 * prop_radius_) * kf_; // z-moment k-gain
+        // km_ = 0.07 * (3 * prop_radius_) * kf_; // z-torque k-gain
 
         Dynamics()
         {
@@ -203,6 +203,44 @@ namespace UAVFactor
         float dt_;
     };
 
+        /*
+    * MPC based FGO, generating Thrust and gyro
+    */
+    class GTSAM_EXPORT DynamicsFactorTGyroWall : public NoiseModelFactor5<gtsam::Pose3, gtsam::Vector3, gtsam::Vector4, gtsam::Pose3, gtsam::Vector3>
+    {
+    public:
+        typedef boost::shared_ptr<DynamicsFactorTGyroWall> shared_ptr;
+
+        DynamicsFactorTGyroWall() {}
+        DynamicsFactorTGyroWall(Key p_i, Key vel_i, Key input_i, Key p_j, Key vel_j, float dt, double mass_, gtsam::Vector3 drag_k, const SharedNoiseModel &model);
+
+        virtual ~DynamicsFactorTGyroWall()
+        {
+        }
+
+        Vector evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector4 &input_i,
+                             const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, 
+                             boost::optional<Matrix &> H1 = boost::none, boost::optional<Matrix &> H2 = boost::none,
+                             boost::optional<Matrix &> H3 = boost::none, boost::optional<Matrix &> H4 = boost::none,
+                             boost::optional<Matrix &> H5 = boost::none) const;
+
+    private:
+        typedef DynamicsFactorTGyroWall This;
+        typedef NoiseModelFactor5<gtsam::Pose3, gtsam::Vector3, gtsam::Vector4, gtsam::Pose3, gtsam::Vector3>
+            Base;
+
+        DynamicsParams dynamics_params_;
+        
+        gtsam::Vector3 drag_k_;
+        
+        double mass_;
+        
+        gtsam::Vector3 gI_ = gtsam::Vector3(0, 0, 9.81); // gravity
+
+        float dt_;
+    };
+
+
     /*thrust's x and y components are nozero */
     class GTSAM_EXPORT DynamicsFactorFullTM : public NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector6, 
         gtsam::Pose3, gtsam::Vector3, gtsam::Vector3>
@@ -332,7 +370,7 @@ namespace UAVFactor
             Matrix36 jac_t_posei;
             gtsam::Vector3 p_p0 = pi.translation(jac_t_posei) - obs_;
             double d = p_p0.norm();
-
+            
             err = Vector1(1/safe_d_ - 1/d) + alpha_* p_p0.transpose()/d/d/d* vi; // h + alpha* dot h
             if(err(0) > 0)
             {
@@ -353,8 +391,9 @@ namespace UAVFactor
                 if(H1) 
                 {
                     double dot_p_vi = p_p0.transpose() * vi; // p_p0^T * vi
-                    *H1 = (p_p0.transpose() * jac_t_posei + 
-                        alpha_ * (vi.transpose() * jac_t_posei - 3 * dot_p_vi / (d * d) * p_p0.transpose() * jac_t_posei)) / (d * d * d);
+                    *H1 = (p_p0.transpose() * jac_t_posei
+                        + alpha_ * (vi.transpose() * jac_t_posei 
+                        - 3 * dot_p_vi / (d * d) * p_p0.transpose() * jac_t_posei)) / (d * d * d);
                 }
 
                 if(H2)

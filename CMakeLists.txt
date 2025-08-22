@@ -134,8 +134,11 @@ target_link_libraries(SW_Joint_Estimation_Control gtsam quadrotor_dynamics ${Pan
 add_executable(Joint_Positioning_Control_Test app/Joint_Positioning_Control_Test.cpp)
 target_link_libraries(Joint_Positioning_Control_Test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
-add_executable(JPCM_TGyro_version_Test app/JPCM_TGyro_version_Test.cpp)
-target_link_libraries(JPCM_TGyro_version_Test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+add_executable(JPCM_TGyro_Test app/JPCM_TGyro_Test.cpp)
+target_link_libraries(JPCM_TGyro_Test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+
+add_executable(JPCM_TGyro_Wall app/JPCM_TGyro_Wall.cpp)
+target_link_libraries(JPCM_TGyro_Wall gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
 add_executable(JPCM_TGyro_CBF_Test app/JPCM_TGyro_CBF_Test.cpp)
 target_link_libraries(JPCM_TGyro_CBF_Test gtsam quadrotor_dynamics ${Pangolin_LIBRARIES} ${YAML_CPP_LIBRARIES})

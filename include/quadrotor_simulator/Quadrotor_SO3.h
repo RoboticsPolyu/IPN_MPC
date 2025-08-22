@@ -64,7 +64,7 @@ namespace QuadrotorSim_SO3
         void setExternalForce(const Eigen::Vector3d &force);
 
         const Eigen::Vector3d &getExternalMoment(void) const;
-        void setExternalMoment(const Eigen::Vector3d &moment);
+        void setExternalMoment(const Eigen::Vector3d &torque);
 
         double getMaxRPM(void) const;
         void setMaxRPM(double max_rpm);
@@ -126,6 +126,12 @@ namespace QuadrotorSim_SO3
         
         Obstacle getObsbyEllipsev(uint8_t index);         
         
+        void initializeObstacles();
+
+        void resolveCollisions();
+
+        void updateObstaclePositions(double dt);
+
         double g_; // gravity
         double mass_;
         Eigen::Matrix3d J_; // Inertia
@@ -143,6 +149,7 @@ namespace QuadrotorSim_SO3
         State state_;
         
         float clock_ = 0.;
+        float dt_ = 0.01;
 
         Eigen::Vector3d acc_;
 
@@ -161,7 +168,8 @@ namespace QuadrotorSim_SO3
 
         Geometry geometry_;
         std::vector<Obstacle> obstacles_;
-
+        std::vector<Obstacle> static_obstacles_;
+        
         uint16_t obs_num_ = 0;
         std::shared_ptr<UI> ui_ptr;
     };

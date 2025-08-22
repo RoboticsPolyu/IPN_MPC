@@ -48,7 +48,7 @@ namespace QuadrotorSim_SO3
         std::vector<gtsam::Vector3> getObsN();
 
     private:
-        bool checkCollision(const State &state, const gtsam::Vector3& obstacle_center);
+        bool checkCollision(const State &state, const gtsam::Vector3& obstacle_center, const float r);
 
         void drawQuadrotor(gtsam::Vector3 p, gtsam::Rot3 rot);
 

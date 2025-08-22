@@ -97,8 +97,8 @@ int main(void)
 
     double g_                   = quad_config["g"].as<double>();
     double mass_                = quad_config["mass"].as<double>();
-    double kf_                  = quad_config["k_f"].as<double>(); //  xy-moment k-gain
-    double km_                  = quad_config["k_m"].as<double>(); // z-moment k-gain
+    double kf_                  = quad_config["k_f"].as<double>(); //  xy-torque k-gain
+    double km_                  = quad_config["k_m"].as<double>(); // z-torque k-gain
     double motor_time_constant_ = quad_config["time_constant"].as<double>();
 
     double Ixx                  = quad_config["Ixx"].as<double>();
@@ -188,10 +188,10 @@ int main(void)
     double p_thrust_sigma = 0.10;
     gtsam::Vector3 thrust_sigma(0.01, 0.01, p_thrust_sigma);
     // sigma = (rotor_p_x* 2* P_thrust_single_rotor, rotor_p_x* 2* P_thrust_single_rotor, k_m * 2 * P_thrust_single_rotor) 
-    gtsam::Vector3 moments_sigma(p_thrust_sigma * 2 * rotor_py, p_thrust_sigma * 2 * rotor_px, 0.013f * 2 * p_thrust_sigma);
+    gtsam::Vector3 torques_sigma(p_thrust_sigma * 2 * rotor_py, p_thrust_sigma * 2 * rotor_px, 0.013f * 2 * p_thrust_sigma);
 
     auto dyn_noise = noiseModel::Diagonal::Sigmas((Vector(12) << thrust_sigma * 0.5f * dt * dt, Vector3::Constant(0.01 * dt), 
-                                                                   thrust_sigma * dt, moments_sigma * dt).finished());
+                                                                   thrust_sigma * dt, torques_sigma * dt).finished());
 
     for(int traj_idx = 0; traj_idx < SIM_STEPS; traj_idx++)
     {

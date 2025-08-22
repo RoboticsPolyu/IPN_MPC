@@ -110,5 +110,6 @@ typedef struct Obstacle
     ObsType obs_type;
     gtsam::Vector3 obs_vel;
     gtsam::Vector3 obs_pos;
+    float obs_size;
 
 }Obstacle;

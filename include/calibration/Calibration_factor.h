@@ -12,7 +12,7 @@ namespace UAVFactor
 {
     /*Scheme 1 : unify Dynamcis modol and actuator model*/
     // Onestage Dynamics model calibration factor
-    // Posei Veli Omegai Posej Velj Omegaj inertia_moment, g_Rot, rotor_position, kf, km, body_p_mass
+    // Posei Veli Omegai Posej Velj Omegaj inertia_torque, g_Rot, rotor_position, kf, km, body_p_mass
     class GTSAM_EXPORT DynamcisCaliFactor_RS : public NoiseModelFactor13<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector3, gtsam::Rot3, gtsam::Vector3, double, double, gtsam::Pose3, gtsam::Vector3> 
     {        
     public:
@@ -30,7 +30,7 @@ namespace UAVFactor
 
         Vector evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector3 &omega_i, 
                              const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j, 
-                             const gtsam::Vector3 &inertia_moment, const gtsam::Rot3 &rwg, 
+                             const gtsam::Vector3 &inertia_torque, const gtsam::Rot3 &rwg, 
                              const gtsam::Vector3 &rotor_pos, const double &ct, const double &km, const gtsam::Pose3& bTm,
                              const gtsam::Vector3 &drag_k,
                              boost::optional<Matrix &> H1 = boost::none, boost::optional<Matrix &> H2 = boost::none,
@@ -75,7 +75,7 @@ namespace UAVFactor
 
         Vector evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector3 &omega_i, 
                              const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j, 
-                             const gtsam::Vector3 &inertia_moment, const gtsam::Rot3 &rwg, 
+                             const gtsam::Vector3 &inertia_torque, const gtsam::Rot3 &rwg, 
                              const gtsam::Vector3 &rotor_pos, const double &ct, const double &km, const gtsam::Pose3& bTm,
                              const gtsam::Vector3 &drag_k, const gtsam::Vector3 &A, const gtsam::Vector3 &B, 
                              boost::optional<Matrix &> H1 = boost::none, boost::optional<Matrix &> H2 = boost::none,
@@ -150,7 +150,7 @@ namespace UAVFactor
 
     /*Scheme 2 : Dynamcis modol + actuator model, respectively*/
     // Dynamics model calibration factor, but no actuator model
-    // Posei Veli Omegai Thrust_torque Posej Velj Omegaj inertia_moment, g_Rot
+    // Posei Veli Omegai Thrust_torque Posej Velj Omegaj inertia_torque, g_Rot
     class GTSAM_EXPORT DynamcisCaliFactor_TM : public NoiseModelFactor9<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, 
         gtsam::Vector6, gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Vector3, gtsam::Rot3>
     {        
@@ -172,7 +172,7 @@ namespace UAVFactor
         Vector evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector3 &omega_i, 
                              const gtsam::Vector6 &thrust_torque,
                              const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, const gtsam::Vector3 &omega_j, 
-                             const gtsam::Vector3 &inertia_moment, const gtsam::Rot3 &rwg, 
+                             const gtsam::Vector3 &inertia_torque, const gtsam::Rot3 &rwg, 
                              boost::optional<Matrix &> H1 = boost::none, boost::optional<Matrix &> H2 = boost::none,
                              boost::optional<Matrix &> H3 = boost::none, boost::optional<Matrix &> H4 = boost::none,
                              boost::optional<Matrix &> H5 = boost::none, boost::optional<Matrix &> H6 = boost::none,
@@ -192,8 +192,8 @@ namespace UAVFactor
         
     };
 
-    // Allocation Control Factor <thrust, moments, 
-    // rotor_pos of rotor1, rot3 of rotor's axis, ct of thrust model, km of inertia moments model >
+    // Allocation Control Factor <thrust, torques, 
+    // rotor_pos of rotor1, rot3 of rotor's axis, ct of thrust model, km of inertia torques model >
     class GTSAM_EXPORT AllocationCalibFactor : public NoiseModelFactor7<gtsam::Vector3, gtsam::Vector3,
         gtsam::Vector3, gtsam::Rot3, double, double, double>
     {
@@ -202,11 +202,11 @@ namespace UAVFactor
 
         AllocationCalibFactor() {}
 
-        AllocationCalibFactor(Key thrust_key, Key moments_key, Key rotor_pos_key, Key rotor_axis_key, 
+        AllocationCalibFactor(Key thrust_key, Key torques_key, Key rotor_pos_key, Key rotor_axis_key, 
                             Key ct_key, Key km_key, Key k_esc_key, 
                             ActuatorEffectivenessRotors &actuatorEffectivenessRotors, gtsam::Vector4 & actuators, 
                             const SharedNoiseModel &model)
-                            : Base(model, thrust_key, moments_key, rotor_pos_key, rotor_axis_key, ct_key, km_key, k_esc_key)
+                            : Base(model, thrust_key, torques_key, rotor_pos_key, rotor_axis_key, ct_key, km_key, k_esc_key)
                             , actuatorEffectivenessRotors_(actuatorEffectivenessRotors)
                             , actuators_(actuators){};
 
@@ -214,7 +214,7 @@ namespace UAVFactor
         {
         }
 
-        Vector evaluateError(const gtsam::Vector3& thrust, const gtsam::Vector3 & moments,
+        Vector evaluateError(const gtsam::Vector3& thrust, const gtsam::Vector3 & torques,
                              const gtsam::Vector3& rotor_pos, const gtsam::Rot3& rotor_axis, 
                              const double &ct, const double &km, const double &esc_factor,
                              boost::optional<Matrix &> H1 = boost::none, boost::optional<Matrix &> H2 = boost::none,
@@ -233,7 +233,7 @@ namespace UAVFactor
 
     };
 
-    // Allocation Control Factor 3 <thrust_moments, rotor_pos of rotor1, ct of thrust model, km of inertia moments model>.
+    // Allocation Control Factor 3 <thrust_torques, rotor_pos of rotor1, ct of thrust model, km of inertia torques model>.
     class GTSAM_EXPORT AllocationCalibFactor3 : public NoiseModelFactor4<gtsam::Vector6, gtsam::Vector3, double, double>
     {
     public:
@@ -241,16 +241,16 @@ namespace UAVFactor
 
         AllocationCalibFactor3() {}
 
-        AllocationCalibFactor3(Key thrust_moments_key, Key rotor_pos_key, Key ct_key, Key km_key, 
+        AllocationCalibFactor3(Key thrust_torques_key, Key rotor_pos_key, Key ct_key, Key km_key, 
                             gtsam::Vector4 & actuators, const SharedNoiseModel &model)
-                            : Base(model, thrust_moments_key, rotor_pos_key, ct_key, km_key)
+                            : Base(model, thrust_torques_key, rotor_pos_key, ct_key, km_key)
                             , actuators_(actuators){};
 
         virtual ~AllocationCalibFactor3()
         {
         }
 
-        Vector evaluateError(const gtsam::Vector6& thrust_moments, const gtsam::Vector3& rotor_pos, 
+        Vector evaluateError(const gtsam::Vector6& thrust_torques, const gtsam::Vector3& rotor_pos, 
                             const double &ct, const double &km,
                             boost::optional<Matrix &> H1 = boost::none, boost::optional<Matrix &> H2 = boost::none,
                             boost::optional<Matrix &> H3 = boost::none, boost::optional<Matrix &> H4 = boost::none) const;

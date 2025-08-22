@@ -65,7 +65,7 @@ int main(void)
             last_input = input;
         }
 
-        std::cout << "Thrust moments: " << input.transpose() << std::endl;
+        std::cout << "Thrust torques: " << input.transpose() << std::endl;
         quad.stepODE(dt, input);
 
         last_input = input;

@@ -64,6 +64,38 @@ namespace Trajectory
         DynamicsParams dynamics_params_;
     };
 
+    class vertical_circle_generator
+    {
+    public:
+        vertical_circle_generator(double radius, double speed, double dt)
+            : radius_(radius),
+              speed_(speed),
+              dt_(dt){};
+
+        gtsam::Vector3 pos(double t);
+
+        gtsam::Vector3 vel(double t);
+
+        gtsam::Vector3 theta(double t);
+
+        gtsam::Vector3 omega(double t);
+
+        gtsam::Vector3 thrust(double t);
+
+        gtsam::Vector4 inputfm(double t);
+
+        gtsam::Vector4 input(double t);
+
+    private:
+        double radius_;
+        double speed_;
+        double dt_;
+
+        gtsam::Vector3 g_ = gtsam::Vector3(0, 0, 9.81);
+        DynamicsParams dynamics_params_;
+    };
+
+
     class cir_conacc_generator
     {
     public:
