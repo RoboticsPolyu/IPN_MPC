@@ -67,72 +67,6 @@ namespace UAVFactor
          return thrust_torque;
    }
 
-   Vector VeCBFPdFactor::evaluateError(const gtsam::Pose3 &pi, const gtsam::Vector3 &vi, const gtsam::Vector4 &ui,
-      boost::optional<Matrix &> H1, boost::optional<Matrix &> H2, boost::optional<Matrix &> H3) const
-   {
-      Vector err;
-      Matrix36 jac_ti;
-      // err = (- Vector1(1.* safe_d_ * safe_d_) 
-      //      + (pi.translation(jac_t_posei) - obs_).transpose() * (pi.translation(jac_t_posei) - obs_)); 
-      gtsam::Vector3 p_p0 = pi.translation(jac_ti) - obs_;
-      double d = p_p0.norm();
-      gtsam::Vector1 hi = Vector1(1/safe_d_ - 1/d) + beta_* p_p0.transpose()/d* (vi - obs_vel_);
-      
-      gtsam::Vector3 e2(0., 0., 1.);
-      gtsam::Vector3 _g(0., 0., 9.81);
-      gtsam::Vector3 _ai = e2 * ui(0);
-      
-      gtsam::Matrix36 J_ri;
-      gtsam::Matrix3  J_r_ri;
-      gtsam::Matrix3  J_r_ai;
-
-      gtsam::Vector3 x_dot_0 = vi;
-      gtsam::Vector3 x_dot_2 = -_g + pi.rotation(J_ri).rotate(_ai, J_r_ri, J_r_ai);
-      err = hi + alpha_* evaluateH_ti(pi, vi)* x_dot_0 + alpha_* evaluateH_vi(pi)* x_dot_2; // h + alpha* dot h
-
-      if(err(0) > 0)
-      {
-            err(0) = 0;
-            if(H1)
-            {
-               *H1 = gtsam::Matrix16::Zero();
-            }
-
-            if(H2)
-            {
-               *H2 = gtsam::Matrix13::Zero();
-            }
-            
-            if(H3)
-            {
-               *H3 = gtsam::Matrix14::Zero();
-            }
-      }
-      else
-      {
-            if(H1) 
-            {
-               *H1 = evaluateH_ti_err(pi, vi, ui)* jac_ti 
-                  + alpha_* evaluateH_vi(pi)* J_r_ri* J_ri ;
-            }
-
-            if(H2)
-            {
-               *H2 = evaluateH_vi_err(pi, vi);
-            }
-
-            if(H3)
-            {
-               gtsam::Matrix14 h3; h3.setZero();
-               gtsam::Matrix13 J_ai = alpha_* evaluateH_vi(pi)* J_r_ai;
-               h3.block(0, 0, 0, 0) = J_ai* e2;
-               *H3 = h3;
-            }
-      }
-
-      return err;
-   }
-
    DynamicsFactorTGyro::DynamicsFactorTGyro(Key p_i, Key vel_i, Key input_i, Key p_j, Key vel_j, float dt, double mass, gtsam::Vector3 drag_k, const SharedNoiseModel &model)
           : Base(model, p_i, vel_i, input_i, p_j, vel_j)
           , dt_(dt)
@@ -141,9 +75,16 @@ namespace UAVFactor
           {};
 
 
-   Vector DynamicsFactorTGyro::evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector4 &input_i,
-                             const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, 
-                             boost::optional<Matrix &> H1, boost::optional<Matrix &> H2, boost::optional<Matrix &> H3, boost::optional<Matrix &> H4, boost::optional<Matrix &> H5) const
+   Vector DynamicsFactorTGyro::evaluateError(const gtsam::Pose3 &pos_i, 
+                                             const gtsam::Vector3 &vel_i, 
+                                             const gtsam::Vector4 &input_i,
+                                             const gtsam::Pose3 &pos_j, 
+                                             const gtsam::Vector3 &vel_j, 
+                                             boost::optional<Matrix &> H1, 
+                                             boost::optional<Matrix &> H2, 
+                                             boost::optional<Matrix &> H3, 
+                                             boost::optional<Matrix &> H4, 
+                                             boost::optional<Matrix &> H5) const
    {
       gtsam::Vector9 err;
       
@@ -163,19 +104,17 @@ namespace UAVFactor
       // J_rerr_rbj, J_rbi;
       gtsam::Matrix33 J_ri, J_rj, J_dr;
       
-      gtsam::Vector3  pos_err = mass_ * r_w_mi.unrotate(p_w_mj - vel_i * dt_ + 0.5f * gI_ * dtt - p_w_mi, J_pe_roti) - 0.5f* gtsam::Vector3(0,0,1)*input_i(0)* dtt;
+      gtsam::Vector3 pos_err = mass_ * r_w_mi.unrotate(p_w_mj - vel_i * dt_ + 0.5f * gI_ * dtt - p_w_mi, J_pe_roti) - 0.5f* gtsam::Vector3(0,0,1)*input_i(0)* dtt;
       // gtsam::Vector3  rot_err = Rot3::Logmap(r_w_mi.between(r_w_mj, J_ri, J_rj), J_dr) - 0.5f * (omega_i + omega_j) * dt_; 
       // This would cause the heavy fluctuation of omega
-
-      gtsam::Vector3  rot_err = Rot3::Logmap(r_w_mi.between(r_w_mj, J_ri, J_rj), J_dr) - input_i.tail(3) * dt_; 
+      gtsam::Vector3 rot_err = Rot3::Logmap(r_w_mi.between(r_w_mj, J_ri, J_rj), J_dr) - input_i.tail(3) * dt_; 
 
       gtsam::Matrix3 drag_matrix;
       drag_matrix.setZero();
       drag_matrix.diagonal() << drag_k_;        
 
-      gtsam::Vector3  vel_err = mass_ * r_w_mi.unrotate(vel_j - vel_i + gI_ * dt_, J_ve_rot1) - gtsam::Vector3(0,0,1)*input_i(0) * dt_ - 
+      gtsam::Vector3 vel_err = mass_ * r_w_mi.unrotate(vel_j - vel_i + gI_ * dt_, J_ve_rot1) - gtsam::Vector3(0,0,1)*input_i(0) * dt_ - 
          drag_matrix * r_w_mi.unrotate(vel_i, J_dv_rit, J_dv_v) * dt_; // - dT * dt_;
-
       
       Matrix96 J_e_pi, J_e_posej;
       
@@ -242,7 +181,6 @@ namespace UAVFactor
 
 
       return err;
-
    }
 
    DynamicsFactorTGyroWall::DynamicsFactorTGyroWall(Key p_i, Key vel_i, Key input_i, Key p_j, Key vel_j, float dt, double mass, gtsam::Vector3 drag_k, const SharedNoiseModel &model)
@@ -253,9 +191,16 @@ namespace UAVFactor
          {};
 
 
-   Vector DynamicsFactorTGyroWall::evaluateError(const gtsam::Pose3 &pos_i, const gtsam::Vector3 &vel_i, const gtsam::Vector4 &input_i,
-                             const gtsam::Pose3 &pos_j, const gtsam::Vector3 &vel_j, 
-                             boost::optional<Matrix &> H1, boost::optional<Matrix &> H2, boost::optional<Matrix &> H3, boost::optional<Matrix &> H4, boost::optional<Matrix &> H5) const
+   Vector DynamicsFactorTGyroWall::evaluateError(const gtsam::Pose3 &pos_i, 
+                                                const gtsam::Vector3 &vel_i, 
+                                                const gtsam::Vector4 &input_i,
+                                                const gtsam::Pose3 &pos_j, 
+                                                const gtsam::Vector3 &vel_j, 
+                                                boost::optional<Matrix &> H1, 
+                                                boost::optional<Matrix &> H2, 
+                                                boost::optional<Matrix &> H3, 
+                                                boost::optional<Matrix &> H4, 
+                                                boost::optional<Matrix &> H5) const
    {
       gtsam::Vector9 err;
       

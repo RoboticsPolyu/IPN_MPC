@@ -43,7 +43,7 @@ OBS1_RADIUS:     0.08
 SAFE_D:          0.00
 # Driver delay (s)
 DRIVER_DELAT:    0.00
-
+STATIC_OBS_NUM:  0
 # DRAG_FORCE_X:   0.2
 # DRAG_FORCE_Y:   0.2
 # DRAG_FORCE_Z:   0.2

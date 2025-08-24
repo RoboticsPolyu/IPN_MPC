@@ -45,8 +45,8 @@ CONTROL_P_COV_Y      : 0.04
 CONTROL_P_FINAL_COV_Y: 0.03
 CONTROL_P_COV_Z      : 0.04
 CONTROL_P_FINAL_COV_Z: 0.04
-CONTROL_R1_COV       : 0.8 #0.40 ~ 0.20
-CONTROL_R2_COV       : 0.8
+CONTROL_R1_COV       : 0.3 #0.40 ~ 0.20
+CONTROL_R2_COV       : 0.3
 CONTROL_R3_COV       : 0.06
 POINT_OBS_SIGMA      : 0.01
 CONTROL_V_COV        : 3
@@ -76,10 +76,10 @@ G_CLF_THR: 0.1
 CLF_ALPHA: 1
 
 MAX_ITERS: 10
-
+# distance factor
 CBF_ALPHA: 0.9
-
-CBF_BETA: 0.7
+# vel factor
+CBF_BETA: 0.3
 # # method + vel + case_id
 # LOG_NAME: JECM_R1.2
 

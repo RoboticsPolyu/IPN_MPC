@@ -441,14 +441,6 @@ namespace QuadrotorSim_SO3
                 glColor3f(collision ? 0.3f : 1.0f, 0.5f, collision ? 0.6f : 0.0f);
                 glPointSize(collision ? 3.0f : 1.0f);
                 
-                // glBegin(GL_POINTS);
-                // float scale = obs.obs_size / che_dis_;
-                // for (const auto& point : spherePoints_) {
-                //     glVertex3f(point.x * scale + obs.obs_pos.x(),
-                //              point.y * scale + obs.obs_pos.y(),
-                //              point.z * scale + obs.obs_pos.z());
-                // }
-                // glEnd();
                 drawSphere(obs.obs_pos, obs.obs_size, gtsam::Vector3(0.133f, 0.545f, 0.133f), 32, 32);
 
                 // Check predicted trajectory for collisions

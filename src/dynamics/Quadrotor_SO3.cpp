@@ -881,8 +881,10 @@ namespace QuadrotorSim_SO3
             double dy = b * cos(angle) * (v / sqrt(a * a + b * b));
             
               // Set obstacle properties
-            obstacle.obs_pos[0] = x - a/2;
-            obstacle.obs_pos[1] = y - b/2;
+              // obstacle.obs_pos[0] = x - a/2;
+              // obstacle.obs_pos[1] = y - b/2;
+            obstacle.obs_pos[0] = x;
+            obstacle.obs_pos[1] = y;
             obstacle.obs_pos[2] = z;
             obstacle.obs_vel[0] = dx;
             obstacle.obs_vel[1] = dy;

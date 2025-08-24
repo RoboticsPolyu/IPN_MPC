@@ -1,6 +1,7 @@
 #include "color.h"
 #include "env_sensors_sim/Landmarks.h"
 #include "env_sensors_sim/Lidar.h"
+#include "quadrotor_simulator/CBF_factor.h"
 #include "quadrotor_simulator/Dynamics_control_factor.h"
 #include "quadrotor_simulator/Quadrotor_SO3.h"
 #include "trajectory_generator/Trajectory_generator.h"
@@ -28,85 +29,85 @@ int main(void)
     Color::Modifier green(Color::FG_GREEN);
     clock_t start, end;
 
-    // Configuration file 
-    YAML::Node FGO_config        = YAML::LoadFile("../config/factor_graph_TGyro_CBF.yaml");  
-    double PRI_VICON_COV         = FGO_config["PRI_VICON_COV"].as<double>();
-    double PRI_VICON_VEL_COV     = FGO_config["PRI_VICON_VEL_COV"].as<double>();   
-    double CONTROL_P_COV_X       = FGO_config["CONTROL_P_COV_X"].as<double>();
-    double CONTROL_P_COV_Y       = FGO_config["CONTROL_P_COV_Y"].as<double>();
-    double CONTROL_P_COV_Z       = FGO_config["CONTROL_P_COV_Z"].as<double>();
-    double CONTROL_P_FINAL_COV_X = FGO_config["CONTROL_P_FINAL_COV_X"].as<double>();
-    double CONTROL_P_FINAL_COV_Y = FGO_config["CONTROL_P_FINAL_COV_Y"].as<double>();
-    double CONTROL_P_FINAL_COV_Z = FGO_config["CONTROL_P_FINAL_COV_Z"].as<double>();
+      // Configuration file 
+    YAML::Node FGO_config            = YAML::LoadFile("../config/factor_graph_TGyro_CBF.yaml");
+    double     PRI_VICON_COV         = FGO_config["PRI_VICON_COV"].as<double>();
+    double     PRI_VICON_VEL_COV     = FGO_config["PRI_VICON_VEL_COV"].as<double>();
+    double     CONTROL_P_COV_X       = FGO_config["CONTROL_P_COV_X"].as<double>();
+    double     CONTROL_P_COV_Y       = FGO_config["CONTROL_P_COV_Y"].as<double>();
+    double     CONTROL_P_COV_Z       = FGO_config["CONTROL_P_COV_Z"].as<double>();
+    double     CONTROL_P_FINAL_COV_X = FGO_config["CONTROL_P_FINAL_COV_X"].as<double>();
+    double     CONTROL_P_FINAL_COV_Y = FGO_config["CONTROL_P_FINAL_COV_Y"].as<double>();
+    double     CONTROL_P_FINAL_COV_Z = FGO_config["CONTROL_P_FINAL_COV_Z"].as<double>();
     
-    double CONTROL_O_COV         = FGO_config["CONTROL_O_COV"].as<double>();
+    double CONTROL_O_COV = FGO_config["CONTROL_O_COV"].as<double>();
 
-    double CONTROL_V_COV         = FGO_config["CONTROL_V_COV"].as<double>();
-    double DYNAMIC_P_COV         = FGO_config["DYNAMIC_P_COV"].as<double>(); 
-    double DYNAMIC_T_COV         = FGO_config["DYNAMIC_T_COV"].as<double>(); 
-    double CONTROL_R1_COV        = FGO_config["CONTROL_R1_COV"].as<double>();
-    double CONTROL_R2_COV        = FGO_config["CONTROL_R2_COV"].as<double>();
-    double CONTROL_R3_COV        = FGO_config["CONTROL_R3_COV"].as<double>();
-    uint16_t OPT_LENS_TRAJ       = FGO_config["OPT_LENS_TRAJ"].as<uint16_t>();
+    double   CONTROL_V_COV  = FGO_config["CONTROL_V_COV"].as<double>();
+    double   DYNAMIC_P_COV  = FGO_config["DYNAMIC_P_COV"].as<double>();
+    double   DYNAMIC_T_COV  = FGO_config["DYNAMIC_T_COV"].as<double>();
+    double   CONTROL_R1_COV = FGO_config["CONTROL_R1_COV"].as<double>();
+    double   CONTROL_R2_COV = FGO_config["CONTROL_R2_COV"].as<double>();
+    double   CONTROL_R3_COV = FGO_config["CONTROL_R3_COV"].as<double>();
+    uint16_t OPT_LENS_TRAJ  = FGO_config["OPT_LENS_TRAJ"].as<uint16_t>();
 
-    double PRIOR_U_F_COV         = FGO_config["PRIOR_U_F_COV"].as<double>(); 
-    double PRIOR_U_M1_COV        = FGO_config["PRIOR_U_M1_COV"].as<double>(); 
-    double PRIOR_U_M2_COV        = FGO_config["PRIOR_U_M2_COV"].as<double>(); 
-    double PRIOR_U_M3_COV        = FGO_config["PRIOR_U_M3_COV"].as<double>(); 
+    double PRIOR_U_F_COV  = FGO_config["PRIOR_U_F_COV"].as<double>();
+    double PRIOR_U_M1_COV = FGO_config["PRIOR_U_M1_COV"].as<double>();
+    double PRIOR_U_M2_COV = FGO_config["PRIOR_U_M2_COV"].as<double>();
+    double PRIOR_U_M3_COV = FGO_config["PRIOR_U_M3_COV"].as<double>();
     
-    double INPUT_JERK_T          = FGO_config["INPUT_JERK_T"].as<double>(); 
-    double INPUT_JERK_M          = FGO_config["INPUT_JERK_M"].as<double>(); 
-    double INPUT_JERK_M3         = FGO_config["INPUT_JERK_M3"].as<double>(); 
+    double INPUT_JERK_T  = FGO_config["INPUT_JERK_T"].as<double>();
+    double INPUT_JERK_M  = FGO_config["INPUT_JERK_M"].as<double>();
+    double INPUT_JERK_M3 = FGO_config["INPUT_JERK_M3"].as<double>();
 
-    uint64_t SIM_STEPS           = FGO_config["SIM_STEPS"].as<uint64_t>();
+    uint64_t SIM_STEPS = FGO_config["SIM_STEPS"].as<uint64_t>();
 
-    std::string LOG_NAME         = FGO_config["LOG_NAME"].as<std::string>();
+    std::string LOG_NAME = FGO_config["LOG_NAME"].as<std::string>();
     
-    uint16_t WINDOW_SIZE         = FGO_config["WINDOW_SIZE"].as<uint16_t>();
-     double point_obs_sigma      = FGO_config["POINT_OBS_SIGMA"].as<double>();
-    double high                  = FGO_config["CLF_HIGH"].as<double>(); 
-    double low                   = FGO_config["CLF_LOW"].as<double>(); 
-    double thr                   = FGO_config["CLF_THR"].as<double>(); 
-    double ghigh                 = FGO_config["G_CLF_HIGH"].as<double>(); 
-    double glow                  = FGO_config["G_CLF_LOW"].as<double>(); 
-    double gthr                  = FGO_config["G_CLF_THR"].as<double>(); 
-    double alpha                 = FGO_config["CLF_ALPHA"].as<double>(); 
-    uint8_t maxIterations        = FGO_config["MAX_ITERS"].as<double>(); 
-    double cbf_alpha             = FGO_config["CBF_ALPHA"].as<double>(); 
-    double beta                  = FGO_config["CBF_BETA"].as<double>();
+    uint16_t WINDOW_SIZE     = FGO_config["WINDOW_SIZE"].as<uint16_t>();
+    double   point_obs_sigma = FGO_config["POINT_OBS_SIGMA"].as<double>();
+    double   high            = FGO_config["CLF_HIGH"].as<double>();
+    double   low             = FGO_config["CLF_LOW"].as<double>();
+    double   thr             = FGO_config["CLF_THR"].as<double>();
+    double   ghigh           = FGO_config["G_CLF_HIGH"].as<double>();
+    double   glow            = FGO_config["G_CLF_LOW"].as<double>();
+    double   gthr            = FGO_config["G_CLF_THR"].as<double>();
+    double   alpha           = FGO_config["CLF_ALPHA"].as<double>();
+    uint8_t  maxIterations   = FGO_config["MAX_ITERS"].as<double>();
+    double   cbf_alpha       = FGO_config["CBF_ALPHA"].as<double>();
+    double   beta            = FGO_config["CBF_BETA"].as<double>();
 
-    YAML::Node quad_config      = YAML::LoadFile("../config/quadrotor_TGyro_CBF.yaml"); 
+    YAML::Node quad_config = YAML::LoadFile("../config/quadrotor_TGyro_CBF.yaml");
 
-    double RADIUS               = quad_config["RADIUS"].as<double>();
-    double LINEAR_VEL           = quad_config["LINEAR_VEL"].as<double>();
-    double POS_MEAS_COV         = quad_config["POS_MEAS_COV"].as<double>();
-    double VEL_MEAS_COV         = quad_config["VEL_MEAS_COV"].as<double>();
-    double ROT_MEAS_COV         = quad_config["ROT_MEAS_COV"].as<double>();
-    double OME_MEAS_COV         = quad_config["OME_MEAS_COV"].as<double>();
-    double POS_MEAS_MEAN        = quad_config["POS_MEAS_MEAN"].as<double>();
-    bool   TEST_RECOVERY        = quad_config["TEST_RECOVERY"].as<bool>();
+    double RADIUS        = quad_config["RADIUS"].as<double>();
+    double LINEAR_VEL    = quad_config["LINEAR_VEL"].as<double>();
+    double POS_MEAS_COV  = quad_config["POS_MEAS_COV"].as<double>();
+    double VEL_MEAS_COV  = quad_config["VEL_MEAS_COV"].as<double>();
+    double ROT_MEAS_COV  = quad_config["ROT_MEAS_COV"].as<double>();
+    double OME_MEAS_COV  = quad_config["OME_MEAS_COV"].as<double>();
+    double POS_MEAS_MEAN = quad_config["POS_MEAS_MEAN"].as<double>();
+    bool   TEST_RECOVERY = quad_config["TEST_RECOVERY"].as<bool>();
 
-    double MAP_X                = quad_config["MAP_X"].as<double>();
-    double MAP_Y                = quad_config["MAP_Y"].as<double>();
-    double MAP_Z                = quad_config["MAP_Z"].as<double>();
-    double OBS1_RADIUS          = quad_config["OBS1_RADIUS"].as<double>();
-    double SAFE_D               = quad_config["SAFE_D"].as<double>();
+    double MAP_X       = quad_config["MAP_X"].as<double>();
+    double MAP_Y       = quad_config["MAP_Y"].as<double>();
+    double MAP_Z       = quad_config["MAP_Z"].as<double>();
+    double OBS1_RADIUS = quad_config["OBS1_RADIUS"].as<double>();
+    double SAFE_D      = quad_config["SAFE_D"].as<double>();
 
-    double MAP_CENTER_X         = quad_config["MAP_CENTER_X"].as<double>();
-    double MAP_CENTER_Y         = quad_config["MAP_CENTER_Y"].as<double>();
-    double MAP_CENTER_Z         = quad_config["MAP_CENTER_Z"].as<double>();
-    double LIDAR_RANGE          = quad_config["LIDAR_RANGE"].as<double>();
-    double LIDAR_RANGE_MIN      = quad_config["LIDAR_RANGE_MIN"].as<double>();
-    double LANDMARKS_SIZE       = quad_config["LANDMARKS_SIZE"].as<uint32_t>();
+    double MAP_CENTER_X    = quad_config["MAP_CENTER_X"].as<double>();
+    double MAP_CENTER_Y    = quad_config["MAP_CENTER_Y"].as<double>();
+    double MAP_CENTER_Z    = quad_config["MAP_CENTER_Z"].as<double>();
+    double LIDAR_RANGE     = quad_config["LIDAR_RANGE"].as<double>();
+    double LIDAR_RANGE_MIN = quad_config["LIDAR_RANGE_MIN"].as<double>();
+    double LANDMARKS_SIZE  = quad_config["LANDMARKS_SIZE"].as<uint32_t>();
     
-    double MOVE_X               = quad_config["MOVE_X"].as<double>();
-    double MOVE_Y               = quad_config["MOVE_Y"].as<double>();
-    double MOVE_Z               = quad_config["MOVE_Z"].as<double>();
-    double drag_x               = quad_config["DRAG_FORCE_X"].as<double>();
-    double drag_y               = quad_config["DRAG_FORCE_Y"].as<double>();
-    double drag_z               = quad_config["DRAG_FORCE_Z"].as<double>();
+    double MOVE_X = quad_config["MOVE_X"].as<double>();
+    double MOVE_Y = quad_config["MOVE_Y"].as<double>();
+    double MOVE_Z = quad_config["MOVE_Z"].as<double>();
+    double drag_x = quad_config["DRAG_FORCE_X"].as<double>();
+    double drag_y = quad_config["DRAG_FORCE_Y"].as<double>();
+    double drag_z = quad_config["DRAG_FORCE_Z"].as<double>();
 
-    double mass                 = 1.0f;
+    double mass = 1.0f;
 
     gtsam::Vector3 drag_k(drag_x, drag_y, drag_z);
 
@@ -117,12 +118,12 @@ int main(void)
     JEC_log.open(file_name);
 
     double dt = 0.001f, radius = RADIUS, linear_vel = LINEAR_VEL;
-    Trajectory::circle_generator fig_gen(radius, linear_vel, dt);
-
-    // Trajectory::figure_eight_generator fig_gen(radius, linear_vel, dt);  // scale=1m, speed=1rad/s, dt=0.01s
+    // Trajectory::circle_generator fig_gen(radius, linear_vel, dt);
+    Trajectory::back_and_forth_generator fig_gen(5.0, 2.0, 0.001);
+      // Trajectory::figure_eight_generator fig_gen(radius, linear_vel, dt);  // scale=1m, speed=1rad/s, dt=0.01s
     
     traj_state state;
-    state.t = 0.0;
+    state.t        = 0.0;
     state.pos      = fig_gen.pos(0.0);
     state.vel      = fig_gen.vel(0.0);
     state.rotation = gtsam::Rot3::Expmap(fig_gen.theta(0.0)).toQuaternion();
@@ -138,15 +139,15 @@ int main(void)
     parameters.verbosity        = gtsam::NonlinearOptimizerParams::ERROR;
     parameters.verbosityLM      = gtsam::LevenbergMarquardtParams::SUMMARY;
     
-    auto input_jerk  = noiseModel::Diagonal::Sigmas(Vector4(INPUT_JERK_T, INPUT_JERK_M, INPUT_JERK_M, INPUT_JERK_M3));
-    auto input_noise = noiseModel::Diagonal::Sigmas(Vector4(PRIOR_U_F_COV, PRIOR_U_M1_COV, PRIOR_U_M2_COV, PRIOR_U_M3_COV));
-    float dyn_dt     = 0.01f;
-    auto dynamics_noise = noiseModel::Diagonal::Sigmas((Vector(9) << 
+    auto  input_jerk     = noiseModel::Diagonal::Sigmas(Vector4(INPUT_JERK_T, INPUT_JERK_M, INPUT_JERK_M, INPUT_JERK_M3));
+    auto  input_noise    = noiseModel::Diagonal::Sigmas(Vector4(PRIOR_U_F_COV, PRIOR_U_M1_COV, PRIOR_U_M2_COV, PRIOR_U_M3_COV));
+    float dyn_dt         = 0.01f;
+    auto  dynamics_noise = noiseModel::Diagonal::Sigmas((Vector(9) << 
         Vector3::Constant(DYNAMIC_T_COV * 0.5 * dyn_dt * dyn_dt), 
         Vector3::Constant(DYNAMIC_T_COV * dyn_dt), 
         Vector3::Constant(0.01)).finished());
     
-    // Initial state noise
+      // Initial state noise
     auto vicon_noise = noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(ROT_MEAS_COV), Vector3::Constant(PRI_VICON_COV)).finished());
     auto vel_noise   = noiseModel::Diagonal::Sigmas(Vector3(PRI_VICON_VEL_COV, PRI_VICON_VEL_COV, PRI_VICON_VEL_COV));
     auto omega_noise = noiseModel::Diagonal::Sigmas(Vector3(OME_MEAS_COV, OME_MEAS_COV, OME_MEAS_COV));
@@ -156,7 +157,7 @@ int main(void)
     auto ref_predict_vel_noise   = noiseModel::Diagonal::Sigmas(Vector3(CONTROL_V_COV, CONTROL_V_COV, CONTROL_V_COV));
     auto ref_predict_omega_noise = noiseModel::Diagonal::Sigmas(Vector3(CONTROL_O_COV, CONTROL_O_COV, CONTROL_O_COV));
 
-    dt = 0.01f; // Model predictive control duration
+    dt = 0.01f;  // Model predictive control duration
 
     Quadrotor quadrotor("../config/quadrotor_TGyro_CBF.yaml");
     State predicted_state;
@@ -196,18 +197,18 @@ int main(void)
 
     for(int traj_idx = 0; traj_idx < SIM_STEPS; traj_idx++)
     {
-        obstacles = quadrotor.getObstacles();
-        double t0 = traj_idx* dt;
+               obstacles = quadrotor.getObstacles();
+        double t0        = traj_idx* dt;
         std::vector<State> opt_trj, ref_trj;
         State ref_state;
 
         if(traj_idx == 0)
         {
-            predicted_state.p         = fig_gen.pos(0.0);
-            gtsam::Rot3 rot           = gtsam::Rot3::Expmap(fig_gen.theta(0.0)).toQuaternion();
-            predicted_state.rot       = rot; 
-            predicted_state.v         = fig_gen.vel(0.0);
-            predicted_state.body_rate = fig_gen.omega(0.0);
+                        predicted_state.p         = fig_gen.pos(0.0);
+            gtsam::Rot3 rot                       = gtsam::Rot3::Expmap(fig_gen.theta(0.0)).toQuaternion();
+                        predicted_state.rot       = rot;
+                        predicted_state.v         = fig_gen.vel(0.0);
+                        predicted_state.body_rate = fig_gen.omega(0.0);
 
             quadrotor.setState(predicted_state);
         }
@@ -249,29 +250,29 @@ int main(void)
 
             for(uint16_t obsi = 0; obsi < obstacles.size(); obsi++)
             {
-                obs1 = obstacles[obsi];
-                float d2 = std::sqrt((pose_idx.translation() - obs1.obs_pos).transpose()* (pose_idx.translation() - obs1.obs_pos));
+                      obs1 = obstacles[obsi];
+                float d2   = std::sqrt((pose_idx.translation() - obs1.obs_pos).transpose()* (pose_idx.translation() - obs1.obs_pos));
                 
                 if(d2 < obs1.obs_size + safe_d)
                 {
-                    float scale = (obs1.obs_size + safe_d)/ d2; 
-                    pose_idx = gtsam::Pose3(pose_idx.rotation(), (pose_idx.translation() - obs1.obs_pos)* scale + obs1.obs_pos);
+                    float scale    = (obs1.obs_size + safe_d)/ d2;
+                          pose_idx = gtsam::Pose3(pose_idx.rotation(), (pose_idx.translation() - obs1.obs_pos)* scale + obs1.obs_pos);
                 }
             }
 
-            // gtsam::Vector4 init_input = circle_generator.inputfm(t0 + idx * dt);
+              // gtsam::Vector4 init_input = circle_generator.inputfm(t0 + idx * dt);
             if(idx != 0)
             {
                 BetForceMoments bet_FM_factor(U(idx - 1), U(idx), input_jerk);
                 graph.add(bet_FM_factor);
             }
-            // initial_value.insert(U(idx), init_input); //
-            // graph.add(gtsam::PriorFactor<gtsam::Vector4>(U(idx), init_input, input_noise));
+              // initial_value.insert(U(idx), init_input); //
+              // graph.add(gtsam::PriorFactor<gtsam::Vector4>(U(idx), init_input, input_noise));
             gtsam::Vector3 control_r_cov(CONTROL_R1_COV, CONTROL_R2_COV, CONTROL_R3_COV);
             if(idx == OPT_LENS_TRAJ - 1)
             {   
                 gtsam::Vector3 final_position_ref(CONTROL_P_FINAL_COV_X, CONTROL_P_FINAL_COV_Y, CONTROL_P_FINAL_COV_Z);
-                auto ref_predict_pose_noise = noiseModel::Diagonal::Sigmas((Vector(6) << control_r_cov, final_position_ref).finished()); 
+                auto ref_predict_pose_noise = noiseModel::Diagonal::Sigmas((Vector(6) << control_r_cov, final_position_ref).finished());
                 graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx + 1),   pose_idx, ref_predict_pose_noise));
                 graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx + 1), vel_idx,  ref_predict_vel_noise));
             }
@@ -287,15 +288,23 @@ int main(void)
             {
                 obs1 = obstacles[obsi];
                 // graph.add(PointObsFactor(X(idx+1), obs1, obs1_radius + safe_d, point_obs_noise));
-                // if(idx == OPT_LENS_TRAJ - 1)
-                // {
-                    graph.add(CBFPdFactor(X(idx+1), V(idx+1), obs1.obs_pos, obs1.obs_size + safe_d, cbf_alpha, point_obs_noise));
-                // }
-                // else
-                // {
-                //     graph.add(VeCBFPdFactor(X(idx+1), V(idx+1), U(idx+1), obs1.obs_pos, obs1.obs_vel, obs1.obs_size + safe_d, cbf_alpha, beta, point_obs_noise));
-                // }
+                if(idx == OPT_LENS_TRAJ - 1)
+                {
+                  graph.add(CBFPdFactor(X(idx+1), V(idx+1), obs1.obs_pos, obs1.obs_size + safe_d, cbf_alpha, point_obs_noise));
+                }
+                else
+                {
+                  graph.add(VeCBFPdFactor(X(idx+1), V(idx+1), U(idx+1), obs1.obs_pos, obs1.obs_vel, obs1.obs_size + safe_d, cbf_alpha, beta, point_obs_noise));
+                }
             }
+            
+            // if(idx != OPT_LENS_TRAJ - 1)
+            // {
+            //     gtsam::Vector3 cyl1_p(0,0,0);
+            //     gtsam::Vector3 cyl1_v(0,0,0);
+            //     double range = 0.20;
+            //     graph.add(VeCBFPdFactorcCylinder(X(idx+1), V(idx+1), U(idx+1), cyl1_p, cyl1_v, range, cbf_alpha, 0, point_obs_noise));
+            // }
 
             if (idx == 0)
             {                
@@ -303,17 +312,17 @@ int main(void)
                 gtsam::Vector3 vel_noise_add = gtsam::Vector3(velocity_noise(meas_vx_gen), velocity_noise(meas_vy_gen), velocity_noise(meas_vz_gen));
                 gtsam::Vector3 rot_noise_add = gtsam::Vector3(rot_noise(meas_rx_gen), rot_noise(meas_ry_gen), rot_noise(meas_rz_gen));
                 
-                vicon_measurement      = predicted_state.p + pos_noise;
-                gtsam::Vector3 vel_add = predicted_state.v + vel_noise_add;
-                gtsam::Vector3 rot_add = gtsam::Rot3::Logmap(predicted_state.rot) + rot_noise_add;
+                               vicon_measurement = predicted_state.p + pos_noise;
+                gtsam::Vector3 vel_add           = predicted_state.v + vel_noise_add;
+                gtsam::Vector3 rot_add           = gtsam::Rot3::Logmap(predicted_state.rot) + rot_noise_add;
 
                 graph.add(gtsam::PriorFactor<gtsam::Pose3>(X(idx), gtsam::Pose3(gtsam::Rot3::Expmap(rot_add), vicon_measurement), vicon_noise));
                 graph.add(gtsam::PriorFactor<gtsam::Vector3>(V(idx), vel_add, vel_noise));
-                // graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), predicted_state.body_rate, omega_noise));
+                  // graph.add(gtsam::PriorFactor<gtsam::Vector3>(S(idx), predicted_state.body_rate, omega_noise));
                                 
                 initial_value.insert(X(idx), gtsam::Pose3(predicted_state.rot, vicon_measurement));
                 initial_value.insert(V(idx), vel_add);
-                // initial_value.insert(S(idx), predicted_state.body_rate);
+                  // initial_value.insert(S(idx), predicted_state.body_rate);
             }
 
         }
@@ -323,11 +332,11 @@ int main(void)
         BatchFixedLagSmoother smoother(7.0, LevenbergMarquardtParams());
         
         std::cout << "###################### begin optimize ######################" << std::endl;
-        start = clock();
-        Values result = optimizer.optimize();
-	    end = clock();
-        float opt_cost = (float)(end - start)/ CLOCKS_PER_SEC;
-	    std::cout << " ---------- Optimize Time " << opt_cost << endl;
+              start    = clock();
+       Values result   = optimizer.optimize();
+              end      = clock();
+       float  opt_cost = (float)(end - start)/ CLOCKS_PER_SEC;
+	      std::cout << " ---------- Optimize Time " << opt_cost << endl;
 
         gtsam::Pose3   ipose;
         gtsam::Vector3 vel;
@@ -336,44 +345,44 @@ int main(void)
 
         for (uint32_t ikey = 0; ikey < OPT_LENS_TRAJ; ikey++)
         {
-            // std::cout << red << "--------------------------------- TRAJECTORY CONTROL OPTIMIZATION: "  << ikey << " ----------------------------------" << def << std::endl;
+              // std::cout << red << "--------------------------------- TRAJECTORY CONTROL OPTIMIZATION: "  << ikey << " ----------------------------------" << def << std::endl;
             ipose = result.at<Pose3>(X(ikey));
             vel   = result.at<Vector3>(V(ikey));
 
-            // omega = result.at<Vector3>(S(ikey));
-            // gtsam::Vector3 ref_omega = circle_generator.omega(t0 + ikey * dt);
-            // gtsam::Pose3 ref_pose(gtsam::Rot3::Expmap(circle_generator.theta(t0 + ikey * dt)), circle_generator.pos(t0 + ikey * dt));
-            // gtsam::Vector3 ref_vel = circle_generator.vel(t0 + ikey * dt);
+              // omega = result.at<Vector3>(S(ikey));
+              // gtsam::Vector3 ref_omega = circle_generator.omega(t0 + ikey * dt);
+              // gtsam::Pose3 ref_pose(gtsam::Rot3::Expmap(circle_generator.theta(t0 + ikey * dt)), circle_generator.pos(t0 + ikey * dt));
+              // gtsam::Vector3 ref_vel = circle_generator.vel(t0 + ikey * dt);
             
-            // std::cout << green << "OPT Translation: "
-            //         << ipose.translation() << std::endl;
-            // std::cout << "REF Translation: "
-            //         << ref_pose.translation() << std::endl;
+              // std::cout << green << "OPT Translation: "
+              //         << ipose.translation() << std::endl;
+              // std::cout << "REF Translation: "
+              //         << ref_pose.translation() << std::endl;
 
-            // std::cout << "OPT    Rotation: "
-            //         << Rot3::Logmap(ipose.rotation()).transpose() << std::endl;
-            // std::cout << "REF    Rotation: "
-            //         << Rot3::Logmap(ref_pose.rotation()).transpose() << std::endl;
+              // std::cout << "OPT    Rotation: "
+              //         << Rot3::Logmap(ipose.rotation()).transpose() << std::endl;
+              // std::cout << "REF    Rotation: "
+              //         << Rot3::Logmap(ref_pose.rotation()).transpose() << std::endl;
 
-            // std::cout << "OPT         VEL: "
-            //         << vel.transpose() << std::endl;
-                //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
-            // std::cout << "REF         VEL: "
-            //         << ref_vel.transpose() << std::endl;
+              // std::cout << "OPT         VEL: "
+              //         << vel.transpose() << std::endl;
+              //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
+              // std::cout << "REF         VEL: "
+              //         << ref_vel.transpose() << std::endl;
 
             
-            // std::cout << "OPT       OMEGA: "
-            //         << omega.transpose() << std::endl;
-            //  //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
-            // std::cout << "REF       OMEGA: "
-            //         << ref_omega.transpose() << std::endl;
+              // std::cout << "OPT       OMEGA: "
+              //         << omega.transpose() << std::endl;
+              //  //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
+              // std::cout << "REF       OMEGA: "
+              //         << ref_omega.transpose() << std::endl;
 
             if(ikey != OPT_LENS_TRAJ - 1)
             {
                 input = result.at<gtsam::Vector4>(U(ikey));
-                    // std::cout << "OPT      INPUT: " << input.transpose() << std::endl;
-                    // std::cout << "REF      INPUT: "
-                    //         << circle_generator.inputfm(t0 + ikey * dt).transpose() << std::endl;
+                      // std::cout << "OPT      INPUT: " << input.transpose() << std::endl;
+                      // std::cout << "REF      INPUT: "
+                      //         << circle_generator.inputfm(t0 + ikey * dt).transpose() << std::endl;
             }
             State m_state;
             m_state.p = ipose.translation();
@@ -382,10 +391,10 @@ int main(void)
 
         input = result.at<gtsam::Vector4>(U(0));
 
-        // std::cout << " ------ " << input.transpose() << std::endl;
+          // std::cout << " ------ " << input.transpose() << std::endl;
         
-        /* Simulator */
-        State est_state = quadrotor.getState();
+          /* Simulator */
+        State          est_state  = quadrotor.getState();
         gtsam::Vector3 drag_force = est_state.rot.matrix() * Eigen::Matrix3d(drag_k.asDiagonal()) * est_state.rot.matrix().transpose() * est_state.v;
         std::cout << "Drag force is " << drag_force.transpose() << std::endl;
 
@@ -398,38 +407,38 @@ int main(void)
         double wy_noise = gyro_noise(generator_);
         double wz_noise = gyro_noise(generator_);
 
-        gtsam::Vector3  v_dot = - gtsam::Vector3(0, 0, g_) 
+        gtsam::Vector3 v_dot = - gtsam::Vector3(0, 0, g_)
                                 + est_state.rot.rotate(gtsam::Vector3(0, 0, (input[0] + at_noise) / mass))
                                 + drag_force / mass;
         gtsam::Vector3  p_dot = est_state.v;
         Eigen::Matrix3d r_dot = est_state.rot.matrix() * gtsam::skewSymmetric(est_state.body_rate);
 
-        est_state.p = est_state.p + p_dot * dt; 
-        est_state.v = est_state.v + v_dot * dt;
-        gtsam::Vector3 body_rate = gtsam::Vector3(input[1], input[2], input[3]) + gtsam::Vector3(wx_noise, wy_noise, wz_noise);
-        est_state.rot = est_state.rot * gtsam::Rot3::Expmap(body_rate* dt);
+                       est_state.p   = est_state.p + p_dot * dt;
+                       est_state.v   = est_state.v + v_dot * dt;
+        gtsam::Vector3 body_rate     = gtsam::Vector3(input[1], input[2], input[3]) + gtsam::Vector3(wx_noise, wy_noise, wz_noise);
+                       est_state.rot = est_state.rot * gtsam::Rot3::Expmap(body_rate* dt);
 
         quadrotor.setState(est_state);
 
-        predicted_state = quadrotor.getState();
-        gtsam::Pose3 predicted_pose = gtsam::Pose3(predicted_state.rot, predicted_state.p);
+                     predicted_state = quadrotor.getState();
+        gtsam::Pose3 predicted_pose  = gtsam::Pose3(predicted_state.rot, predicted_state.p);
 
-        landmarkk = lidar.Measurement(env, predicted_pose);
-        gtsam::Vector3 tar_position  = fig_gen.pos(t0 + 1 * dt);
-        gtsam::Vector3 tar_theta     = fig_gen.theta(t0 + 1 * dt);
-        gtsam::Rot3    tar_rotation  = gtsam::Rot3::Expmap(tar_theta);
-        gtsam::Vector3 tar_vel       = fig_gen.vel(t0 + 1 * dt);
-        gtsam::Vector3 tar_omega     = fig_gen.omega(t0 + 1 * dt);
-        gtsam::Vector4 ref_input     = fig_gen.inputfm(t0);
+                       landmarkk    = lidar.Measurement(env, predicted_pose);
+        gtsam::Vector3 tar_position = fig_gen.pos(t0 + 1 * dt);
+        gtsam::Vector3 tar_theta    = fig_gen.theta(t0 + 1 * dt);
+        gtsam::Rot3    tar_rotation = gtsam::Rot3::Expmap(tar_theta);
+        gtsam::Vector3 tar_vel      = fig_gen.vel(t0 + 1 * dt);
+        gtsam::Vector3 tar_omega    = fig_gen.omega(t0 + 1 * dt);
+        gtsam::Vector4 ref_input    = fig_gen.inputfm(t0);
 
-        gtsam::Vector3 pos_err       = predicted_state.p - tar_position;
-        gtsam::Vector3 pred_theta    = gtsam::Rot3::Logmap(predicted_state.rot);
-        gtsam::Vector3 rot_err       = tar_rotation.rpy() - predicted_state.rot.rpy();
+        gtsam::Vector3 pos_err    = predicted_state.p - tar_position;
+        gtsam::Vector3 pred_theta = gtsam::Rot3::Logmap(predicted_state.rot);
+        gtsam::Vector3 rot_err    = tar_rotation.rpy() - predicted_state.rot.rpy();
 
         
         quadrotor.renderHistoryOpt(opt_trj, pos_err, boost::none, vicon_measurement, rot_err, ref_trj, opt_cost);
 
-        /* real position, real attituede, real vel, rel augular speed, input their corr references */
+          /* real position, real attituede, real vel, rel augular speed, input their corr references */
         JEC_log << predicted_pose.translation().x() << " " << predicted_pose.translation().y() << " " << predicted_pose.translation().z() << " " 
             << predicted_state.rot.rpy().x() << " " << predicted_state.rot.rpy().y() << " " << predicted_state.rot.rpy().z() << " " 
             << predicted_state.v.x() << " " << predicted_state.v.y() << " " << predicted_state.v.z() << " "
