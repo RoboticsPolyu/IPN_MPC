@@ -65,7 +65,7 @@ namespace QuadrotorSim_SO3
         
         // Utility methods
         void renderPanel();
-        bool checkCollision(const State& state, const gtsam::Vector3& obstacle_center, float r) const;
+        bool checkCollision(const State& state, const ObsType& type, const gtsam::Vector3& obstacle_center, float r) const;
         std::vector<Point3D> generateSpherePoints(float radius, int numTheta, int numPhi) const;
         void drawCylinder(const gtsam::Vector3& position, float radius, float height, 
                         const gtsam::Vector3& color, int segments = 32);

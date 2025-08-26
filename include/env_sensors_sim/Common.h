@@ -63,28 +63,38 @@ typedef struct State
 
     Eigen::Vector4d thrust_torque;
     Eigen::Array4d  motor_rpm;
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
-    // State(): id(0), timestamp(0), p(Eigen::Vector3d::Zero()), v(Eigen::Vector3d::Zero()),
-    //     rot(gtsam::Rot3::identity()), body_rate(Eigen::Vector3d::Zero()), acc_z(0), torque(Eigen::Vector3d::Zero()), 
-    //     thrust_torque(Eigen::Vector4d::Zero()), motor_rpm(Eigen::Array4d::Zero()) {};
+    // state = state will dead ???
 
-    // const State operator=(const State& state)
-    // {
-    //     id = state.id;
-    //     timestamp = state.timestamp;
-    //     p = state.p;
-    //     v = state.v;
-    //     rot = state.rot;
-    //     body_rate = state.body_rate;
-    //     acc_z = state.acc_z;
-    //     torque = state.torque;
-    //     thrust_torque = state.thrust_torque;
-    //     motor_rpm = state.motor_rpm;
+    // State() : p(0,0,0), rot(gtsam::Rot3::identity()), v(0,0,0), body_rate(0,0,0), thrust_torque(0,0,0,0), motor_rpm(0,0,0,0) {}
+    
+    // State(const State& other) : p(other.p), rot(other.rot), v(other.v), body_rate(other.body_rate), thrust_torque(other.thrust_torque), motor_rpm(other.motor_rpm) {}
+    
+    // State& operator=(const State& other) {
+    //     if (this != &other) {
+    //         p = other.p;
+    //         rot = other.rot;
+    //         v = other.v;
+    //         body_rate = other.body_rate;
+    //         thrust_torque = other.thrust_torque;
+    //         motor_rpm = other.motor_rpm;
+    //     }
     //     return *this;
     // }
 
-    // state = state will dead ???
+    State() : p(0,0,0), rot(gtsam::Rot3::identity()), v(0,0,0), body_rate(0,0,0){}
+    
+    State(const State& other) : p(other.p), rot(other.rot), v(other.v), body_rate(other.body_rate) {}
+    
+    State& operator=(const State& other) {
+        if (this != &other) {
+            p = other.p;
+            rot = other.rot;
+            v = other.v;
+            body_rate = other.body_rate;
+        }
+        return *this;
+    }
 
 }State;
 
@@ -98,10 +108,10 @@ typedef struct Point3D
 
 enum ObsType
 {
-    sphere = 0,
-    box    = 1
+    sphere   = 0,
+    box      = 1,
+    cylinder = 2
 };
-
 
 // Define a structure of obstacles
 typedef struct Obstacle 

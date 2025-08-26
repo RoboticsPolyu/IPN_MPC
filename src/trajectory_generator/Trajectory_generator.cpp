@@ -585,7 +585,7 @@ namespace Trajectory
         get_segment_state(t, direction, normalized_time, s, v, a);
         
         // 假设直线沿x轴方向，从原点开始往返运动
-        return gtsam::Vector3(s, 0.0, 1.0);
+        return gtsam::Vector3(s + x_offset_, 0.0 + y_offset_, 1.0 + z_offset_);
     }
 
     gtsam::Vector3 back_and_forth_generator::vel(double t)
@@ -601,41 +601,56 @@ namespace Trajectory
     {
         // 对于直线运动，姿态主要保持水平
         // 可以根据速度方向调整偏航角，这里保持为零
-        double yaw = 0.0;
+        // double yaw = 0.0;
         
-        gtsam::Vector3 force = thrust(t);
-        if (force.norm() < 1e-6)
-        {
-            // 避免除以零，返回默认姿态
-            return gtsam::Vector3::Zero();
-        }
+        // gtsam::Vector3 force = thrust(t);
+        // if (force.norm() < 1e-6)
+        // {
+        //     // 避免除以零，返回默认姿态
+        //     return gtsam::Vector3::Zero();
+        // }
         
-        gtsam::Vector3 zB = force / force.norm();
-        gtsam::Vector3 xC(cos(yaw), sin(yaw), 0);
+        // gtsam::Vector3 zB = force / force.norm();
+        // gtsam::Vector3 xC(cos(yaw), sin(yaw), 0);
         
-        // 检查叉积是否为零向量
-        gtsam::Vector3 cross_product = zB.cross(xC);
-        if (cross_product.norm() < 1e-6)
-        {
-            // 如果叉积接近零，使用默认的y轴
-            gtsam::Vector3 yB(0, 1, 0);
-            gtsam::Vector3 xB = yB.cross(zB);
+        // // 检查叉积是否为零向量
+        // gtsam::Vector3 cross_product = zB.cross(xC);
+        // if (cross_product.norm() < 1e-6)
+        // {
+        //     // 如果叉积接近零，使用默认的y轴
+        //     gtsam::Vector3 yB(0, 1, 0);
+        //     gtsam::Vector3 xB = yB.cross(zB);
             
-            gtsam::Matrix3 R;
-            R.col(0) = xB.normalized();
-            R.col(1) = yB.normalized();
-            R.col(2) = zB.normalized();
-            gtsam::Rot3 rot3(R);
-            return gtsam::Rot3::Logmap(rot3);
-        }
+        //     gtsam::Matrix3 R;
+        //     R.col(0) = xB.normalized();
+        //     R.col(1) = yB.normalized();
+        //     R.col(2) = zB.normalized();
+        //     gtsam::Rot3 rot3(R);
+        //     return gtsam::Rot3::Logmap(rot3);
+        // }
         
-        gtsam::Vector3 yB = cross_product / cross_product.norm();
+        // gtsam::Vector3 yB = cross_product / cross_product.norm();
+        // gtsam::Vector3 xB = yB.cross(zB);
+
+        // gtsam::Matrix3 R;
+        // R.col(0) = xB.normalized();
+        // R.col(1) = yB.normalized();
+        // R.col(2) = zB.normalized();
+        // gtsam::Rot3 rot3(R);
+        // return gtsam::Rot3::Logmap(rot3);
+
+        gtsam::Vector3 force;
+        force = thrust(t);
+        double yaw_ = 0;
+        gtsam::Vector3 zB = force / force.norm();
+        gtsam::Vector3 xC(cos(yaw_), sin(yaw_), 0);
+        gtsam::Vector3 yB = zB.cross(xC) / zB.cross(xC).norm();
         gtsam::Vector3 xB = yB.cross(zB);
 
         gtsam::Matrix3 R;
-        R.col(0) = xB.normalized();
-        R.col(1) = yB.normalized();
-        R.col(2) = zB.normalized();
+        R.col(0) = xB;
+        R.col(1) = yB;
+        R.col(2) = zB;
         gtsam::Rot3 rot3(R);
         return gtsam::Rot3::Logmap(rot3);
     }

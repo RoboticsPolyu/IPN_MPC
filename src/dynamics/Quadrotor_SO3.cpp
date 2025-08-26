@@ -50,14 +50,16 @@ namespace QuadrotorSim_SO3
         double DRAG_FORCE_Z       = config["DRAG_FORCE_Z"].as<double>();
         float  trj_len_max        = config["TRJ_LEN_MAX"].as<double>();
                obs_num_           = config["OBS_NUM"].as<uint16_t>();
-        double OBS1_RADIUS        = config["OBS1_RADIUS"].as<double>();
+               cylinder_num_      = config["CYLINDER_NUM"].as<uint16_t>();
+               sphere_radius_     = config["OBS1_RADIUS"].as<double>();
+               quad_size_         = config["UAV_SIZE"].as<double>();
         uint16_t static_obs_num_  = config["STATIC_OBS_NUM"].as<uint16_t>();
 
           // double SAFE_D       = config["SAFE_D"].as<double>();
         drag_force_params_ = Eigen::Vector3d(DRAG_FORCE_X, DRAG_FORCE_Y, DRAG_FORCE_Z);
-        obstacles_.resize(obs_num_);
+        obstacles_.resize(obs_num_ + cylinder_num_);
 
-        ui_ptr = std::make_shared<UI>(trj_len_max, obs_num_, OBS1_RADIUS);
+        ui_ptr = std::make_shared<UI>(trj_len_max, obs_num_, sphere_radius_);
         static_obstacles_.clear();  // Clear previous obstacles
 
         const float circleRadius = 1.5f;
@@ -154,13 +156,15 @@ namespace QuadrotorSim_SO3
         double DRAG_FORCE_Z       = config["DRAG_FORCE_Z"].as<double>();
         float  trj_len_max        = config["TRJ_LEN_MAX"].as<double>();
                obs_num_           = config["OBS_NUM"].as<uint16_t>();
-        double OBS1_RADIUS        = config["OBS1_RADIUS"].as<double>();
+               cylinder_num_      = config["CYLINDER_NUM"].as<uint16_t>();
+               sphere_radius_     = config["OBS1_RADIUS"].as<double>();
+               quad_size_         = config["UAV_SIZE"].as<double>();
         uint16_t static_obs_num_  = config["STATIC_OBS_NUM"].as<uint16_t>();
           // double SAFE_D       = config["SAFE_D"].as<double>();
         drag_force_params_ = Eigen::Vector3d(DRAG_FORCE_X, DRAG_FORCE_Y, DRAG_FORCE_Z);
-        obstacles_.resize(obs_num_);
+        obstacles_.resize(obs_num_ + cylinder_num_);
 
-        ui_ptr = std::make_shared<UI>(trj_len_max, obs_num_, OBS1_RADIUS);
+        ui_ptr = std::make_shared<UI>(trj_len_max, obs_num_, sphere_radius_ + quad_size_/2.0);
         static_obstacles_.clear();  // Clear previous obstacles
 
         const float circleRadius = 1.5f;
@@ -497,13 +501,14 @@ namespace QuadrotorSim_SO3
     }
     void Quadrotor::setState(const State &state)
     {
-        state_.p             = state.p;
-        state_.v             = state.v;
-        state_.rot           = state.rot;
-        state_.body_rate     = state.body_rate;
-        state_.motor_rpm     = state.motor_rpm;
-        state_.thrust_torque = state.thrust_torque;
-        state_.timestamp     = state.timestamp;
+        state_ = state;
+        // state_.p             = state.p;
+        // state_.v             = state.v;
+        // state_.rot           = state.rot;
+        // state_.body_rate     = state.body_rate;
+        // state_.motor_rpm     = state.motor_rpm;
+        // state_.thrust_torque = state.thrust_torque;
+        // state_.timestamp     = state.timestamp;
     }
 
     void Quadrotor::setStatePos(const Eigen::Vector3d &Pos)
@@ -890,7 +895,7 @@ namespace QuadrotorSim_SO3
             obstacle.obs_vel[1] = dy;
             obstacle.obs_vel[2] = 0;                // no vertical movement
             obstacle.obs_type   = ObsType::sphere;
-            obstacle.obs_size   = 0.10;
+            obstacle.obs_size   = sphere_radius_;
             return obstacle;
         }
         else

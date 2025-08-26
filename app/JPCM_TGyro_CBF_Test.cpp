@@ -74,7 +74,7 @@ int main(void)
     double   alpha           = FGO_config["CLF_ALPHA"].as<double>();
     uint8_t  maxIterations   = FGO_config["MAX_ITERS"].as<double>();
     double   cbf_alpha       = FGO_config["CBF_ALPHA"].as<double>();
-    double   beta            = FGO_config["CBF_BETA"].as<double>();
+    double   cbf_beta        = FGO_config["CBF_BETA"].as<double>();
 
     YAML::Node quad_config = YAML::LoadFile("../config/quadrotor_TGyro_CBF.yaml");
 
@@ -92,6 +92,7 @@ int main(void)
     double MAP_Z       = quad_config["MAP_Z"].as<double>();
     double OBS1_RADIUS = quad_config["OBS1_RADIUS"].as<double>();
     double SAFE_D      = quad_config["SAFE_D"].as<double>();
+    double QUAD_SIZE   = quad_config["UAV_SIZE"].as<double>();
 
     double MAP_CENTER_X    = quad_config["MAP_CENTER_X"].as<double>();
     double MAP_CENTER_Y    = quad_config["MAP_CENTER_Y"].as<double>();
@@ -193,8 +194,10 @@ int main(void)
     Obstacle obs1;
     std::vector<Obstacle> obstacles;
 
-    float safe_d = SAFE_D;
-
+    gtsam::Matrix3 _E12;
+    _E12 << 1,0,0, 0,1,0, 0,0,0;
+    float safe_d      = SAFE_D;
+    float quad_radius = QUAD_SIZE / 2.0;
     for(int traj_idx = 0; traj_idx < SIM_STEPS; traj_idx++)
     {
                obstacles = quadrotor.getObstacles();
@@ -202,17 +205,30 @@ int main(void)
         std::vector<State> opt_trj, ref_trj;
         State ref_state;
 
-        if(traj_idx == 0)
-        {
-                        predicted_state.p         = fig_gen.pos(0.0);
-            gtsam::Rot3 rot                       = gtsam::Rot3::Expmap(fig_gen.theta(0.0)).toQuaternion();
-                        predicted_state.rot       = rot;
-                        predicted_state.v         = fig_gen.vel(0.0);
-                        predicted_state.body_rate = fig_gen.omega(0.0);
+        // if(traj_idx == 0)
+        // {
+        //                 predicted_state.p         = fig_gen.pos(0.0);
+        //     gtsam::Rot3 rot                       = gtsam::Rot3::Expmap(fig_gen.theta(0.0)).toQuaternion();
+        //                 predicted_state.rot       = rot;
+        //                 predicted_state.v         = fig_gen.vel(0.0);
+        //                 predicted_state.body_rate = fig_gen.omega(0.0);
 
-            quadrotor.setState(predicted_state);
-        }
+        //     quadrotor.setState(predicted_state);
+        // }
         
+        // 在循环之前添加明确的初始化
+        if(traj_idx == 0) 
+        {
+            State init_state;
+            init_state.p = fig_gen.pos(0.0);
+            init_state.rot = gtsam::Rot3::Expmap(fig_gen.theta(0.0));
+            init_state.v = fig_gen.vel(0.0);
+            init_state.body_rate = fig_gen.omega(0.0);
+            
+            quadrotor.setState(init_state);
+            predicted_state = init_state; // 确保predicted_state也被正确初始化
+        }
+
         if(traj_idx == 1000 && TEST_RECOVERY)
         {
             predicted_state.p[0] = predicted_state.p[0] + MOVE_X;
@@ -250,13 +266,39 @@ int main(void)
 
             for(uint16_t obsi = 0; obsi < obstacles.size(); obsi++)
             {
-                      obs1 = obstacles[obsi];
-                float d2   = std::sqrt((pose_idx.translation() - obs1.obs_pos).transpose()* (pose_idx.translation() - obs1.obs_pos));
-                
-                if(d2 < obs1.obs_size + safe_d)
+                obs1 = obstacles[obsi];
+                if(obs1.obs_type == ObsType::sphere)
                 {
-                    float scale    = (obs1.obs_size + safe_d)/ d2;
-                          pose_idx = gtsam::Pose3(pose_idx.rotation(), (pose_idx.translation() - obs1.obs_pos)* scale + obs1.obs_pos);
+                    float d2 = std::sqrt((pose_idx.translation() - obs1.obs_pos).transpose()* (pose_idx.translation() - obs1.obs_pos));
+                    
+                    if(d2 < obs1.obs_size + safe_d + quad_radius)
+                    {
+                        float scale    = (obs1.obs_size + safe_d + quad_radius)/ d2;
+                              pose_idx = gtsam::Pose3(pose_idx.rotation(), (pose_idx.translation() - obs1.obs_pos)* scale + obs1.obs_pos);
+                    }
+                }
+                else if(obs1.obs_type == ObsType::cylinder)
+                {
+                    float d2 = std::sqrt((_E12 * pose_idx.translation() - _E12 * obs1.obs_pos).transpose()* 
+                                        (_E12 * pose_idx.translation() - _E12 * obs1.obs_pos));
+
+                    if(d2 < obs1.obs_size + safe_d + quad_radius)
+                    {
+                        float scale = (obs1.obs_size + safe_d + quad_radius) / d2;
+                        
+                        // 获取当前位置和障碍物位置
+                        gtsam::Point3 current_pos = pose_idx.translation();
+                        gtsam::Point3 obs_pos = obs1.obs_pos;
+                        
+                        // 创建新的xy坐标（缩放后的）
+                        gtsam::Point3 new_xy_pos(
+                            (current_pos.x() - obs_pos.x()) * scale + obs_pos.x(),
+                            (current_pos.y() - obs_pos.y()) * scale + obs_pos.y(),
+                            current_pos.z()  // 保持z坐标不变
+                        );
+                        
+                        pose_idx = gtsam::Pose3(pose_idx.rotation(), new_xy_pos);
+                    }
                 }
             }
 
@@ -287,25 +329,32 @@ int main(void)
             for(uint16_t obsi = 0; obsi < obstacles.size(); obsi++)
             {
                 obs1 = obstacles[obsi];
-                // graph.add(PointObsFactor(X(idx+1), obs1, obs1_radius + safe_d, point_obs_noise));
-                if(idx == OPT_LENS_TRAJ - 1)
+                if(obs1.obs_type == ObsType::sphere)
                 {
-                  graph.add(CBFPdFactor(X(idx+1), V(idx+1), obs1.obs_pos, obs1.obs_size + safe_d, cbf_alpha, point_obs_noise));
+                    // graph.add(PointObsFactor(X(idx+1), obs1, obs1_radius + safe_d, point_obs_noise));
+                    if(idx == OPT_LENS_TRAJ - 1)
+                    {
+                        graph.add(CBFPdFactor(X(idx+1), V(idx+1), obs1.obs_pos, obs1.obs_size + safe_d + quad_radius, cbf_alpha, point_obs_noise));
+                    }
+                    else
+                    {
+                        graph.add(VeCBFPdFactor1(X(idx+1), V(idx+1), U(idx+1), obs1.obs_pos, obs1.obs_vel, obs1.obs_size + safe_d + quad_radius, cbf_alpha, cbf_beta, point_obs_noise));
+                    }
                 }
-                else
+                else if(obs1.obs_type == ObsType::cylinder)
                 {
-                  graph.add(VeCBFPdFactor(X(idx+1), V(idx+1), U(idx+1), obs1.obs_pos, obs1.obs_vel, obs1.obs_size + safe_d, cbf_alpha, beta, point_obs_noise));
+                    // std::cout << "Cylinder Obs: " << obs1.obs_pos.transpose() << " - index: " << obsi << std::endl;
+                    if(idx == OPT_LENS_TRAJ - 1)
+                    {
+                       graph.add(CBFPdFactorCylinder(X(idx+1), V(idx+1), obs1.obs_pos, obs1.obs_size + safe_d + quad_radius, cbf_alpha, point_obs_noise));
+                    }
+                    else
+                    {
+                        graph.add(VeCBFPdFactorCylinder1(X(idx+1), V(idx+1), U(idx+1), obs1.obs_pos, obs1.obs_vel, obs1.obs_size + safe_d + quad_radius, cbf_alpha, cbf_beta, point_obs_noise));
+                    }
                 }
             }
             
-            // if(idx != OPT_LENS_TRAJ - 1)
-            // {
-            //     gtsam::Vector3 cyl1_p(0,0,0);
-            //     gtsam::Vector3 cyl1_v(0,0,0);
-            //     double range = 0.20;
-            //     graph.add(VeCBFPdFactorcCylinder(X(idx+1), V(idx+1), U(idx+1), cyl1_p, cyl1_v, range, cbf_alpha, 0, point_obs_noise));
-            // }
-
             if (idx == 0)
             {                
                 gtsam::Vector3 pos_noise     = gtsam::Vector3(position_noise(meas_x_gen), position_noise(meas_y_gen), position_noise(meas_z_gen));
@@ -327,7 +376,6 @@ int main(void)
 
         }
 
-        
         LevenbergMarquardtOptimizer optimizer(graph, initial_value, parameters);
         BatchFixedLagSmoother smoother(7.0, LevenbergMarquardtParams());
         
@@ -345,44 +393,44 @@ int main(void)
 
         for (uint32_t ikey = 0; ikey < OPT_LENS_TRAJ; ikey++)
         {
-              // std::cout << red << "--------------------------------- TRAJECTORY CONTROL OPTIMIZATION: "  << ikey << " ----------------------------------" << def << std::endl;
+            std::cout << red << "--------------------------------- TRAJECTORY CONTROL OPTIMIZATION: "  << ikey << " ----------------------------------" << def << std::endl;
             ipose = result.at<Pose3>(X(ikey));
             vel   = result.at<Vector3>(V(ikey));
 
-              // omega = result.at<Vector3>(S(ikey));
-              // gtsam::Vector3 ref_omega = circle_generator.omega(t0 + ikey * dt);
-              // gtsam::Pose3 ref_pose(gtsam::Rot3::Expmap(circle_generator.theta(t0 + ikey * dt)), circle_generator.pos(t0 + ikey * dt));
-              // gtsam::Vector3 ref_vel = circle_generator.vel(t0 + ikey * dt);
+            // omega = result.at<Vector3>(S(ikey));
+            // gtsam::Vector3 ref_omega = circle_generator.omega(t0 + ikey * dt);
+            gtsam::Pose3 ref_pose(gtsam::Rot3::Expmap(fig_gen.theta(t0 + ikey * dt)), fig_gen.pos(t0 + ikey * dt));
+            gtsam::Vector3 ref_vel = fig_gen.vel(t0 + ikey * dt);
+          
+            std::cout << green << "OPT Translation: "
+                    << ipose.translation() << std::endl;
+            std::cout << "REF Translation: "
+                    << ref_pose.translation() << std::endl;
+
+            std::cout << "OPT    Rotation: "
+                    << Rot3::Logmap(ipose.rotation()).transpose() << std::endl;
+            std::cout << "REF    Rotation: "
+                    << Rot3::Logmap(ref_pose.rotation()).transpose() << std::endl;
+
+            std::cout << "OPT         VEL: "
+                    << vel.transpose() << std::endl;
+            (gtsam::Rot3::Expmap(fig_gen.theta(ikey* dt)), fig_gen.pos(ikey * dt));
+            std::cout << "REF         VEL: "
+                    << ref_vel.transpose() << std::endl;
+
             
-              // std::cout << green << "OPT Translation: "
-              //         << ipose.translation() << std::endl;
-              // std::cout << "REF Translation: "
-              //         << ref_pose.translation() << std::endl;
-
-              // std::cout << "OPT    Rotation: "
-              //         << Rot3::Logmap(ipose.rotation()).transpose() << std::endl;
-              // std::cout << "REF    Rotation: "
-              //         << Rot3::Logmap(ref_pose.rotation()).transpose() << std::endl;
-
-              // std::cout << "OPT         VEL: "
-              //         << vel.transpose() << std::endl;
-              //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
-              // std::cout << "REF         VEL: "
-              //         << ref_vel.transpose() << std::endl;
-
-            
-              // std::cout << "OPT       OMEGA: "
-              //         << omega.transpose() << std::endl;
-              //  //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
-              // std::cout << "REF       OMEGA: "
-              //         << ref_omega.transpose() << std::endl;
+            // std::cout << "OPT       OMEGA: "
+            //         << omega.transpose() << std::endl;
+            //  //(gtsam::Rot3::Expmap(circle_generator.theta(ikey* dt)), circle_generator.pos(ikey * dt));
+            // std::cout << "REF       OMEGA: "
+            //         << ref_omega.transpose() << std::endl;
 
             if(ikey != OPT_LENS_TRAJ - 1)
             {
                 input = result.at<gtsam::Vector4>(U(ikey));
-                      // std::cout << "OPT      INPUT: " << input.transpose() << std::endl;
-                      // std::cout << "REF      INPUT: "
-                      //         << circle_generator.inputfm(t0 + ikey * dt).transpose() << std::endl;
+                std::cout << "OPT      INPUT: " << input.transpose() << std::endl;
+                std::cout << "REF      INPUT: "
+                        << fig_gen.inputfm(t0 + ikey * dt).transpose() << std::endl;
             }
             State m_state;
             m_state.p = ipose.translation();

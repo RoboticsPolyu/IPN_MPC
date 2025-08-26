@@ -112,6 +112,23 @@ namespace QuadrotorSim_SO3
             {
                 obstacles_[i] = getObsbyEllipsev(i);
             }
+
+            for(uint8_t i = 0; i < cylinder_num_; i++)
+            {
+                // temp code of cylinder obstacle generator
+                Obstacle cylinder;
+                cylinder.obs_pos[0] = 2.0 + i * 0.5;
+                cylinder.obs_pos[1] = 0.0 + 0 * 0.5;
+                cylinder.obs_pos[2] = 0.0;
+                cylinder.obs_vel[0] = 0.0;
+                cylinder.obs_vel[1] = 0.0;
+                cylinder.obs_vel[2] = 0.0;                // no vertical movement
+                cylinder.obs_type   = ObsType::cylinder;
+                cylinder.obs_size   = sphere_radius_;
+
+                obstacles_[obs_num_ + i] = cylinder;
+            }
+
             return obstacles_;
         }
 
@@ -173,7 +190,10 @@ namespace QuadrotorSim_SO3
         std::vector<Obstacle> static_obstacles_;
         
         uint16_t obs_num_ = 0;
+        uint16_t cylinder_num_ = 0;
         uint16_t static_obs_num_ = 0;
+        double sphere_radius_ = 0;
+        double quad_size_ = 0;
         std::shared_ptr<UI> ui_ptr;
     };
 }

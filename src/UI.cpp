@@ -9,7 +9,7 @@ namespace QuadrotorSim_SO3
     UI::UI(float trj_len_max, uint8_t obs_num, double che_dis)
         : trj_len_max_(trj_len_max), obs_num_(obs_num), che_dis_(che_dis),
           clock_(0.0f), delta_t_(0.01f), opt_cost_(-1.0f),
-          axis_dist_(0.30f), propeller_dist_(0.10f), prop_radius_(0.062f)
+          axis_dist_(0.10f), propeller_dist_(0.04f), prop_radius_(0.042f)
     {
         // Generate geometry
         spherePoints_ = generateSpherePoints(che_dis_, 100, 100);
@@ -199,7 +199,7 @@ namespace QuadrotorSim_SO3
 
     void UI::drawCollisionPoint(const gtsam::Vector3& p)
     {
-        drawTrjPoint(p, 10.0f, gtsam::Vector3(0.1, 0.2, 0.7));
+        drawTrjPoint(p, 10.0f, gtsam::Vector3(1.0, 1.0, 0.0));  // yellow
     }
 
     void UI::drawQuadrotor(const gtsam::Vector3& p, const gtsam::Rot3& rot)
@@ -229,7 +229,7 @@ namespace QuadrotorSim_SO3
         // Draw propeller circles
         for (const auto& offset : arm_offsets) {
             gtsam::Vector3 center = rot.rotate(offset) + p;
-            drawCircle(black, prop_radius_, center, rot);
+            drawCircle(black, arm_offset*0.8, center, rot);
         }
 
         // Draw propeller centers
@@ -357,16 +357,33 @@ namespace QuadrotorSim_SO3
         return obstacles;
     }
 
-    bool UI::checkCollision(const State& state, const gtsam::Vector3& obstacle_center, float r) const
+    bool UI::checkCollision(const State& state, const ObsType& type, const gtsam::Vector3& obstacle_center, float r) const
     {
-        float obs_distance = (state.p - obstacle_center).norm();
-        if (obs_distance >= r) {
-            return false;
+        if(type == ObsType::sphere)
+        {
+            float obs_distance = (state.p - obstacle_center).norm();
+            if (obs_distance >= r) 
+            {
+                return false;
+            }
+        // std::cout << "Collision detected: " << obs_distance << std::endl;
+        // std::cout << "State p: " << state.p.transpose() << std::endl;
+        // std::cout << "Obstacle center: " << obstacle_center.transpose() << std::endl;
         }
-        
-        std::cout << "Collision detected: " << obs_distance << std::endl;
-        std::cout << "State p: " << state.p.transpose() << std::endl;
-        std::cout << "Obstacle center: " << obstacle_center.transpose() << std::endl;
+        else if(type == ObsType::cylinder)
+        {
+            gtsam::Matrix3 _E12;
+            _E12 << 1,0,0, 0,1,0, 0,0,0;
+            float obs_distance = (_E12 * state.p - _E12 * obstacle_center).norm();
+            if (obs_distance >= r) 
+            {
+                return false;
+            }
+        }
+        else
+        {
+            std::cout << "Unknown obstacles" << std::endl;
+        }
         return true;
     }
 
@@ -436,16 +453,23 @@ namespace QuadrotorSim_SO3
         if (obstacle_centers) {
             for (size_t i = 0; i < obstacle_centers->size(); ++i) {
                 const auto& obs = obstacle_centers->at(i);
-                bool collision = checkCollision(state, obs.obs_pos, obs.obs_size);
+                bool collision = checkCollision(state, obs.obs_type, obs.obs_pos, che_dis_);
                 
                 glColor3f(collision ? 0.3f : 1.0f, 0.5f, collision ? 0.6f : 0.0f);
                 glPointSize(collision ? 3.0f : 1.0f);
-                
-                drawSphere(obs.obs_pos, obs.obs_size, gtsam::Vector3(0.133f, 0.545f, 0.133f), 32, 32);
+
+                if(obs.obs_type == ObsType::sphere)
+                {
+                    drawSphere(obs.obs_pos, obs.obs_size, gtsam::Vector3(0.133f, 0.545f, 0.133f), 32, 32);
+                }
+                else if(obs.obs_type == ObsType::cylinder)
+                {
+                    drawCylinder(obs.obs_pos, obs.obs_size, 1.3f, gtsam::Vector3(0.0f, 0.0f, 0.502f), 32);
+                }
 
                 // Check predicted trajectory for collisions
                 for (const auto& pred_state : pred_trj) {
-                    if (checkCollision(pred_state, obs.obs_pos, obs.obs_size)) {
+                    if (checkCollision(pred_state, obs.obs_type, obs.obs_pos, che_dis_)) {
                         drawCollisionPoint(pred_state.p);
                     }
                 }
@@ -470,17 +494,11 @@ namespace QuadrotorSim_SO3
         }
 
         // Draw vicon measurement if available
-        if (vicon_measurement) {
+        if (vicon_measurement) 
+        {
             drawTrjPoint(*vicon_measurement, 10.0f, gtsam::Vector3(0.6, 0.2, 0.5));
         }
-
-        // Draw cylinder with normalized color values
-        drawCylinder(gtsam::Vector3(0, 0, 0), 0.20f, 1.0f, gtsam::Vector3(0.0f, 0.0f, 0.502f), 32);
-        drawCylinder(gtsam::Vector3(2.5, 0, 0), 0.20f, 1.50f, gtsam::Vector3(0.0f, 0.0f, 0.502f), 32);
-        drawCylinder(gtsam::Vector3(0, 1.0, 0), 0.20f, .50f, gtsam::Vector3(0.0f, 0.0f, 0.502f), 32);
-        drawCylinder(gtsam::Vector3(0.5, 2.5, 0), 0.20f, 2.50f, gtsam::Vector3(0.0f, 0.0f, 0.502f), 32);
-        drawSphere(gtsam::Vector3(0, 0.5, 0.), 0.20f, gtsam::Vector3(0.133f, 0.545f, 0.133f), 32, 32);
-
+        
         renderPanel();
         pangolin::FinishFrame();
         usleep(1000);

@@ -93,7 +93,8 @@ namespace Trajectory
         double max_speed_;       // 最大速度
         double dt_;              // 时间步长
         double max_acc_;         // 最大加速度
-        
+        double x_offset_ = -2., y_offset_ = 0.10, z_offset_ = 0.;        // X axis offset
+
         // 计算得到的运动参数
         double acc_time_;        // 加速/减速段时间
         double acc_distance_;    // 加速/减速段距离
