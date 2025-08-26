@@ -3,9 +3,8 @@
 
 #include "gtsam_wrapper.h"
 
-#include "quadrotor_simulator/Dynamics_factor.h"
-#include "quadrotor_simulator/Dynamics_params.h"
-#include "quadrotor_simulator/Quadrotor_SO3.h"
+#include "control/Dynamics_factor.h"
+#include "control/Dynamics_params.h"
 
 #include <vector>
 

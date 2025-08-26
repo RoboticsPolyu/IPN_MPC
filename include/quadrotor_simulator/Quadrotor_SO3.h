@@ -2,7 +2,6 @@
 #define __QUADROTOR_SIMULATOR_QUADROTOR_SO3_H__
 
 #include "color.h"
-#include "Dynamics_factor.h"
 #include "env_sensors_sim/Common.h"
 #include "gtsam_wrapper.h"
 
@@ -17,7 +16,6 @@
 
 using namespace boost::numeric::odeint;
 using namespace std;
-using namespace UAVFactor;
 
 
 namespace QuadrotorSim_SO3
@@ -185,7 +183,6 @@ namespace QuadrotorSim_SO3
         double ANGULAR_SPEED_MEAN = 0.0;
         double ANGULAR_SPEED_COV  = 0.0;
 
-        Geometry geometry_;
         std::vector<Obstacle> obstacles_;
         std::vector<Obstacle> static_obstacles_;
         

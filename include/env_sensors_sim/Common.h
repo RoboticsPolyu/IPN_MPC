@@ -57,34 +57,14 @@ typedef struct State
     Eigen::Vector3d v;
     gtsam::Rot3     rot;
     Eigen::Vector3d body_rate;
-
-    double          acc_z;
-    Eigen::Vector3d torque;
-
     Eigen::Vector4d thrust_torque;
     Eigen::Array4d  motor_rpm;
 
-    // state = state will dead ???
-
-    // State() : p(0,0,0), rot(gtsam::Rot3::identity()), v(0,0,0), body_rate(0,0,0), thrust_torque(0,0,0,0), motor_rpm(0,0,0,0) {}
+    State() 
+        : p(0,0,0), rot(gtsam::Rot3::identity()), v(0,0,0), body_rate(0,0,0), thrust_torque(0,0,0,0), motor_rpm(0,0,0,0){}
     
-    // State(const State& other) : p(other.p), rot(other.rot), v(other.v), body_rate(other.body_rate), thrust_torque(other.thrust_torque), motor_rpm(other.motor_rpm) {}
-    
-    // State& operator=(const State& other) {
-    //     if (this != &other) {
-    //         p = other.p;
-    //         rot = other.rot;
-    //         v = other.v;
-    //         body_rate = other.body_rate;
-    //         thrust_torque = other.thrust_torque;
-    //         motor_rpm = other.motor_rpm;
-    //     }
-    //     return *this;
-    // }
-
-    State() : p(0,0,0), rot(gtsam::Rot3::identity()), v(0,0,0), body_rate(0,0,0){}
-    
-    State(const State& other) : p(other.p), rot(other.rot), v(other.v), body_rate(other.body_rate) {}
+    State(const State& other)
+        : p(other.p), rot(other.rot), v(other.v), body_rate(other.body_rate), thrust_torque(other.thrust_torque), motor_rpm(other.motor_rpm){}
     
     State& operator=(const State& other) {
         if (this != &other) {
@@ -92,6 +72,8 @@ typedef struct State
             rot = other.rot;
             v = other.v;
             body_rate = other.body_rate;
+            thrust_torque = other.thrust_torque;
+            motor_rpm = other.motor_rpm;
         }
         return *this;
     }

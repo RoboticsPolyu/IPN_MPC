@@ -100,11 +100,10 @@ ENDIF()
 add_library(quadrotor_dynamics 
             include/gtsam_wrapper.h
             src/UI.cpp
-            src/control/Minimum_snap_controller.cpp
             src/control/Energy_control_factor.cpp
-            src/dynamics/CBF_factor.cpp
-            src/dynamics/Dynamics_control_factor.cpp
-            src/dynamics/Dynamics_factor.cpp
+            src/control/CBF_factor.cpp
+            src/control/Dynamics_control_factor.cpp
+            src/control/Dynamics_factor.cpp
             src/env_sensors_sim/IMU.cpp
             src/env_sensors_sim/Landmarks.cpp
             src/env_sensors_sim/Lidar.cpp

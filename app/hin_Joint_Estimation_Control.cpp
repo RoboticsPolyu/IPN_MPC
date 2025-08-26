@@ -1,7 +1,7 @@
 #include "color.h"
 #include "env_sensors_sim/Landmarks.h"
 #include "env_sensors_sim/Lidar.h"
-#include "quadrotor_simulator/Dynamics_control_factor.h"
+#include "control/Dynamics_control_factor.h"
 #include "quadrotor_simulator/Quadrotor_SO3.h"
 #include "trajectory_generator/Trajectory_generator.h"
 
