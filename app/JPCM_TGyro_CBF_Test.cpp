@@ -108,6 +108,10 @@ int main(void)
     double drag_y = quad_config["DRAG_FORCE_Y"].as<double>();
     double drag_z = quad_config["DRAG_FORCE_Z"].as<double>();
 
+    uint16_t cylinder_num = quad_config["CYLINDER_NUM"].as<uint16_t>();
+
+    uint16_t obs_num = quad_config["OBS_NUM"].as<uint16_t>();
+    
     double mass = 1.0f;
 
     gtsam::Vector3 drag_k(drag_x, drag_y, drag_z);
@@ -216,7 +220,6 @@ int main(void)
         //     quadrotor.setState(predicted_state);
         // }
         
-        // 在循环之前添加明确的初始化
         if(traj_idx == 0) 
         {
             State init_state;
@@ -226,7 +229,7 @@ int main(void)
             init_state.body_rate = fig_gen.omega(0.0);
             
             quadrotor.setState(init_state);
-            predicted_state = init_state; // 确保predicted_state也被正确初始化
+            predicted_state = init_state; 
         }
 
         if(traj_idx == 1000 && TEST_RECOVERY)
@@ -267,34 +270,33 @@ int main(void)
             for(uint16_t obsi = 0; obsi < obstacles.size(); obsi++)
             {
                 obs1 = obstacles[obsi];
+                gtsam::Vector3 obs_pos_linear_vel = obs1.obs_pos + obs1.obs_vel * idx * dt;
                 if(obs1.obs_type == ObsType::sphere)
                 {
-                    float d2 = std::sqrt((pose_idx.translation() - obs1.obs_pos).transpose()* (pose_idx.translation() - obs1.obs_pos));
+                    float d2 = std::sqrt((pose_idx.translation() - obs_pos_linear_vel).transpose()* (pose_idx.translation() - obs_pos_linear_vel));
                     
                     if(d2 < obs1.obs_size + safe_d + quad_radius)
                     {
                         float scale    = (obs1.obs_size + safe_d + quad_radius)/ d2;
-                              pose_idx = gtsam::Pose3(pose_idx.rotation(), (pose_idx.translation() - obs1.obs_pos)* scale + obs1.obs_pos);
+                              pose_idx = gtsam::Pose3(pose_idx.rotation(), (pose_idx.translation() - obs_pos_linear_vel)* scale + obs_pos_linear_vel);
                     }
                 }
                 else if(obs1.obs_type == ObsType::cylinder)
                 {
-                    float d2 = std::sqrt((_E12 * pose_idx.translation() - _E12 * obs1.obs_pos).transpose()* 
-                                        (_E12 * pose_idx.translation() - _E12 * obs1.obs_pos));
+                    float d2 = std::sqrt((_E12 * pose_idx.translation() - _E12 * obs_pos_linear_vel).transpose()* 
+                                        (_E12 * pose_idx.translation() - _E12 * obs_pos_linear_vel));
 
                     if(d2 < obs1.obs_size + safe_d + quad_radius)
                     {
                         float scale = (obs1.obs_size + safe_d + quad_radius) / d2;
                         
-                        // 获取当前位置和障碍物位置
                         gtsam::Point3 current_pos = pose_idx.translation();
-                        gtsam::Point3 obs_pos = obs1.obs_pos;
+                        gtsam::Point3 obs_pos = obs_pos_linear_vel;
                         
-                        // 创建新的xy坐标（缩放后的）
                         gtsam::Point3 new_xy_pos(
                             (current_pos.x() - obs_pos.x()) * scale + obs_pos.x(),
                             (current_pos.y() - obs_pos.y()) * scale + obs_pos.y(),
-                            current_pos.z()  // 保持z坐标不变
+                            current_pos.z()  
                         );
                         
                         pose_idx = gtsam::Pose3(pose_idx.rotation(), new_xy_pos);
@@ -329,28 +331,30 @@ int main(void)
             for(uint16_t obsi = 0; obsi < obstacles.size(); obsi++)
             {
                 obs1 = obstacles[obsi];
+                
+                gtsam::Vector3 obs_pos_linear_vel = obs1.obs_pos + obs1.obs_vel * idx * dt;
                 if(obs1.obs_type == ObsType::sphere)
                 {
                     // graph.add(PointObsFactor(X(idx+1), obs1, obs1_radius + safe_d, point_obs_noise));
                     if(idx == OPT_LENS_TRAJ - 1)
                     {
-                        graph.add(CBFPdFactor(X(idx+1), V(idx+1), obs1.obs_pos, obs1.obs_size + safe_d + quad_radius, cbf_alpha, point_obs_noise));
+                        graph.add(CBFPdFactor(X(idx+1), V(idx+1), obs_pos_linear_vel, obs1.obs_size + safe_d + quad_radius, cbf_alpha, point_obs_noise));
                     }
                     else
                     {
-                        graph.add(VeCBFPdFactor1(X(idx+1), V(idx+1), U(idx+1), obs1.obs_pos, obs1.obs_vel, obs1.obs_size + safe_d + quad_radius, cbf_alpha, cbf_beta, point_obs_noise));
+                        graph.add(VeCBFPdFactor1(X(idx+1), V(idx+1), U(idx+1), obs_pos_linear_vel, obs1.obs_vel, obs1.obs_size + safe_d + quad_radius, cbf_alpha, cbf_beta, point_obs_noise));
                     }
                 }
                 else if(obs1.obs_type == ObsType::cylinder)
                 {
-                    // std::cout << "Cylinder Obs: " << obs1.obs_pos.transpose() << " - index: " << obsi << std::endl;
+                    // std::cout << "Cylinder Obs pos: " << obs1.obs_pos.transpose() << " - vel: " << obs1.obs_vel.transpose() << std::endl;
                     if(idx == OPT_LENS_TRAJ - 1)
                     {
-                       graph.add(CBFPdFactorCylinder(X(idx+1), V(idx+1), obs1.obs_pos, obs1.obs_size + safe_d + quad_radius, cbf_alpha, point_obs_noise));
+                       graph.add(CBFPdFactorCylinder(X(idx+1), V(idx+1), obs_pos_linear_vel, obs1.obs_size + safe_d + quad_radius, cbf_alpha, point_obs_noise));
                     }
                     else
                     {
-                        graph.add(VeCBFPdFactorCylinder1(X(idx+1), V(idx+1), U(idx+1), obs1.obs_pos, obs1.obs_vel, obs1.obs_size + safe_d + quad_radius, cbf_alpha, cbf_beta, point_obs_noise));
+                        graph.add(VeCBFPdFactorCylinder1(X(idx+1), V(idx+1), U(idx+1), obs_pos_linear_vel, obs1.obs_vel, obs1.obs_size + safe_d + quad_radius, cbf_alpha, cbf_beta, point_obs_noise));
                     }
                 }
             }
@@ -486,8 +490,10 @@ int main(void)
         
         quadrotor.renderHistoryOpt(opt_trj, pos_err, boost::none, vicon_measurement, rot_err, ref_trj, opt_cost);
 
-          /* real position, real attituede, real vel, rel augular speed, input their corr references */
-        JEC_log << predicted_pose.translation().x() << " " << predicted_pose.translation().y() << " " << predicted_pose.translation().z() << " " 
+
+        if(cylinder_num + obs_num == 1)
+        {
+            JEC_log << predicted_pose.translation().x() << " " << predicted_pose.translation().y() << " " << predicted_pose.translation().z() << " " 
             << predicted_state.rot.rpy().x() << " " << predicted_state.rot.rpy().y() << " " << predicted_state.rot.rpy().z() << " " 
             << predicted_state.v.x() << " " << predicted_state.v.y() << " " << predicted_state.v.z() << " "
             << predicted_state.body_rate.x() << " " << predicted_state.body_rate.y() << " " << predicted_state.body_rate.z() << " " 
@@ -498,7 +504,26 @@ int main(void)
             << tar_omega.x() << " " << tar_omega.y() << " " << tar_omega.z() << " "
             << ref_input[0] << " " << ref_input[1] << " " << ref_input[2] << " " << ref_input[3] << " "
             << opt_cost << " "
-            << std::endl;
+            << obstacles[0].obs_pos.x() << " " << obstacles[0].obs_pos.y() << " " << obstacles[0].obs_pos.z() << " " 
+            << obstacles[0].obs_vel.x() << " " << obstacles[0].obs_vel.y() << " " << obstacles[0].obs_vel.z() << " " 
+            << std::endl; 
+        }
+        else
+        {
+            /* real position, real attituede, real vel, rel augular speed, input their corr references */
+            JEC_log << predicted_pose.translation().x() << " " << predicted_pose.translation().y() << " " << predicted_pose.translation().z() << " " 
+                << predicted_state.rot.rpy().x() << " " << predicted_state.rot.rpy().y() << " " << predicted_state.rot.rpy().z() << " " 
+                << predicted_state.v.x() << " " << predicted_state.v.y() << " " << predicted_state.v.z() << " "
+                << predicted_state.body_rate.x() << " " << predicted_state.body_rate.y() << " " << predicted_state.body_rate.z() << " " 
+                << input[0] << " " << input[1] << " " << input[2] << " " << input[3] << " "
+                << tar_position.x() << " " << tar_position.y() << " " << tar_position.z() << " "
+                << tar_rotation.rpy().x() << " " << tar_rotation.rpy().y() << " " << tar_rotation.rpy().z() << " "
+                << tar_vel.x() << " " << tar_vel.y() << " " << tar_vel.z() << " "
+                << tar_omega.x() << " " << tar_omega.y() << " " << tar_omega.z() << " "
+                << ref_input[0] << " " << ref_input[1] << " " << ref_input[2] << " " << ref_input[3] << " "
+                << opt_cost << " "
+                << std::endl;
+        }
     }
 
     while (true)

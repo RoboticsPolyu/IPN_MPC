@@ -870,7 +870,7 @@ namespace QuadrotorSim_SO3
                              // Parameters
             float a = 1.10;  // semi-major axis
             float b = 0.50;  // semi-minor axis
-            float v = 1.40;  // velocity parameter
+            float v = 2.40;  // velocity parameter
             float z = 1.00;  // fixed height
             
               // Calculate time parameter with even spacing
@@ -894,7 +894,7 @@ namespace QuadrotorSim_SO3
             obstacle.obs_vel[0] = dx;
             obstacle.obs_vel[1] = dy;
             obstacle.obs_vel[2] = 0;                // no vertical movement
-            obstacle.obs_type   = ObsType::sphere;
+            obstacle.obs_type   = ObsType::cylinder;
             obstacle.obs_size   = sphere_radius_;
             return obstacle;
         }
