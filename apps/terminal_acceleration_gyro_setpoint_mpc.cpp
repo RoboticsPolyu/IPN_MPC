@@ -6,6 +6,7 @@
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
+#include <gtsam_unstable/linear/QPSolver.h>
 #include <iostream>
 #include <ipn_mpc/control/dynamics_control_factor.h>
 #include <ipn_mpc/control/lqr_terminal_weight.h>
@@ -21,6 +22,68 @@ gtsam::Vector3 readVector3(const YAML::Node& config, const char* key) {
         throw std::invalid_argument(std::string(key) + " must contain three values");
     return {value[0].as<double>(), value[1].as<double>(), value[2].as<double>()};
 }
+
+gtsam::Vector6 readVector6(const YAML::Node& config, const char* key) {
+    const YAML::Node value = config[key];
+    if (!value || !value.IsSequence() || value.size() != 6)
+        throw std::invalid_argument(std::string(key) + " must contain six values");
+    gtsam::Vector6 vector;
+    for (std::size_t i = 0; i < 6; ++i) vector(i) = value[i].as<double>();
+    return vector;
+}
+
+gtsam::Values enforceControlBounds(const gtsam::NonlinearFactorGraph& graph,
+                                   const gtsam::Values& initial_values,
+                                   const gtsam::KeyVector& control_keys,
+                                   const gtsam::Vector6& control_min,
+                                   const gtsam::Vector6& control_max,
+                                   std::size_t sqp_iterations) {
+    gtsam::Values values = initial_values;
+    for (std::size_t iteration = 0; iteration < sqp_iterations; ++iteration) {
+        const auto linear_cost = graph.linearize(values);
+        gtsam::InequalityFactorGraph inequalities;
+        gtsam::VectorValues feasible_delta = values.zeroVectors();
+        std::size_t constraint_index = 0;
+
+        for (gtsam::Key key : control_keys) {
+            const gtsam::Vector6 control = values.at<gtsam::Vector6>(key);
+            feasible_delta.at(key) =
+                control.cwiseMax(control_min).cwiseMin(control_max) - control;
+            for (Eigen::Index component = 0; component < 6; ++component) {
+                gtsam::RowVector upper = gtsam::RowVector::Zero(6);
+                upper(component) = 1.0;
+                inequalities.add(key, upper, control_max(component) - control(component),
+                                 gtsam::Symbol('q', constraint_index++));
+
+                gtsam::RowVector lower = gtsam::RowVector::Zero(6);
+                lower(component) = -1.0;
+                inequalities.add(key, lower, control(component) - control_min(component),
+                                 gtsam::Symbol('q', constraint_index++));
+            }
+        }
+
+        const gtsam::QP problem(*linear_cost, gtsam::EqualityFactorGraph{}, inequalities);
+        const gtsam::VectorValues delta =
+            gtsam::QPSolver(problem).optimize(feasible_delta).first;
+        values = values.retract(delta);
+    }
+    return values;
+}
+
+double maximumControlViolation(const gtsam::Values& values,
+                               const gtsam::KeyVector& control_keys,
+                               const gtsam::Vector6& control_min,
+                               const gtsam::Vector6& control_max) {
+    double maximum_violation = 0.0;
+    for (gtsam::Key key : control_keys) {
+        const gtsam::Vector6 control = values.at<gtsam::Vector6>(key);
+        maximum_violation = std::max(
+            maximum_violation,
+            std::max((control_min - control).maxCoeff(), (control - control_max).maxCoeff()));
+    }
+    return std::max(0.0, maximum_violation);
+}
+
 gtsam::Vector6 controlSigmas(double acceleration_sigma, double angular_speed_sigma) {
     gtsam::Vector6 sigmas;
     sigmas << gtsam::Vector3::Constant(acceleration_sigma),
@@ -112,10 +175,18 @@ int main(int argc, char** argv) {
             config["statistics_warmup_iterations"].as<std::size_t>();
         const std::size_t statistics_print_interval =
             config["statistics_print_interval"].as<std::size_t>();
+        const gtsam::Vector6 control_min = readVector6(config, "control_min");
+        const gtsam::Vector6 control_max = readVector6(config, "control_max");
+        const std::size_t hard_control_constraint_iterations =
+            config["hard_control_constraint_iterations"].as<std::size_t>();
         if (horizon == 0 || dt <= 0.0 || mpc_iterations == 0 ||
-            config["simulator_substeps"].as<std::size_t>() == 0)
+            config["simulator_substeps"].as<std::size_t>() == 0 ||
+            hard_control_constraint_iterations == 0)
             throw std::invalid_argument(
-                "horizon, dt, mpc_iterations, and simulator_substeps must be positive");
+                "horizon, dt, mpc_iterations, simulator_substeps, and "
+                "hard_control_constraint_iterations must be positive");
+        if ((control_min.array() >= control_max.array()).any())
+            throw std::invalid_argument("Every control_min component must be below control_max");
 
         UAVFactor::DynamicsState state{
             gtsam::Pose3(gtsam::Rot3::RzRyRx(readVector3(config, "initial_rpy")),
@@ -225,8 +296,15 @@ int main(int argc, char** argv) {
             const double initial_cost = graph.error(initial_values);
             const auto solve_start = std::chrono::steady_clock::now();
             const std::clock_t cpu_start = std::clock();
-            const gtsam::Values result =
+            gtsam::Values result =
                 gtsam::LevenbergMarquardtOptimizer(graph, initial_values, optimizer_params).optimize();
+            result = enforceControlBounds(graph, result, control_keys, control_min, control_max,
+                                          hard_control_constraint_iterations);
+            const double control_violation =
+                maximumControlViolation(result, control_keys, control_min, control_max);
+            if (control_violation > 1.0e-8)
+                throw std::runtime_error("Hard control bounds violated by " +
+                                         std::to_string(control_violation));
             const double solve_time_ms = std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - solve_start).count();
             const double cpu_time_ms = 1000.0 * (std::clock() - cpu_start) / CLOCKS_PER_SEC;
@@ -286,6 +364,7 @@ int main(int argc, char** argv) {
             std::cout << "iteration=" << iteration << " cost=" << initial_cost << "->"
                       << optimized_cost << " position_error="
                       << position_error << " rotation_error=" << rotation_error
+                      << " control_bound_violation=" << control_violation
                       << " solve_ms=" << solve_time_ms << " cpu=" << cpu_percent << "%\n";
 
             if (iteration >= statistics_warmup) {

@@ -33,5 +33,11 @@ acceleration_regularization_sigma: 5.0
 angular_speed_regularization_sigma: 3.0
 control_smoothness_sigma: 1.0
 
+# Hard bounds for U(k) = [a_world_x, a_world_y, a_world_z,
+#                         omega_body_x, omega_body_y, omega_body_z].
+control_min: [-4.0, -4.0, -4.0, -2.0, -2.0, -2.0]
+control_max: [ 4.0,  4.0,  4.0,  2.0,  2.0,  2.0]
+hard_control_constraint_iterations: 2
+
 success_rms_position_tolerance: 0.20
 success_rms_rotation_tolerance: 0.20
