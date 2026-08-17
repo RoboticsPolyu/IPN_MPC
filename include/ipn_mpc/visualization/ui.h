@@ -54,6 +54,8 @@ class UI {
   private:
     // Drawing methods
     void drawQuadrotor(const gtsam::Vector3& p, const gtsam::Rot3& rot);
+    void drawGroundPlane(float half_extent = 5.0F, float grid_spacing = 0.5F);
+    void drawVehicleShadow(const gtsam::Vector3& p);
     void drawCircle(const gtsam::Vector3& color, float r, const gtsam::Vector3& center,
                     const gtsam::Rot3& rot);
     void drawLine(const gtsam::Vector3& color, const gtsam::Vector3& begin,

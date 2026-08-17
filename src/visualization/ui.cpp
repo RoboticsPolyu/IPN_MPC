@@ -136,19 +136,25 @@ void UI::drawCylinder(const gtsam::Vector3& position, float radius, float height
 }
 
 void UI::displaySetup() {
-    pangolin::CreateWindowAndBind("Model Predictive Control based on FGO", 1600, 800);
+    pangolin::CreateWindowAndBind("IPN MPC | Quadrotor Simulation", 1600, 900);
     glEnable(GL_DEPTH_TEST);
-    glClearColor(1.0F, 1.0F, 1.0F, 1.0F);
+    glDepthFunc(GL_LEQUAL);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_LINE_SMOOTH);
+    glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+    glEnable(GL_POINT_SMOOTH);
+    glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
+    glClearColor(0.025F, 0.040F, 0.075F, 1.0F);
 
     // Camera setup with adjusted view to ensure visibility
     s_cam_ = std::make_shared<pangolin::OpenGlRenderState>(
-        pangolin::ProjectionMatrix(1600, 800, 800, 800, 800, 400, 0.1, 1000),
-        pangolin::ModelViewLookAt(3, 3, 3, 0, 0, 0, 0.0, 0.0,
-                                  1.0)); // Adjusted to view origin from angle
+        pangolin::ProjectionMatrix(1600, 900, 850, 850, 800, 450, 0.05, 1000),
+        pangolin::ModelViewLookAt(3.8, -4.5, 3.2, 0, 0, 0.8, 0.0, 0.0, 1.0));
 
-    const int UI_WIDTH = 20 * pangolin::default_font().MaxWidth();
+    const int UI_WIDTH = 24 * pangolin::default_font().MaxWidth();
     camera_view_ = &pangolin::CreateDisplay();
-    camera_view_->SetBounds(0.0, 1.0, pangolin::Attach::Pix(UI_WIDTH), 1.0, 1600.0F / 800.0F)
+    camera_view_->SetBounds(0.0, 1.0, pangolin::Attach::Pix(UI_WIDTH), 1.0, 1600.0F / 900.0F)
         .SetHandler(new pangolin::Handler3D(*s_cam_));
 
     pangolin::CreatePanel("ui").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(UI_WIDTH));
@@ -208,47 +214,101 @@ void UI::drawTrjPoint(const gtsam::Vector3& p, float size, const gtsam::Vector3&
 }
 
 void UI::drawCollisionPoint(const gtsam::Vector3& p) {
-    drawTrjPoint(p, 10.0f, gtsam::Vector3(1.0, 1.0, 0.0)); // yellow
+    drawTrjPoint(p, 12.0f, gtsam::Vector3(1.0, 0.2, 0.1));
+}
+
+void UI::drawGroundPlane(float half_extent, float grid_spacing) {
+    glDepthMask(GL_FALSE);
+    glColor4f(0.055F, 0.085F, 0.13F, 0.72F);
+    glBegin(GL_QUADS);
+    glVertex3f(-half_extent, -half_extent, 0.0F);
+    glVertex3f(half_extent, -half_extent, 0.0F);
+    glVertex3f(half_extent, half_extent, 0.0F);
+    glVertex3f(-half_extent, half_extent, 0.0F);
+    glEnd();
+    glDepthMask(GL_TRUE);
+
+    glLineWidth(1.0F);
+    for (float coordinate = -half_extent; coordinate <= half_extent + 1.0e-4F;
+         coordinate += grid_spacing) {
+        const bool major = std::abs(std::remainder(coordinate, 1.0F)) < 1.0e-4F;
+        const float brightness = major ? 0.25F : 0.14F;
+        glColor4f(brightness, brightness + 0.04F, brightness + 0.09F,
+                  major ? 0.75F : 0.5F);
+        glBegin(GL_LINES);
+        glVertex3f(coordinate, -half_extent, 0.002F);
+        glVertex3f(coordinate, half_extent, 0.002F);
+        glVertex3f(-half_extent, coordinate, 0.002F);
+        glVertex3f(half_extent, coordinate, 0.002F);
+        glEnd();
+    }
+}
+
+void UI::drawVehicleShadow(const gtsam::Vector3& p) {
+    const float altitude = std::max(0.0, p.z());
+    const float radius = 0.09F + 0.025F * std::min(altitude, 3.0F);
+    const float alpha = 0.38F / (1.0F + 0.45F * altitude);
+    glColor4f(0.0F, 0.0F, 0.0F, alpha);
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex3f(p.x(), p.y(), 0.006F);
+    for (int i = 0; i <= 48; ++i) {
+        const float angle = 2.0F * static_cast<float>(M_PI) * i / 48.0F;
+        glVertex3f(p.x() + radius * std::cos(angle), p.y() + radius * std::sin(angle), 0.006F);
+    }
+    glEnd();
 }
 
 void UI::drawQuadrotor(const gtsam::Vector3& p, const gtsam::Rot3& rot) {
-    const gtsam::Vector3 blue(0, 216.0f / 255.0f, 230.0f / 255.0f); // Normalized
-    const gtsam::Vector3 black(0, 0, 0);
-    const float arm_offset = axis_dist_ * 0.5f * kInverseSqrtTwo;
+    const float motor_distance = axis_dist_ * 0.95F;
+    const std::vector<gtsam::Vector3> motor_offsets = {
+        {motor_distance, motor_distance, 0.0}, {-motor_distance, -motor_distance, 0.0},
+        {-motor_distance, motor_distance, 0.0}, {motor_distance, -motor_distance, 0.0}};
 
-    // Arm positions
-    const std::vector<gtsam::Vector3> arm_offsets = {
-        gtsam::Vector3(arm_offset, arm_offset, 0), gtsam::Vector3(-arm_offset, -arm_offset, 0),
-        gtsam::Vector3(-arm_offset, arm_offset, 0), gtsam::Vector3(arm_offset, -arm_offset, 0)};
-
-    // Draw arms
-    glPointSize(2.0f);
-    for (const auto& offset : arm_offsets) {
-        gtsam::Vector3 end = rot.rotate(offset) + p;
-        drawLine(blue, p, end);
+    // Carbon arms with bright motor pods make attitude readable at a distance.
+    glLineWidth(6.0F);
+    for (std::size_t i = 0; i < motor_offsets.size(); ++i) {
+        const gtsam::Vector3 center = rot.rotate(motor_offsets[i]) + p;
+        drawLine(i < 2 ? gtsam::Vector3(0.08, 0.72, 0.95)
+                       : gtsam::Vector3(0.18, 0.24, 0.32),
+                 p, center);
     }
 
-    // Draw coordinate frame
+    // Solid center fuselage, transformed by the vehicle pose.
+    const gtsam::Matrix3 rotation = rot.matrix();
+    GLdouble transform[16] = {
+        rotation(0, 0), rotation(1, 0), rotation(2, 0), 0.0,
+        rotation(0, 1), rotation(1, 1), rotation(2, 1), 0.0,
+        rotation(0, 2), rotation(1, 2), rotation(2, 2), 0.0,
+        p.x(),          p.y(),          p.z(),          1.0};
+    glPushMatrix();
+    glMultMatrixd(transform);
+    glScaled(0.10, 0.075, 0.035);
+    pangolin::glDrawColouredCube();
+    glPopMatrix();
+
+    for (std::size_t i = 0; i < motor_offsets.size(); ++i) {
+        const gtsam::Vector3 center = rot.rotate(motor_offsets[i]) + p;
+        drawSphere(center, 0.018F, gtsam::Vector3(0.15, 0.18, 0.23), 12, 8);
+
+        // Translucent filled rotor discs suggest fast-spinning propellers.
+        const gtsam::Vector3 rotor_color =
+            i < 2 ? gtsam::Vector3(0.1, 0.8, 1.0) : gtsam::Vector3(1.0, 0.35, 0.18);
+        glColor4f(rotor_color.x(), rotor_color.y(), rotor_color.z(), 0.24F);
+        glBegin(GL_TRIANGLE_FAN);
+        glVertex3d(center.x(), center.y(), center.z());
+        for (int segment = 0; segment <= 32; ++segment) {
+            const double angle = 2.0 * M_PI * segment / 32.0;
+            const gtsam::Vector3 local(prop_radius_ * std::cos(angle),
+                                       prop_radius_ * std::sin(angle), 0.0);
+            const gtsam::Vector3 vertex = center + rot.rotate(local);
+            glVertex3d(vertex.x(), vertex.y(), vertex.z());
+        }
+        glEnd();
+        glLineWidth(1.5F);
+        drawCircle(rotor_color, prop_radius_, center, rot);
+    }
+
     drawFrame(p, rot);
-
-    // Draw propeller circles
-    for (const auto& offset : arm_offsets) {
-        gtsam::Vector3 center = rot.rotate(offset) + p;
-        drawCircle(black, arm_offset * 0.8, center, rot);
-    }
-
-    // Draw propeller centers
-    glColor3f(0, 0, 0);
-    glPointSize(3.0f);
-    glBegin(GL_POINTS);
-    for (const auto& offset : arm_offsets) {
-        gtsam::Vector3 center = rot.rotate(offset) + p;
-        glVertex3f(center[0], center[1], center[2]);
-    }
-    glEnd();
-
-    // Keep the vehicle center clearly visible even when viewed from far away.
-    drawTrjPoint(p, 10.0F, gtsam::Vector3(0.0, 0.0, 0.0));
 }
 
 void UI::drawCircle(const gtsam::Vector3& color, float r, const gtsam::Vector3& center,
@@ -318,13 +378,15 @@ bool UI::renderHistoryTrj(const State& state) {
     camera_view_->Activate(*s_cam_);
     glLineWidth(2);
 
+    drawGroundPlane();
     drawFrame(gtsam::Vector3(0, 0, 0), gtsam::Rot3::Identity());
 
     // Draw trajectory
     for (std::size_t i = 1; i < trj_.size(); ++i) {
-        drawLine(gtsam::Vector3(0.5, 0, 0.5), trj_[i - 1].p, trj_[i].p);
+        drawLine(gtsam::Vector3(0.15, 0.82, 0.95), trj_[i - 1].p, trj_[i].p);
     }
 
+    drawVehicleShadow(state_.p);
     drawQuadrotor(state_.p, state_.rot);
     renderPanel();
 
@@ -433,21 +495,28 @@ bool UI::renderHistoryOpt(State& state, std::vector<State>& pred_trj,
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     camera_view_->Activate(*s_cam_);
 
+    drawGroundPlane();
+
     // Draw reference frame
     drawFrame(gtsam::Vector3(0, 0, 0), gtsam::Rot3::Identity());
 
     // Draw reference trajectory
     if (ref_trj) {
-        glLineWidth(1);
+        glLineWidth(1.5F);
         for (size_t i = 0; i < ref_trj->size(); ++i) {
-            drawTrjPoint((*ref_trj)[i].p);
+            drawTrjPoint((*ref_trj)[i].p, 4.0F, gtsam::Vector3(0.2, 0.85, 1.0));
+            if (i > 0)
+                drawLine(gtsam::Vector3(0.12, 0.55, 0.72), (*ref_trj)[i - 1].p,
+                         (*ref_trj)[i].p);
         }
     }
 
     // Draw predicted trajectory
-    glLineWidth(3);
+    glLineWidth(3.5F);
     for (std::size_t i = 1; i < pred_trj.size(); ++i) {
-        drawLine(gtsam::Vector3(1.0, 0, 0), pred_trj[i - 1].p, pred_trj[i].p);
+        const double progress = static_cast<double>(i) / pred_trj.size();
+        drawLine(gtsam::Vector3(1.0, 0.72 - 0.35 * progress, 0.12), pred_trj[i - 1].p,
+                 pred_trj[i].p);
     }
 
     // Draw obstacles
@@ -462,17 +531,17 @@ bool UI::renderHistoryOpt(State& state, std::vector<State>& pred_trj,
             minimum_clearance_ = std::min(minimum_clearance_,
                 (state.p - obs.obs_pos).norm() - collision_distance_ - obs.obs_size);
 
-            glColor3f(collision ? 0.3f : 1.0f, 0.5f, collision ? 0.6f : 0.0f);
-            glPointSize(collision ? 3.0f : 1.0f);
+            const gtsam::Vector3 obstacle_color =
+                collision ? gtsam::Vector3(1.0, 0.08, 0.08)
+                          : gtsam::Vector3(0.22, 0.68, 0.42);
 
             if (obs.obs_type == ObsType::sphere) {
-                drawSphere(obs.obs_pos, obs.obs_size, gtsam::Vector3(0.133f, 0.545f, 0.133f), 32,
-                           32);
+                drawSphere(obs.obs_pos, obs.obs_size, obstacle_color, 32, 24);
             } else if (obs.obs_type == ObsType::cylinder) {
-                drawCylinder(obs.obs_pos, obs.obs_size, obs.obs_height, gtsam::Vector3(0.0f, 0.0f, 0.502f),
-                             32);
+                drawCylinder(obs.obs_pos, obs.obs_size, obs.obs_height,
+                             collision ? obstacle_color : gtsam::Vector3(0.20, 0.38, 0.82), 32);
             } else if (obs.obs_type == ObsType::box) {
-                glColor3f(0.55f, 0.27f, 0.07f);
+                glColor3f(obstacle_color.x(), obstacle_color.y(), obstacle_color.z());
                 glPushMatrix();
                 glTranslated(obs.obs_pos.x(), obs.obs_pos.y(), obs.obs_pos.z());
                 glScaled(2.0 * obs.half_extents.x(), 2.0 * obs.half_extents.y(), 2.0 * obs.half_extents.z());
@@ -491,7 +560,7 @@ bool UI::renderHistoryOpt(State& state, std::vector<State>& pred_trj,
 
     // Draw history trajectory
     float trajectory_length = 0.0f;
-    glLineWidth(3);
+    glLineWidth(3.0F);
     for (std::size_t i = trj_.size(); i > 1; --i) {
         const State& current = trj_[i - 1];
         const State& previous = trj_[i - 2];
@@ -499,10 +568,12 @@ bool UI::renderHistoryOpt(State& state, std::vector<State>& pred_trj,
         if (trajectory_length >= trj_len_max_) {
             break;
         }
-        drawLine(gtsam::Vector3(0.5, 0, 0.5), current.p, previous.p);
+        const float fade = std::max(0.25F, 1.0F - trajectory_length / trj_len_max_);
+        drawLine(gtsam::Vector3(0.35 * fade, 0.95 * fade, 0.82 * fade), current.p, previous.p);
     }
 
     // Draw quadrotor
+    drawVehicleShadow(state_.p);
     drawQuadrotor(state_.p, state_.rot);
 
     // Draw features if available
