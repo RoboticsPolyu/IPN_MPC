@@ -1,0 +1,37 @@
+horizon: 20
+dt: 0.10
+mpc_iterations: 160
+optimizer_iterations: 10
+visualize: true
+real_time_playback: true
+statistics_warmup_iterations: 5
+statistics_print_interval: 10
+quadrotor_config: quadrotor_thrust_gyro.yaml
+attitude_gain: 4.0
+body_rate_gain: 20.0
+simulator_substeps: 20
+maximum_torque: 0.30
+
+initial_position: [1.2, 0.5, 1.3]
+initial_rpy: [0.0, 0.0, 1.0]
+initial_velocity: [0.0, 0.0, 0.0]
+
+circle_center: [0.0, 0.0, 1.0]
+circle_radius: 1.0
+circle_angular_speed: 0.4
+face_velocity: true
+
+initial_pose_sigma: 1.0e-5
+initial_velocity_sigma: 1.0e-5
+terminal_position_sigma: 0.02
+terminal_rotation_sigma: 0.02
+terminal_velocity_sigma: 0.05
+dynamics_position_sigma: 0.005
+dynamics_rotation_sigma: 0.005
+dynamics_velocity_sigma: 0.01
+acceleration_regularization_sigma: 5.0
+angular_speed_regularization_sigma: 3.0
+control_smoothness_sigma: 1.0
+
+success_rms_position_tolerance: 0.20
+success_rms_rotation_tolerance: 0.20

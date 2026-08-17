@@ -1,0 +1,30 @@
+radius:     1.5
+linear_vel: 5
+
+pos_meas_mean:  0.00
+pos_meas_cov:   0.20 # 0.20
+vel_meas_cov:   0.05 #
+rot_meas_cov:   0.03 #
+ome_meas_cov:   0.001 # 0.059 deg/s
+
+# Drag force 
+drag_force_x:   -0.20
+drag_force_y:   -0.23
+drag_force_z:   -0.30
+# Environment Simulation
+map_x:           5.0
+map_y:           5.0
+map_z:           2.0
+
+map_center_x:    0.0
+map_center_y:    0.0
+map_center_z:    1.0
+
+landmarks_size:  1000
+lidar_range:     0.60
+lidar_range_min: 0.10
+
+test_recovery:   FALSE
+move_x:          0.00
+move_y:          0.30
+move_z:         -0.40

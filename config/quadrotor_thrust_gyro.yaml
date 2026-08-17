@@ -1,0 +1,57 @@
+g:    9.81
+mass: 0.98
+ixx:  2.64e-3
+iyy:  2.64e-3
+izz:  4.96e-3
+k_f:  2.0e-8
+k_m:  0.01302 # 0.01302
+
+time_constant: 0.01
+
+thrust_noise_mean:  0.0
+thrust_noise_cov:   0.0
+angular_speed_mean: 0.0
+angular_speed_cov:  0.0
+
+radius:     1.5
+linear_vel: 5.0
+
+# POSITION MEASUREMENT COVARIANCE FROM VICON
+pos_meas_mean:  0.00
+
+pos_meas_cov:   0.001 # 0.20
+vel_meas_cov:   0.001 #
+rot_meas_cov:   0.001 #
+ome_meas_cov:   0.001 # 0.059 deg/s
+
+# Drag force 
+drag_force_x:   -0.3
+drag_force_y:   -0.3
+drag_force_z:   -0.2
+trj_len_max:     10.0
+obs_num:         0
+obs1_radius:     0.08
+safe_d:          0.00
+static_obs_num:  0
+cylinder_num  : 0
+uav_size      : 0.20
+
+# Environment Simulation
+map_x:           5.0
+map_y:           5.0
+map_z:           2.0
+
+map_center_x:    0.0
+map_center_y:    0.0
+map_center_z:    1.0
+
+landmarks_size:  1000
+lidar_range:     0.60
+lidar_range_min: 0.10
+
+test_recovery:   FALSE
+move_x:          0.00
+move_y:          0.30
+move_z:         -0.40
+
+scmpc_kf: 10.0

@@ -1,0 +1,56 @@
+prior_u_f_cov : 0.5
+prior_u_m1_cov: 0.05
+prior_u_m2_cov: 0.05
+prior_u_m3_cov: 0.05
+
+log_name: TGYRO_CBF
+
+pri_vicon_cov    : 0.0001
+pri_vicon_vel_cov: 0.0001
+
+control_p_cov_x      : 0.05
+control_p_final_cov_x: 0.03
+control_p_cov_y      : 0.05
+control_p_final_cov_y: 0.04
+control_p_cov_z      : 0.04
+control_p_final_cov_z: 0.03
+control_r1_cov       : 0.3 #0.40 ~ 0.20
+control_r2_cov       : 0.3
+control_r3_cov       : 0.06
+point_obs_sigma      : 0.05
+control_v_cov        : 3
+control_o_cov        : 3000000
+dynamic_p_cov        : 0.001
+dynamic_t_cov        : 0.01
+
+opt_lens_traj: 30
+
+sim_steps: 30000
+
+input_jerk_t : 0.1
+input_jerk_m : 0.01
+input_jerk_m3: 0.01
+
+window_size: 30
+
+clf_high: 27
+clf_low : 5
+
+g_clf_high: 3
+g_clf_low : -3
+
+clf_thr  : 0.01
+g_clf_thr: 0.1
+
+clf_alpha: 0.01
+
+max_iters: 10
+# distance factor
+cbf_alpha: 0.2
+# vel factor
+cbf_beta: 0.5
+
+# Experimental sequential quadratic programming with GTSAM's active-set QP solver.
+# Obstacle boundaries are enforced as hard linearized inequalities at every horizon state.
+use_hard_constraints      : false
+hard_constraint_iterations: 3

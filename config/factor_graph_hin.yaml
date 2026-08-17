@@ -1,0 +1,283 @@
+prior_u_f_cov:  0.5
+prior_u_m1_cov: 0.05
+prior_u_m2_cov: 0.05
+prior_u_m3_cov: 0.05
+
+# Good for nominal MPC
+# pri_vicon_cov:     0.001
+# pri_vicon_vel_cov: 0.001
+
+# control_p_cov_x:       0.03
+# control_p_final_cov_x: 0.005
+# control_p_cov_y:       0.03
+# control_p_final_cov_y: 0.005
+# control_p_cov_z:       0.03
+# control_p_final_cov_z: 0.005
+
+# control_r_cov: 0.03
+
+# control_v_cov: 3000
+# control_o_cov: 3000
+
+# dynamic_p_cov: 0.001
+
+# opt_lens_traj: 20
+
+# sim_steps: 100000
+
+# input_jerk_t: 0.1
+# input_jerk_m: 0.05
+
+drag_force_x:   -0.0
+drag_force_y:   -0.0
+drag_force_z:   -0.0
+
+# method + vel + case_id
+log_name: JPCM_HIN_TEST_6
+
+pri_vicon_cov:         0.001 # 0.20
+pri_vicon_vel_cov:     0.001 # 0.05
+
+control_p_cov_x:       0.03
+control_p_final_cov_x: 0.01
+control_p_cov_y:       0.03
+control_p_final_cov_y: 0.01
+control_p_cov_z:       0.03
+control_p_final_cov_z: 0.01
+
+control_r_cov: .3 # 0.40 ~ 0.20
+# if R_COV is 0.3 (JERK_T = 1, JERK_M = 0.1), the z will converge. WHY???
+
+control_v_cov: 3
+control_o_cov: 3000000
+
+dynamic_p_cov: 0.0001
+
+opt_lens_traj: 20
+
+sim_steps: 5000
+
+input_jerk_t: 1000
+input_jerk_m: 1000
+
+
+window_size: 10
+
+
+clf_high:  18000
+clf_low:   1000
+clf_thr:   100
+clf_alpha: 1
+
+
+# # method + vel + case_id
+# log_name: JECM_R1.2
+
+# pri_vicon_cov:     0.20
+# pri_vicon_vel_cov: 0.05
+
+# control_p_cov_x:       0.03
+# control_p_final_cov_x: 0.005
+# control_p_cov_y:       0.03
+# control_p_final_cov_y: 0.005
+# control_p_cov_z:       0.01
+# control_p_final_cov_z: 0.005
+
+# control_r_cov: 1.2
+# # if R_COV is 0.3 (JERK_T = 1, JERK_M = 0.1), the z will converge. WHY???
+
+# control_v_cov: 3000
+# control_o_cov: 3000
+
+# dynamic_p_cov: 0.001
+
+# opt_lens_traj: 20
+
+# sim_steps: 100000
+
+# input_jerk_t: 4
+# input_jerk_m: 1
+
+# window_size: 10
+
+
+
+
+
+# # method + vel + case_id
+# log_name: SW_JECM_Rev_onlyGNSS_5_N2_
+
+# pri_vicon_cov:     0.20
+# pri_vicon_vel_cov: 0.05
+
+# control_p_cov_x:       0.03
+# control_p_final_cov_x: 0.005
+# control_p_cov_y:       0.03
+# control_p_final_cov_y: 0.005
+# control_p_cov_z:       0.03
+# control_p_final_cov_z: 0.005
+
+# control_r_cov: 1.2
+
+# control_v_cov: 3000
+# control_o_cov: 3000
+
+# dynamic_p_cov: 0.001
+
+# opt_lens_traj: 20
+
+# sim_steps: 100000
+
+# input_jerk_t: 8
+# input_jerk_m: 0.5
+
+# window_size: 10
+
+
+
+
+
+
+# # method + vel + case_id
+# log_name: JECM_onlyGNSS_5_N2_
+
+# pri_vicon_cov:     0.20
+# pri_vicon_vel_cov: 0.04
+
+# control_p_cov_x:       0.03
+# control_p_final_cov_x: 0.01
+# control_p_cov_y:       0.03
+# control_p_final_cov_y: 0.01
+# control_p_cov_z:       0.03
+# control_p_final_cov_z: 0.01
+
+# control_r_cov: 0.3
+
+# control_v_cov: 3000
+# control_o_cov: 3000
+
+# dynamic_p_cov: 0.001
+
+# opt_lens_traj: 20
+
+# sim_steps: 100000
+
+# input_jerk_t: 0.1
+# input_jerk_m: 0.05
+
+
+
+
+
+# # method + vel + case_id
+# log_name: JECM_Rev_onlyGNSS_5_1_
+
+# pri_vicon_cov:     0.04
+# pri_vicon_vel_cov: 0.05
+
+# control_p_cov_x:       0.03
+# control_p_final_cov_x: 0.03
+# control_p_cov_y:       0.03
+# control_p_final_cov_y: 0.03
+# control_p_cov_z:       0.03
+# control_p_final_cov_z: 0.03
+
+# control_r_cov: 0.15
+
+# control_v_cov: 3000
+# control_o_cov: 3000
+
+# dynamic_p_cov: 0.001
+
+# opt_lens_traj: 20
+
+# sim_steps: 100000
+
+# input_jerk_t: 4.0
+# input_jerk_m: 1
+
+
+
+
+# # method + vel + case_id
+# log_name: MPC_NoNoise_Rev_onlyGNSS_5_1_
+
+# pri_vicon_cov:     0.001
+# pri_vicon_vel_cov: 0.001
+
+# control_p_cov_x:       0.03
+# control_p_final_cov_x: 0.005
+# control_p_cov_y:       0.03
+# control_p_final_cov_y: 0.005
+# control_p_cov_z:       0.03
+# control_p_final_cov_z: 0.005
+
+# control_r_cov: 0.150
+
+# control_v_cov: 3000
+# control_o_cov: 3000
+
+# dynamic_p_cov: 0.001
+
+# opt_lens_traj: 20
+
+# sim_steps: 100000
+
+# input_jerk_t: 0.1
+# input_jerk_m: 0.05
+
+
+
+
+# # method + vel + case_id
+# log_name: MPC_onlyGNSS_5_1_
+# pri_vicon_cov:     0.001
+# pri_vicon_vel_cov: 0.001
+
+# control_p_cov_x:       0.03
+# control_p_final_cov_x: 0.005
+# control_p_cov_y:       0.03
+# control_p_final_cov_y: 0.005
+# control_p_cov_z:       0.03
+# control_p_final_cov_z: 0.005
+
+# control_r_cov: 0.03
+
+# control_v_cov: 3000
+# control_o_cov: 3000
+
+# dynamic_p_cov: 0.001
+
+# opt_lens_traj: 20
+
+# sim_steps: 100000
+
+# input_jerk_t: 0.1
+# input_jerk_m: 0.05
+
+
+
+# log_name: JECM_onlyGNSS_5_1_
+# pri_vicon_cov:     0.20
+# pri_vicon_vel_cov: 0.05
+
+# control_p_cov_x:       0.03
+# control_p_final_cov_x: 0.005
+# control_p_cov_y:       0.03
+# control_p_final_cov_y: 0.005
+# control_p_cov_z:       0.03
+# control_p_final_cov_z: 0.005
+
+# control_r_cov: 0.3
+
+# control_v_cov: 3000
+# control_o_cov: 3000
+
+# dynamic_p_cov: 0.001
+
+# opt_lens_traj: 20
+
+# sim_steps: 100000
+
+# input_jerk_t: 1
+# input_jerk_m: 0.5

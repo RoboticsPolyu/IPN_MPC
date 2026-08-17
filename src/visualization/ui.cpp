@@ -1,0 +1,569 @@
+#include <ipn_mpc/common/logging.h>
+#include <ipn_mpc/visualization/ui.h>
+#include <filesystem>
+#include <limits>
+
+namespace QuadrotorSim_SO3 {
+
+// Constants
+constexpr float UI::kInverseSqrtTwo;
+
+UI::UI(float max_trajectory_length, uint8_t obstacle_count, double collision_distance,
+       const std::string& trajectory_record_path)
+    : axis_dist_(0.10F), propeller_dist_(0.04F), prop_radius_(0.042F),
+      trj_len_max_(max_trajectory_length), opt_cost_(-1.0F),
+      collision_distance_(collision_distance), clock_(0.0F), delta_t_(0.01F),
+      obs_num_(obstacle_count) {
+    // Generate geometry
+    sphere_points_ = generateSpherePoints(collision_distance_, 100, 100);
+
+    // Initialize recording
+    const std::filesystem::path record_path(trajectory_record_path);
+    std::error_code directory_error;
+    if (!record_path.parent_path().empty())
+        std::filesystem::create_directories(record_path.parent_path(), directory_error);
+    record_info_.open(record_path);
+    if (!record_info_.is_open()) {
+        IPN_LOG_WARNING << "Could not open trajectory record file: " << record_path.string()
+                        << (directory_error ? " (" + directory_error.message() + ")" : "");
+    }
+
+    displaySetup();
+}
+
+void UI::drawSphere(const gtsam::Vector3& position, float radius, const gtsam::Vector3& color,
+                    int numTheta, int numPhi) {
+    glColor3f(color[0], color[1], color[2]); // Set color (assumes normalized [0, 1])
+
+    // Render the sphere using quads
+    glBegin(GL_QUADS);
+    for (int i = 0; i < numTheta; ++i) {
+        float theta1 = 2.0f * M_PI * i / numTheta;
+        float theta2 = 2.0f * M_PI * (i + 1) / numTheta;
+        for (int j = 0; j < numPhi; ++j) {
+            float phi1 = M_PI * j / numPhi;
+            float phi2 = M_PI * (j + 1) / numPhi;
+
+            // Compute vertex coordinates and normals
+            gtsam::Vector3 v1(radius * std::sin(phi1) * std::cos(theta1),
+                              radius * std::sin(phi1) * std::sin(theta1), radius * std::cos(phi1));
+            gtsam::Vector3 v2(radius * std::sin(phi1) * std::cos(theta2),
+                              radius * std::sin(phi1) * std::sin(theta2), radius * std::cos(phi1));
+            gtsam::Vector3 v3(radius * std::sin(phi2) * std::cos(theta2),
+                              radius * std::sin(phi2) * std::sin(theta2), radius * std::cos(phi2));
+            gtsam::Vector3 v4(radius * std::sin(phi2) * std::cos(theta1),
+                              radius * std::sin(phi2) * std::sin(theta1), radius * std::cos(phi2));
+
+            // Normals (normalized vertex positions, as the sphere is centered at origin before
+            // translation)
+            gtsam::Vector3 n1 = v1 / radius;
+            gtsam::Vector3 n2 = v2 / radius;
+            gtsam::Vector3 n3 = v3 / radius;
+            gtsam::Vector3 n4 = v4 / radius;
+
+            // Define quad (counter-clockwise for correct facing)
+            glNormal3f(n1[0], n1[1], n1[2]);
+            glVertex3f(position[0] + v1[0], position[1] + v1[1], position[2] + v1[2]);
+            glNormal3f(n2[0], n2[1], n2[2]);
+            glVertex3f(position[0] + v2[0], position[1] + v2[1], position[2] + v2[2]);
+            glNormal3f(n3[0], n3[1], n3[2]);
+            glVertex3f(position[0] + v3[0], position[1] + v3[1], position[2] + v3[2]);
+            glNormal3f(n4[0], n4[1], n4[2]);
+            glVertex3f(position[0] + v4[0], position[1] + v4[1], position[2] + v4[2]);
+        }
+    }
+    glEnd();
+}
+
+void UI::drawCylinder(const gtsam::Vector3& position, float radius, float height,
+                      const gtsam::Vector3& color, int segments) {
+    // Define gradient colors: darker at bottom, lighter at top
+    gtsam::Vector3 dark_color = color * 0.7f;  // Darker shade (70% brightness)
+    gtsam::Vector3 light_color = color * 1.3f; // Lighter shade (130% brightness)
+    light_color = light_color.cwiseMin(gtsam::Vector3(1.0f, 1.0f, 1.0f)); // Cap at 1.0
+
+    // Draw bottom circle (filled, at position.z, using dark_color)
+    glBegin(GL_POLYGON);
+    glNormal3f(0.0f, 0.0f, -1.0f); // Normal pointing downward
+    glColor3f(dark_color[0], dark_color[1], dark_color[2]);
+    for (int i = 0; i < segments; ++i) {
+        float theta = 2.0f * M_PI * i / segments;
+        float x = radius * std::cos(theta);
+        float y = radius * std::sin(theta);
+        glVertex3f(position[0] + x, position[1] + y, position[2]);
+    }
+    glEnd();
+
+    // Draw top circle (filled, at position.z + height, using light_color)
+    glBegin(GL_POLYGON);
+    glNormal3f(0.0f, 0.0f, 1.0f); // Normal pointing upward
+    glColor3f(light_color[0], light_color[1], light_color[2]);
+    for (int i = 0; i < segments; ++i) {
+        float theta = 2.0f * M_PI * i / segments;
+        float x = radius * std::cos(theta);
+        float y = radius * std::sin(theta);
+        glVertex3f(position[0] + x, position[1] + y, position[2] + height);
+    }
+    glEnd();
+
+    // Draw side surface (filled quads with gradient)
+    glBegin(GL_QUADS);
+    for (int i = 0; i < segments; ++i) {
+        float theta1 = 2.0f * M_PI * i / segments;
+        float theta2 = 2.0f * M_PI * (i + 1) / segments;
+
+        float x1 = radius * std::cos(theta1);
+        float y1 = radius * std::sin(theta1);
+        float x2 = radius * std::cos(theta2);
+        float y2 = radius * std::sin(theta2);
+
+        // Compute normal for the side surface (outward from cylinder axis)
+        gtsam::Vector3 normal1(std::cos(theta1), std::sin(theta1), 0.0f);
+        glNormal3f(normal1[0], normal1[1], normal1[2]);
+
+        // Define quad vertices with gradient colors
+        // Bottom vertices (use dark_color)
+        glColor3f(dark_color[0], dark_color[1], dark_color[2]);
+        glVertex3f(position[0] + x1, position[1] + y1, position[2]); // Bottom left
+        glVertex3f(position[0] + x2, position[1] + y2, position[2]); // Bottom right
+
+        // Top vertices (use light_color)
+        glColor3f(light_color[0], light_color[1], light_color[2]);
+        glVertex3f(position[0] + x2, position[1] + y2, position[2] + height); // Top right
+        glVertex3f(position[0] + x1, position[1] + y1, position[2] + height); // Top left
+    }
+    glEnd();
+}
+
+void UI::displaySetup() {
+    pangolin::CreateWindowAndBind("Model Predictive Control based on FGO", 1600, 800);
+    glEnable(GL_DEPTH_TEST);
+    glClearColor(1.0F, 1.0F, 1.0F, 1.0F);
+
+    // Camera setup with adjusted view to ensure visibility
+    s_cam_ = std::make_shared<pangolin::OpenGlRenderState>(
+        pangolin::ProjectionMatrix(1600, 800, 800, 800, 800, 400, 0.1, 1000),
+        pangolin::ModelViewLookAt(3, 3, 3, 0, 0, 0, 0.0, 0.0,
+                                  1.0)); // Adjusted to view origin from angle
+
+    const int UI_WIDTH = 20 * pangolin::default_font().MaxWidth();
+    camera_view_ = &pangolin::CreateDisplay();
+    camera_view_->SetBounds(0.0, 1.0, pangolin::Attach::Pix(UI_WIDTH), 1.0, 1600.0F / 800.0F)
+        .SetHandler(new pangolin::Handler3D(*s_cam_));
+
+    pangolin::CreatePanel("ui").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(UI_WIDTH));
+
+    // Initialize UI variables
+    str_force_ = std::make_shared<pangolin::Var<std::string>>("ui.Force(N)", "Force");
+    str_M1_ = std::make_shared<pangolin::Var<std::string>>("ui.M1(N*m)", "M1");
+    str_M2_ = std::make_shared<pangolin::Var<std::string>>("ui.M2(N*m)", "M2");
+    str_M3_ = std::make_shared<pangolin::Var<std::string>>("ui.M3(N*m)", "M3");
+
+    str_Quad_x_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVx(m)", "UAVx");
+    str_Quad_y_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVy(m)", "UAVy");
+    str_Quad_z_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVz(m)", "UAVz");
+
+    str_Quad_velx_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vx(m/s)", "UAV_vx");
+    str_Quad_vely_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vy(m/s)", "UAV_vy");
+    str_Quad_velz_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vz(m/s)", "UAV_vz");
+
+    str_AVE_ERR_ = std::make_shared<pangolin::Var<std::string>>("ui.AVE_ERR(m)", "AVE_ERR");
+    str_timestamp_ = std::make_shared<pangolin::Var<std::string>>("ui.TIMESTAMP(s)", "TIMESTAMP");
+    str_opt_cost_ = std::make_shared<pangolin::Var<std::string>>("ui.OPT_COST(s)", "OPT_COST");
+    str_collision_ = std::make_shared<pangolin::Var<std::string>>("ui.COLLISION", "CLEAR");
+    str_clearance_ = std::make_shared<pangolin::Var<std::string>>("ui.MIN_CLEARANCE(m)", "n/a");
+    str_obstacles_ = std::make_shared<pangolin::Var<std::string>>("ui.OBSTACLES", "0");
+    str_speed_ = std::make_shared<pangolin::Var<std::string>>("ui.SPEED(m/s)", "0");
+    str_solve_time_ = std::make_shared<pangolin::Var<std::string>>("ui.SOLVE_TIME(ms)", "0");
+    str_mean_solve_time_ =
+        std::make_shared<pangolin::Var<std::string>>("ui.SOLVE_MEAN(ms)", "0");
+    str_p95_solve_time_ =
+        std::make_shared<pangolin::Var<std::string>>("ui.SOLVE_P95(ms)", "0");
+    str_cpu_ = std::make_shared<pangolin::Var<std::string>>("ui.CPU(%)", "0");
+    str_deadline_misses_ =
+        std::make_shared<pangolin::Var<std::string>>("ui.DEADLINE_MISSES", "0");
+
+    for (int i = 0; i < 4; ++i) {
+        str_rotor_[i] = std::make_shared<pangolin::Var<std::string>>(
+            "ui.ROTOR" + std::to_string(i + 1) + "(RPM)", "ROTOR" + std::to_string(i + 1));
+    }
+}
+
+void UI::setPerformanceStats(double solve_time_ms, double mean_solve_time_ms,
+                             double p95_solve_time_ms, double cpu_percent,
+                             std::size_t deadline_misses) {
+    solve_time_ms_ = solve_time_ms;
+    mean_solve_time_ms_ = mean_solve_time_ms;
+    p95_solve_time_ms_ = p95_solve_time_ms;
+    cpu_percent_ = cpu_percent;
+    deadline_misses_ = deadline_misses;
+}
+
+void UI::drawTrjPoint(const gtsam::Vector3& p, float size, const gtsam::Vector3& color) {
+    glPointSize(size);
+    glBegin(GL_POINTS);
+    glColor3f(color[0], color[1], color[2]);
+    glVertex3f(p[0], p[1], p[2]);
+    glEnd();
+}
+
+void UI::drawCollisionPoint(const gtsam::Vector3& p) {
+    drawTrjPoint(p, 10.0f, gtsam::Vector3(1.0, 1.0, 0.0)); // yellow
+}
+
+void UI::drawQuadrotor(const gtsam::Vector3& p, const gtsam::Rot3& rot) {
+    const gtsam::Vector3 blue(0, 216.0f / 255.0f, 230.0f / 255.0f); // Normalized
+    const gtsam::Vector3 black(0, 0, 0);
+    const float arm_offset = axis_dist_ * 0.5f * kInverseSqrtTwo;
+
+    // Arm positions
+    const std::vector<gtsam::Vector3> arm_offsets = {
+        gtsam::Vector3(arm_offset, arm_offset, 0), gtsam::Vector3(-arm_offset, -arm_offset, 0),
+        gtsam::Vector3(-arm_offset, arm_offset, 0), gtsam::Vector3(arm_offset, -arm_offset, 0)};
+
+    // Draw arms
+    glPointSize(2.0f);
+    for (const auto& offset : arm_offsets) {
+        gtsam::Vector3 end = rot.rotate(offset) + p;
+        drawLine(blue, p, end);
+    }
+
+    // Draw coordinate frame
+    drawFrame(p, rot);
+
+    // Draw propeller circles
+    for (const auto& offset : arm_offsets) {
+        gtsam::Vector3 center = rot.rotate(offset) + p;
+        drawCircle(black, arm_offset * 0.8, center, rot);
+    }
+
+    // Draw propeller centers
+    glColor3f(0, 0, 0);
+    glPointSize(3.0f);
+    glBegin(GL_POINTS);
+    for (const auto& offset : arm_offsets) {
+        gtsam::Vector3 center = rot.rotate(offset) + p;
+        glVertex3f(center[0], center[1], center[2]);
+    }
+    glEnd();
+
+    // Keep the vehicle center clearly visible even when viewed from far away.
+    drawTrjPoint(p, 10.0F, gtsam::Vector3(0.0, 0.0, 0.0));
+}
+
+void UI::drawCircle(const gtsam::Vector3& color, float r, const gtsam::Vector3& center,
+                    const gtsam::Rot3& rot) {
+    glColor3f(color[0], color[1], color[2]); // Already normalized
+
+    glBegin(GL_LINE_LOOP);
+    for (int i = 0; i < 360; ++i) {
+        float angle = static_cast<float>(i) * M_PI / 180.0f;
+        gtsam::Vector3 local_point(r * cos(angle), r * sin(angle), 0);
+        gtsam::Vector3 world_point = rot.rotate(local_point) + center;
+        glVertex3f(world_point[0], world_point[1], world_point[2]);
+    }
+    glEnd();
+}
+
+void UI::drawLine(const gtsam::Vector3& color, const gtsam::Vector3& begin,
+                  const gtsam::Vector3& end) {
+    glBegin(GL_LINES);
+    glColor3f(color[0], color[1], color[2]);
+    glVertex3d(begin[0], begin[1], begin[2]);
+    glVertex3d(end[0], end[1], end[2]);
+    glEnd();
+}
+
+void UI::drawLidarCloud(Features& features) {
+    glBegin(GL_POINTS);
+    for (std::size_t idx = 0; idx < features.size(); ++idx) {
+        if (features[idx].type == PointType::L_VIS) {
+            glPointSize(5.0f);
+            glColor3f(0.1f, 0.2f, 0.7f);
+        } else if (features[idx].type == PointType::L_NONV) {
+            glPointSize(3.0f);
+            glColor3f(0.1f, 0.8f, 0.7f);
+        }
+        glVertex3f(features[idx].x, features[idx].y, features[idx].z);
+    }
+    glEnd();
+}
+
+void UI::drawFrame(const gtsam::Vector3& p, const gtsam::Rot3& rot) {
+    const float axis_length = 0.1f;
+    const std::vector<std::pair<gtsam::Vector3, gtsam::Vector3>> axes = {
+        {gtsam::Vector3(1.0f, 0, 0), gtsam::Vector3(axis_length, 0, 0)}, // Normalized colors
+        {gtsam::Vector3(0, 1.0f, 0), gtsam::Vector3(0, axis_length, 0)},
+        {gtsam::Vector3(0, 0, 1.0f), gtsam::Vector3(0, 0, axis_length)}};
+
+    for (const auto& axis : axes) {
+        gtsam::Vector3 end = rot.rotate(axis.second) + p;
+        drawLine(axis.first, p, end);
+    }
+}
+
+bool UI::renderHistoryTrj(const State& state) {
+    if (pangolin::ShouldQuit()) {
+        return false;
+    }
+
+    state_ = state;
+    if (trj_.size() >= kHistoryTrajectoryLength) {
+        trj_.erase(trj_.begin());
+    }
+    trj_.push_back(state_);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    camera_view_->Activate(*s_cam_);
+    glLineWidth(2);
+
+    drawFrame(gtsam::Vector3(0, 0, 0), gtsam::Rot3::Identity());
+
+    // Draw trajectory
+    for (std::size_t i = 1; i < trj_.size(); ++i) {
+        drawLine(gtsam::Vector3(0.5, 0, 0.5), trj_[i - 1].p, trj_[i].p);
+    }
+
+    drawQuadrotor(state_.p, state_.rot);
+    renderPanel();
+
+    pangolin::FinishFrame();
+    usleep(100);
+    return !pangolin::ShouldQuit();
+}
+
+std::vector<Point3D> UI::generateSpherePoints(float radius, int numTheta, int numPhi) const {
+    std::vector<Point3D> points;
+    points.reserve(numTheta * numPhi);
+
+    for (int i = 0; i < numTheta; ++i) {
+        float theta = 2.0f * M_PI * i / numTheta;
+        for (int j = 0; j < numPhi; ++j) {
+            float phi = M_PI * j / numPhi;
+            points.push_back({0.0F, radius * std::sin(phi) * std::cos(theta),
+                              radius * std::sin(phi) * std::sin(theta), radius * std::cos(phi)});
+        }
+    }
+    return points;
+}
+
+gtsam::Vector3 UI::getObs1() const {
+    return obstacle_centers_.empty()
+               ? gtsam::Vector3::Zero()
+               : gtsam::Vector3(obstacle_centers_[0].x, obstacle_centers_[0].y,
+                                obstacle_centers_[0].z);
+}
+
+std::vector<gtsam::Vector3> UI::getObstacles() const {
+    std::vector<gtsam::Vector3> obstacles;
+    obstacles.reserve(obstacle_centers_.size());
+    for (const auto& center : obstacle_centers_) {
+        obstacles.emplace_back(center.x, center.y, center.z);
+    }
+    return obstacles;
+}
+
+bool UI::checkCollision(const State& state, const Obstacle& obstacle) const {
+    const double uav_radius = collision_distance_;
+    if (obstacle.obs_type == ObsType::sphere) {
+        return (state.p - obstacle.obs_pos).norm() <= uav_radius + obstacle.obs_size;
+        // IPN_LOG_DEBUG << "Collision detected: " << obs_distance;
+        // IPN_LOG_DEBUG << "State p: " << state.p.transpose();
+        // IPN_LOG_DEBUG << "Obstacle center: " << obstacle_center.transpose();
+    } else if (obstacle.obs_type == ObsType::cylinder) {
+        const double radial = (state.p.head<2>() - obstacle.obs_pos.head<2>()).norm();
+        const bool vertical = state.p.z() + uav_radius >= obstacle.obs_pos.z() &&
+                              state.p.z() - uav_radius <= obstacle.obs_pos.z() + obstacle.obs_height;
+        return radial <= uav_radius + obstacle.obs_size && vertical;
+    } else if (obstacle.obs_type == ObsType::box) {
+        const gtsam::Vector3 closest = state.p.cwiseMax(obstacle.obs_pos - obstacle.half_extents)
+                                             .cwiseMin(obstacle.obs_pos + obstacle.half_extents);
+        return (state.p - closest).norm() <= uav_radius;
+    } else {
+        IPN_LOG_DEBUG << "Collision check skipped: unsupported_obstacle_type="
+                      << static_cast<int>(obstacle.obs_type);
+    }
+    return false;
+}
+
+bool UI::renderHistoryOpt(State& state, std::vector<State>& pred_trj,
+                          boost::optional<gtsam::Vector3&> err, boost::optional<Features&> features,
+                          boost::optional<gtsam::Vector3&> vicon_measurement,
+                          boost::optional<gtsam::Vector3&> rot_err,
+                          boost::optional<std::vector<State>&> ref_trj,
+                          boost::optional<float&> opt_cost,
+                          boost::optional<std::vector<Obstacle>&> obstacle_centers) {
+    clock_ += delta_t_;
+    state_.p = state.p;
+    state_.rot = state.rot;
+    state_.v = state.v;
+
+    if (opt_cost) {
+        opt_cost_ = *opt_cost;
+    }
+
+    // Record data
+    const gtsam::Vector3 position_error = err ? *err : gtsam::Vector3::Zero();
+    errs_.push_back(position_error);
+    if (errs_.size() > kErrorHistoryLength) errs_.erase(errs_.begin());
+    if (rot_err) {
+        record_info_ << state_.p[0] << " " << state_.p[1] << " " << state_.p[2] << " " << position_error[0]
+                     << " " << position_error[1] << " " << position_error[2] << " " << state_.thrust_torque[0]
+                     << " " << state_.thrust_torque[1] << " " << state_.thrust_torque[2] << " "
+                     << state_.thrust_torque[3] << " " << (*rot_err)[0] << " " << (*rot_err)[1]
+                     << " " << (*rot_err)[2];
+    } else {
+        record_info_ << state_.p[0] << " " << state_.p[1] << " " << state_.p[2] << " " << position_error[0]
+                     << " " << position_error[1] << " " << position_error[2] << " " << state_.thrust_torque[0]
+                     << " " << state_.thrust_torque[1] << " " << state_.thrust_torque[2] << " "
+                     << state_.thrust_torque[3];
+    }
+
+    if (pangolin::ShouldQuit()) {
+        return false;
+    }
+
+    // Maintain trajectory history
+    if (trj_.size() >= kHistoryTrajectoryLength) {
+        trj_.erase(trj_.begin());
+    }
+    trj_.push_back(state_);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    camera_view_->Activate(*s_cam_);
+
+    // Draw reference frame
+    drawFrame(gtsam::Vector3(0, 0, 0), gtsam::Rot3::Identity());
+
+    // Draw reference trajectory
+    if (ref_trj) {
+        glLineWidth(1);
+        for (size_t i = 0; i < ref_trj->size(); ++i) {
+            drawTrjPoint((*ref_trj)[i].p);
+        }
+    }
+
+    // Draw predicted trajectory
+    glLineWidth(3);
+    for (std::size_t i = 1; i < pred_trj.size(); ++i) {
+        drawLine(gtsam::Vector3(1.0, 0, 0), pred_trj[i - 1].p, pred_trj[i].p);
+    }
+
+    // Draw obstacles
+    collision_active_ = false;
+    minimum_clearance_ = std::numeric_limits<double>::infinity();
+    visible_obstacles_ = obstacle_centers ? obstacle_centers->size() : 0;
+    if (obstacle_centers) {
+        for (size_t i = 0; i < obstacle_centers->size(); ++i) {
+            const auto& obs = obstacle_centers->at(i);
+            bool collision = checkCollision(state, obs);
+            collision_active_ = collision_active_ || collision;
+            minimum_clearance_ = std::min(minimum_clearance_,
+                (state.p - obs.obs_pos).norm() - collision_distance_ - obs.obs_size);
+
+            glColor3f(collision ? 0.3f : 1.0f, 0.5f, collision ? 0.6f : 0.0f);
+            glPointSize(collision ? 3.0f : 1.0f);
+
+            if (obs.obs_type == ObsType::sphere) {
+                drawSphere(obs.obs_pos, obs.obs_size, gtsam::Vector3(0.133f, 0.545f, 0.133f), 32,
+                           32);
+            } else if (obs.obs_type == ObsType::cylinder) {
+                drawCylinder(obs.obs_pos, obs.obs_size, obs.obs_height, gtsam::Vector3(0.0f, 0.0f, 0.502f),
+                             32);
+            } else if (obs.obs_type == ObsType::box) {
+                glColor3f(0.55f, 0.27f, 0.07f);
+                glPushMatrix();
+                glTranslated(obs.obs_pos.x(), obs.obs_pos.y(), obs.obs_pos.z());
+                glScaled(2.0 * obs.half_extents.x(), 2.0 * obs.half_extents.y(), 2.0 * obs.half_extents.z());
+                pangolin::glDrawColouredCube();
+                glPopMatrix();
+            }
+
+            // Check predicted trajectory for collisions
+            for (const auto& pred_state : pred_trj) {
+                if (checkCollision(pred_state, obs)) {
+                    drawCollisionPoint(pred_state.p);
+                }
+            }
+        }
+    }
+
+    // Draw history trajectory
+    float trajectory_length = 0.0f;
+    glLineWidth(3);
+    for (std::size_t i = trj_.size(); i > 1; --i) {
+        const State& current = trj_[i - 1];
+        const State& previous = trj_[i - 2];
+        trajectory_length += (current.p - previous.p).norm();
+        if (trajectory_length >= trj_len_max_) {
+            break;
+        }
+        drawLine(gtsam::Vector3(0.5, 0, 0.5), current.p, previous.p);
+    }
+
+    // Draw quadrotor
+    drawQuadrotor(state_.p, state_.rot);
+
+    // Draw features if available
+    if (features) {
+        drawLidarCloud(*features);
+    }
+
+    // Draw vicon measurement if available
+    if (vicon_measurement) {
+        drawTrjPoint(*vicon_measurement, 10.0f, gtsam::Vector3(0.6, 0.2, 0.5));
+    }
+
+    renderPanel();
+    pangolin::FinishFrame();
+    usleep(1000);
+    return !pangolin::ShouldQuit();
+}
+
+void UI::renderPanel() {
+    auto setPrecision = [](StringUI& var, double value, int precision = 15) {
+        std::stringstream ss;
+        ss << std::setprecision(precision) << value;
+        *var = ss.str();
+    };
+
+    setPrecision(str_force_, state_.thrust_torque[0], 6);
+    setPrecision(str_M1_, state_.thrust_torque[1]);
+    setPrecision(str_M2_, state_.thrust_torque[2]);
+    setPrecision(str_M3_, state_.thrust_torque[3]);
+
+    setPrecision(str_Quad_x_, state_.p[0], 6);
+    setPrecision(str_Quad_y_, state_.p[1], 6);
+    setPrecision(str_Quad_z_, state_.p[2], 6);
+
+    setPrecision(str_Quad_velx_, state_.v[0], 6);
+    setPrecision(str_Quad_vely_, state_.v[1], 6);
+    setPrecision(str_Quad_velz_, state_.v[2], 6);
+
+    setPrecision(str_timestamp_, clock_, 6);
+    setPrecision(str_opt_cost_, opt_cost_, 6);
+    setPrecision(str_speed_, state_.v.norm(), 4);
+    setPrecision(str_solve_time_, solve_time_ms_, 4);
+    setPrecision(str_mean_solve_time_, mean_solve_time_ms_, 4);
+    setPrecision(str_p95_solve_time_, p95_solve_time_ms_, 4);
+    setPrecision(str_cpu_, cpu_percent_, 4);
+    *str_deadline_misses_ = std::to_string(deadline_misses_);
+    *str_collision_ = collision_active_ ? "COLLISION" : "CLEAR";
+    *str_obstacles_ = std::to_string(visible_obstacles_);
+    if (std::isfinite(minimum_clearance_)) setPrecision(str_clearance_, minimum_clearance_, 4);
+    else *str_clearance_ = "n/a";
+
+    for (int i = 0; i < 4; ++i) {
+        setPrecision(str_rotor_[i], state_.motor_rpm[i], 6);
+    }
+
+    // Calculate average error
+    double error_sum = 0.0;
+    for (const auto& err : errs_) {
+        error_sum += err.squaredNorm();
+    }
+    double average_error = errs_.empty() ? 0.0 : std::sqrt(error_sum / errs_.size());
+    setPrecision(str_AVE_ERR_, average_error, 6);
+}
+} // namespace QuadrotorSim_SO3

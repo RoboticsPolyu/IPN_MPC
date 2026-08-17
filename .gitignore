@@ -1,0 +1,12 @@
+build/**
+cmake-build-debug/**
+.DS_Store
+.idea/**
+.vscode/**
+py/figures/**
+bash/*.bag
+data/log/**
+data/*.txt
+py/TVT_Figures/**
+log/**
+.agents/**
