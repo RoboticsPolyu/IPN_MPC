@@ -1,7 +1,6 @@
 #ifndef __DYNAMICS_PLANNING_FACTOR_H__
 #define __DYNAMICS_PLANNING_FACTOR_H__
 
-#include <ipn_mpc/control/dynamics_factor.h>
 #include <ipn_mpc/control/dynamics_params.h>
 #include <ipn_mpc/factors/gtsam_compatibility.h>
 #include <vector>
