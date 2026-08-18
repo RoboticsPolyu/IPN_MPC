@@ -1,23 +1,45 @@
 #include <ipn_mpc/common/logging.h>
 #include <ipn_mpc/visualization/ui.h>
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <filesystem>
+#include <iomanip>
 #include <limits>
+#include <pangolin/display/default_font.h>
+#include <pangolin/display/display.h>
+#include <pangolin/display/widgets.h>
+#include <pangolin/gl/gldraw.h>
+#include <pangolin/handler/handler.h>
+#include <sstream>
+#include <unistd.h>
 
 namespace QuadrotorSim_SO3 {
+namespace {
+constexpr float kPi = 3.14159265358979323846F;
+constexpr float kArmLength = 0.095F;
+constexpr float kPropellerRadius = 0.042F;
+constexpr float kSimulationStep = 0.01F;
 
-// Constants
-constexpr float UI::kInverseSqrtTwo;
+gtsam::Vector3 obstacleColor(bool collision) {
+    return collision ? gtsam::Vector3(1.0, 0.08, 0.08) : gtsam::Vector3(0.22, 0.68, 0.42);
+}
+
+void setText(const UI::StringUI& variable, double value, int precision = 6) {
+    std::ostringstream stream;
+    stream << std::setprecision(precision) << value;
+    *variable = stream.str();
+}
+
+UI::StringUI makeText(const std::string& name, const std::string& initial) {
+    return std::make_shared<pangolin::Var<std::string>>("ui." + name, initial);
+}
+} // namespace
 
 UI::UI(float max_trajectory_length, uint8_t obstacle_count, double collision_distance,
        const std::string& trajectory_record_path)
-    : axis_dist_(0.10F), propeller_dist_(0.04F), prop_radius_(0.042F),
-      trj_len_max_(max_trajectory_length), opt_cost_(-1.0F),
-      collision_distance_(collision_distance), clock_(0.0F), delta_t_(0.01F),
-      obs_num_(obstacle_count) {
-    // Generate geometry
-    sphere_points_ = generateSpherePoints(collision_distance_, 100, 100);
-
-    // Initialize recording
+    : trj_len_max_(max_trajectory_length), collision_distance_(collision_distance) {
+    static_cast<void>(obstacle_count);
     const std::filesystem::path record_path(trajectory_record_path);
     std::error_code directory_error;
     if (!record_path.parent_path().empty())
@@ -159,40 +181,29 @@ void UI::displaySetup() {
 
     pangolin::CreatePanel("ui").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(UI_WIDTH));
 
-    // Initialize UI variables
-    str_force_ = std::make_shared<pangolin::Var<std::string>>("ui.Force(N)", "Force");
-    str_M1_ = std::make_shared<pangolin::Var<std::string>>("ui.M1(N*m)", "M1");
-    str_M2_ = std::make_shared<pangolin::Var<std::string>>("ui.M2(N*m)", "M2");
-    str_M3_ = std::make_shared<pangolin::Var<std::string>>("ui.M3(N*m)", "M3");
-
-    str_Quad_x_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVx(m)", "UAVx");
-    str_Quad_y_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVy(m)", "UAVy");
-    str_Quad_z_ = std::make_shared<pangolin::Var<std::string>>("ui.UAVz(m)", "UAVz");
-
-    str_Quad_velx_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vx(m/s)", "UAV_vx");
-    str_Quad_vely_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vy(m/s)", "UAV_vy");
-    str_Quad_velz_ = std::make_shared<pangolin::Var<std::string>>("ui.UAV_vz(m/s)", "UAV_vz");
-
-    str_AVE_ERR_ = std::make_shared<pangolin::Var<std::string>>("ui.AVE_ERR(m)", "AVE_ERR");
-    str_timestamp_ = std::make_shared<pangolin::Var<std::string>>("ui.TIMESTAMP(s)", "TIMESTAMP");
-    str_opt_cost_ = std::make_shared<pangolin::Var<std::string>>("ui.OPT_COST(s)", "OPT_COST");
-    str_collision_ = std::make_shared<pangolin::Var<std::string>>("ui.COLLISION", "CLEAR");
-    str_clearance_ = std::make_shared<pangolin::Var<std::string>>("ui.MIN_CLEARANCE(m)", "n/a");
-    str_obstacles_ = std::make_shared<pangolin::Var<std::string>>("ui.OBSTACLES", "0");
-    str_speed_ = std::make_shared<pangolin::Var<std::string>>("ui.SPEED(m/s)", "0");
-    str_solve_time_ = std::make_shared<pangolin::Var<std::string>>("ui.SOLVE_TIME(ms)", "0");
-    str_mean_solve_time_ =
-        std::make_shared<pangolin::Var<std::string>>("ui.SOLVE_MEAN(ms)", "0");
-    str_p95_solve_time_ =
-        std::make_shared<pangolin::Var<std::string>>("ui.SOLVE_P95(ms)", "0");
-    str_cpu_ = std::make_shared<pangolin::Var<std::string>>("ui.CPU(%)", "0");
-    str_deadline_misses_ =
-        std::make_shared<pangolin::Var<std::string>>("ui.DEADLINE_MISSES", "0");
-
-    for (int i = 0; i < 4; ++i) {
-        str_rotor_[i] = std::make_shared<pangolin::Var<std::string>>(
-            "ui.ROTOR" + std::to_string(i + 1) + "(RPM)", "ROTOR" + std::to_string(i + 1));
+    panel_.force = makeText("Force(N)", "Force");
+    const std::array<std::string, 3> axes = {"x", "y", "z"};
+    for (std::size_t i = 0; i < axes.size(); ++i) {
+        panel_.torque[i] = makeText("M" + std::to_string(i + 1) + "(N*m)", "M" + std::to_string(i + 1));
+        panel_.position[i] = makeText("UAV" + axes[i] + "(m)", "UAV" + axes[i]);
+        panel_.velocity[i] = makeText("UAV_v" + axes[i] + "(m/s)", "UAV_v" + axes[i]);
     }
+    for (std::size_t i = 0; i < panel_.rotor.size(); ++i) {
+        panel_.rotor[i] = makeText("ROTOR" + std::to_string(i + 1) + "(RPM)",
+                                   "ROTOR" + std::to_string(i + 1));
+    }
+    panel_.average_error = makeText("AVE_ERR(m)", "AVE_ERR");
+    panel_.timestamp = makeText("TIMESTAMP(s)", "TIMESTAMP");
+    panel_.optimization_cost = makeText("OPT_COST(s)", "OPT_COST");
+    panel_.collision = makeText("COLLISION", "CLEAR");
+    panel_.clearance = makeText("MIN_CLEARANCE(m)", "n/a");
+    panel_.obstacles = makeText("OBSTACLES", "0");
+    panel_.speed = makeText("SPEED(m/s)", "0");
+    panel_.solve_time = makeText("SOLVE_TIME(ms)", "0");
+    panel_.mean_solve_time = makeText("SOLVE_MEAN(ms)", "0");
+    panel_.p95_solve_time = makeText("SOLVE_P95(ms)", "0");
+    panel_.cpu = makeText("CPU(%)", "0");
+    panel_.deadline_misses = makeText("DEADLINE_MISSES", "0");
 }
 
 void UI::setPerformanceStats(double solve_time_ms, double mean_solve_time_ms,
@@ -259,7 +270,7 @@ void UI::drawVehicleShadow(const gtsam::Vector3& p) {
 }
 
 void UI::drawQuadrotor(const gtsam::Vector3& p, const gtsam::Rot3& rot) {
-    const float motor_distance = axis_dist_ * 0.95F;
+    const float motor_distance = kArmLength;
     const std::vector<gtsam::Vector3> motor_offsets = {
         {motor_distance, motor_distance, 0.0}, {-motor_distance, -motor_distance, 0.0},
         {-motor_distance, motor_distance, 0.0}, {motor_distance, -motor_distance, 0.0}};
@@ -298,14 +309,14 @@ void UI::drawQuadrotor(const gtsam::Vector3& p, const gtsam::Rot3& rot) {
         glVertex3d(center.x(), center.y(), center.z());
         for (int segment = 0; segment <= 32; ++segment) {
             const double angle = 2.0 * M_PI * segment / 32.0;
-            const gtsam::Vector3 local(prop_radius_ * std::cos(angle),
-                                       prop_radius_ * std::sin(angle), 0.0);
+            const gtsam::Vector3 local(kPropellerRadius * std::cos(angle),
+                                       kPropellerRadius * std::sin(angle), 0.0);
             const gtsam::Vector3 vertex = center + rot.rotate(local);
             glVertex3d(vertex.x(), vertex.y(), vertex.z());
         }
         glEnd();
         glLineWidth(1.5F);
-        drawCircle(rotor_color, prop_radius_, center, rot);
+        drawCircle(rotor_color, kPropellerRadius, center, rot);
     }
 
     drawFrame(p, rot);
@@ -335,18 +346,18 @@ void UI::drawLine(const gtsam::Vector3& color, const gtsam::Vector3& begin,
 }
 
 void UI::drawLidarCloud(Features& features) {
-    glBegin(GL_POINTS);
-    for (std::size_t idx = 0; idx < features.size(); ++idx) {
-        if (features[idx].type == PointType::L_VIS) {
-            glPointSize(5.0f);
-            glColor3f(0.1f, 0.2f, 0.7f);
-        } else if (features[idx].type == PointType::L_NONV) {
-            glPointSize(3.0f);
-            glColor3f(0.1f, 0.8f, 0.7f);
+    for (const auto type : {PointType::L_NONV, PointType::L_VIS}) {
+        glPointSize(type == PointType::L_VIS ? 5.0F : 3.0F);
+        const gtsam::Vector3 color = type == PointType::L_VIS
+                                         ? gtsam::Vector3(0.1, 0.2, 0.7)
+                                         : gtsam::Vector3(0.1, 0.8, 0.7);
+        glColor3d(color.x(), color.y(), color.z());
+        glBegin(GL_POINTS);
+        for (const auto& feature : features) {
+            if (feature.type == type) glVertex3d(feature.x, feature.y, feature.z);
         }
-        glVertex3f(features[idx].x, features[idx].y, features[idx].z);
+        glEnd();
     }
-    glEnd();
 }
 
 void UI::drawFrame(const gtsam::Vector3& p, const gtsam::Rot3& rot) {
@@ -368,14 +379,8 @@ bool UI::renderHistoryTrj(const State& state) {
     }
 
     state_ = state;
-    if (trj_.size() >= kHistoryTrajectoryLength) {
-        trj_.erase(trj_.begin());
-    }
-    trj_.push_back(state_);
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    camera_view_->Activate(*s_cam_);
+    appendHistory(state_);
+    beginFrame();
     glLineWidth(2);
 
     drawGroundPlane();
@@ -388,26 +393,24 @@ bool UI::renderHistoryTrj(const State& state) {
 
     drawVehicleShadow(state_.p);
     drawQuadrotor(state_.p, state_.rot);
-    renderPanel();
-
-    pangolin::FinishFrame();
+    finishFrame();
     usleep(100);
     return !pangolin::ShouldQuit();
 }
 
-std::vector<Point3D> UI::generateSpherePoints(float radius, int numTheta, int numPhi) const {
-    std::vector<Point3D> points;
-    points.reserve(numTheta * numPhi);
+void UI::beginFrame() {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    camera_view_->Activate(*s_cam_);
+}
 
-    for (int i = 0; i < numTheta; ++i) {
-        float theta = 2.0f * M_PI * i / numTheta;
-        for (int j = 0; j < numPhi; ++j) {
-            float phi = M_PI * j / numPhi;
-            points.push_back({0.0F, radius * std::sin(phi) * std::cos(theta),
-                              radius * std::sin(phi) * std::sin(theta), radius * std::cos(phi)});
-        }
-    }
-    return points;
+void UI::finishFrame() {
+    renderPanel();
+    pangolin::FinishFrame();
+}
+
+void UI::appendHistory(const State& state) {
+    if (trj_.size() >= kHistoryTrajectoryLength) trj_.erase(trj_.begin());
+    trj_.push_back(state);
 }
 
 gtsam::Vector3 UI::getObs1() const {
@@ -449,6 +452,88 @@ bool UI::checkCollision(const State& state, const Obstacle& obstacle) const {
     return false;
 }
 
+void UI::recordState(const State& state, const gtsam::Vector3& position_error,
+                     const boost::optional<gtsam::Vector3&>& rotation_error) {
+    if (!record_info_) return;
+    record_info_ << state.p.transpose() << ' ' << position_error.transpose() << ' '
+                 << state.thrust_torque.transpose();
+    if (rotation_error) record_info_ << ' ' << rotation_error->transpose();
+    record_info_ << '\n';
+}
+
+void UI::updateObstacleStatus(const State& state, const std::vector<Obstacle>& obstacles) {
+    collision_active_ = false;
+    minimum_clearance_ = std::numeric_limits<double>::infinity();
+    visible_obstacles_ = obstacles.size();
+    for (const auto& obstacle : obstacles) {
+        collision_active_ = collision_active_ || checkCollision(state, obstacle);
+        minimum_clearance_ = std::min(minimum_clearance_,
+            (state.p - obstacle.obs_pos).norm() - collision_distance_ - obstacle.obs_size);
+    }
+}
+
+void UI::drawObstacles(const State& state, const std::vector<State>& prediction,
+                       const std::vector<Obstacle>& obstacles) {
+    for (const auto& obstacle : obstacles) {
+        const bool collision = checkCollision(state, obstacle);
+        const gtsam::Vector3 color = obstacleColor(collision);
+        switch (obstacle.obs_type) {
+        case ObsType::sphere:
+            drawSphere(obstacle.obs_pos, obstacle.obs_size, color, 32, 24);
+            break;
+        case ObsType::cylinder:
+            drawCylinder(obstacle.obs_pos, obstacle.obs_size, obstacle.obs_height,
+                         collision ? color : gtsam::Vector3(0.20, 0.38, 0.82), 32);
+            break;
+        case ObsType::box:
+            glColor3d(color.x(), color.y(), color.z());
+            glPushMatrix();
+            glTranslated(obstacle.obs_pos.x(), obstacle.obs_pos.y(), obstacle.obs_pos.z());
+            glScaled(2.0 * obstacle.half_extents.x(), 2.0 * obstacle.half_extents.y(),
+                     2.0 * obstacle.half_extents.z());
+            pangolin::glDrawColouredCube();
+            glPopMatrix();
+            break;
+        default:
+            break;
+        }
+        for (const auto& predicted_state : prediction) {
+            if (checkCollision(predicted_state, obstacle)) drawCollisionPoint(predicted_state.p);
+        }
+    }
+}
+
+void UI::drawReferenceTrajectory(const std::vector<State>& trajectory) {
+    glLineWidth(1.5F);
+    for (std::size_t i = 0; i < trajectory.size(); ++i) {
+        drawTrjPoint(trajectory[i].p, 4.0F, gtsam::Vector3(0.2, 0.85, 1.0));
+        if (i > 0) drawLine(gtsam::Vector3(0.12, 0.55, 0.72), trajectory[i - 1].p,
+                            trajectory[i].p);
+    }
+}
+
+void UI::drawPredictedTrajectory(const std::vector<State>& trajectory) {
+    glLineWidth(3.5F);
+    for (std::size_t i = 1; i < trajectory.size(); ++i) {
+        const double progress = static_cast<double>(i) / trajectory.size();
+        drawLine(gtsam::Vector3(1.0, 0.72 - 0.35 * progress, 0.12), trajectory[i - 1].p,
+                 trajectory[i].p);
+    }
+}
+
+void UI::drawHistoryTrajectory() {
+    float length = 0.0F;
+    glLineWidth(3.0F);
+    for (std::size_t i = trj_.size(); i > 1; --i) {
+        const auto& current = trj_[i - 1].p;
+        const auto& previous = trj_[i - 2].p;
+        length += static_cast<float>((current - previous).norm());
+        if (length >= trj_len_max_) break;
+        const float fade = std::max(0.25F, 1.0F - length / trj_len_max_);
+        drawLine(gtsam::Vector3(0.35 * fade, 0.95 * fade, 0.82 * fade), current, previous);
+    }
+}
+
 bool UI::renderHistoryOpt(State& state, std::vector<State>& pred_trj,
                           boost::optional<gtsam::Vector3&> err, boost::optional<Features&> features,
                           boost::optional<gtsam::Vector3&> vicon_measurement,
@@ -456,185 +541,66 @@ bool UI::renderHistoryOpt(State& state, std::vector<State>& pred_trj,
                           boost::optional<std::vector<State>&> ref_trj,
                           boost::optional<float&> opt_cost,
                           boost::optional<std::vector<Obstacle>&> obstacle_centers) {
-    clock_ += delta_t_;
-    state_.p = state.p;
-    state_.rot = state.rot;
-    state_.v = state.v;
-
-    if (opt_cost) {
-        opt_cost_ = *opt_cost;
-    }
-
-    // Record data
+    clock_ += kSimulationStep;
+    state_ = state;
+    if (opt_cost) opt_cost_ = *opt_cost;
     const gtsam::Vector3 position_error = err ? *err : gtsam::Vector3::Zero();
     errs_.push_back(position_error);
     if (errs_.size() > kErrorHistoryLength) errs_.erase(errs_.begin());
-    if (rot_err) {
-        record_info_ << state_.p[0] << " " << state_.p[1] << " " << state_.p[2] << " " << position_error[0]
-                     << " " << position_error[1] << " " << position_error[2] << " " << state_.thrust_torque[0]
-                     << " " << state_.thrust_torque[1] << " " << state_.thrust_torque[2] << " "
-                     << state_.thrust_torque[3] << " " << (*rot_err)[0] << " " << (*rot_err)[1]
-                     << " " << (*rot_err)[2];
-    } else {
-        record_info_ << state_.p[0] << " " << state_.p[1] << " " << state_.p[2] << " " << position_error[0]
-                     << " " << position_error[1] << " " << position_error[2] << " " << state_.thrust_torque[0]
-                     << " " << state_.thrust_torque[1] << " " << state_.thrust_torque[2] << " "
-                     << state_.thrust_torque[3];
-    }
+    recordState(state_, position_error, rot_err);
 
     if (pangolin::ShouldQuit()) {
         return false;
     }
 
-    // Maintain trajectory history
-    if (trj_.size() >= kHistoryTrajectoryLength) {
-        trj_.erase(trj_.begin());
-    }
-    trj_.push_back(state_);
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    camera_view_->Activate(*s_cam_);
-
+    appendHistory(state_);
+    beginFrame();
     drawGroundPlane();
-
-    // Draw reference frame
     drawFrame(gtsam::Vector3(0, 0, 0), gtsam::Rot3::Identity());
-
-    // Draw reference trajectory
-    if (ref_trj) {
-        glLineWidth(1.5F);
-        for (size_t i = 0; i < ref_trj->size(); ++i) {
-            drawTrjPoint((*ref_trj)[i].p, 4.0F, gtsam::Vector3(0.2, 0.85, 1.0));
-            if (i > 0)
-                drawLine(gtsam::Vector3(0.12, 0.55, 0.72), (*ref_trj)[i - 1].p,
-                         (*ref_trj)[i].p);
-        }
-    }
-
-    // Draw predicted trajectory
-    glLineWidth(3.5F);
-    for (std::size_t i = 1; i < pred_trj.size(); ++i) {
-        const double progress = static_cast<double>(i) / pred_trj.size();
-        drawLine(gtsam::Vector3(1.0, 0.72 - 0.35 * progress, 0.12), pred_trj[i - 1].p,
-                 pred_trj[i].p);
-    }
-
-    // Draw obstacles
-    collision_active_ = false;
-    minimum_clearance_ = std::numeric_limits<double>::infinity();
-    visible_obstacles_ = obstacle_centers ? obstacle_centers->size() : 0;
+    if (ref_trj) drawReferenceTrajectory(*ref_trj);
+    drawPredictedTrajectory(pred_trj);
     if (obstacle_centers) {
-        for (size_t i = 0; i < obstacle_centers->size(); ++i) {
-            const auto& obs = obstacle_centers->at(i);
-            bool collision = checkCollision(state, obs);
-            collision_active_ = collision_active_ || collision;
-            minimum_clearance_ = std::min(minimum_clearance_,
-                (state.p - obs.obs_pos).norm() - collision_distance_ - obs.obs_size);
-
-            const gtsam::Vector3 obstacle_color =
-                collision ? gtsam::Vector3(1.0, 0.08, 0.08)
-                          : gtsam::Vector3(0.22, 0.68, 0.42);
-
-            if (obs.obs_type == ObsType::sphere) {
-                drawSphere(obs.obs_pos, obs.obs_size, obstacle_color, 32, 24);
-            } else if (obs.obs_type == ObsType::cylinder) {
-                drawCylinder(obs.obs_pos, obs.obs_size, obs.obs_height,
-                             collision ? obstacle_color : gtsam::Vector3(0.20, 0.38, 0.82), 32);
-            } else if (obs.obs_type == ObsType::box) {
-                glColor3f(obstacle_color.x(), obstacle_color.y(), obstacle_color.z());
-                glPushMatrix();
-                glTranslated(obs.obs_pos.x(), obs.obs_pos.y(), obs.obs_pos.z());
-                glScaled(2.0 * obs.half_extents.x(), 2.0 * obs.half_extents.y(), 2.0 * obs.half_extents.z());
-                pangolin::glDrawColouredCube();
-                glPopMatrix();
-            }
-
-            // Check predicted trajectory for collisions
-            for (const auto& pred_state : pred_trj) {
-                if (checkCollision(pred_state, obs)) {
-                    drawCollisionPoint(pred_state.p);
-                }
-            }
-        }
+        updateObstacleStatus(state, *obstacle_centers);
+        drawObstacles(state, pred_trj, *obstacle_centers);
+    } else {
+        updateObstacleStatus(state, {});
     }
-
-    // Draw history trajectory
-    float trajectory_length = 0.0f;
-    glLineWidth(3.0F);
-    for (std::size_t i = trj_.size(); i > 1; --i) {
-        const State& current = trj_[i - 1];
-        const State& previous = trj_[i - 2];
-        trajectory_length += (current.p - previous.p).norm();
-        if (trajectory_length >= trj_len_max_) {
-            break;
-        }
-        const float fade = std::max(0.25F, 1.0F - trajectory_length / trj_len_max_);
-        drawLine(gtsam::Vector3(0.35 * fade, 0.95 * fade, 0.82 * fade), current.p, previous.p);
-    }
-
-    // Draw quadrotor
+    drawHistoryTrajectory();
     drawVehicleShadow(state_.p);
     drawQuadrotor(state_.p, state_.rot);
-
-    // Draw features if available
-    if (features) {
-        drawLidarCloud(*features);
-    }
-
-    // Draw vicon measurement if available
-    if (vicon_measurement) {
-        drawTrjPoint(*vicon_measurement, 10.0f, gtsam::Vector3(0.6, 0.2, 0.5));
-    }
-
-    renderPanel();
-    pangolin::FinishFrame();
+    if (features) drawLidarCloud(*features);
+    if (vicon_measurement) drawTrjPoint(*vicon_measurement, 10.0F, gtsam::Vector3(0.6, 0.2, 0.5));
+    finishFrame();
     usleep(1000);
     return !pangolin::ShouldQuit();
 }
 
 void UI::renderPanel() {
-    auto setPrecision = [](StringUI& var, double value, int precision = 15) {
-        std::stringstream ss;
-        ss << std::setprecision(precision) << value;
-        *var = ss.str();
-    };
-
-    setPrecision(str_force_, state_.thrust_torque[0], 6);
-    setPrecision(str_M1_, state_.thrust_torque[1]);
-    setPrecision(str_M2_, state_.thrust_torque[2]);
-    setPrecision(str_M3_, state_.thrust_torque[3]);
-
-    setPrecision(str_Quad_x_, state_.p[0], 6);
-    setPrecision(str_Quad_y_, state_.p[1], 6);
-    setPrecision(str_Quad_z_, state_.p[2], 6);
-
-    setPrecision(str_Quad_velx_, state_.v[0], 6);
-    setPrecision(str_Quad_vely_, state_.v[1], 6);
-    setPrecision(str_Quad_velz_, state_.v[2], 6);
-
-    setPrecision(str_timestamp_, clock_, 6);
-    setPrecision(str_opt_cost_, opt_cost_, 6);
-    setPrecision(str_speed_, state_.v.norm(), 4);
-    setPrecision(str_solve_time_, solve_time_ms_, 4);
-    setPrecision(str_mean_solve_time_, mean_solve_time_ms_, 4);
-    setPrecision(str_p95_solve_time_, p95_solve_time_ms_, 4);
-    setPrecision(str_cpu_, cpu_percent_, 4);
-    *str_deadline_misses_ = std::to_string(deadline_misses_);
-    *str_collision_ = collision_active_ ? "COLLISION" : "CLEAR";
-    *str_obstacles_ = std::to_string(visible_obstacles_);
-    if (std::isfinite(minimum_clearance_)) setPrecision(str_clearance_, minimum_clearance_, 4);
-    else *str_clearance_ = "n/a";
-
-    for (int i = 0; i < 4; ++i) {
-        setPrecision(str_rotor_[i], state_.motor_rpm[i], 6);
+    setText(panel_.force, state_.thrust_torque[0]);
+    for (std::size_t i = 0; i < panel_.torque.size(); ++i) {
+        setText(panel_.torque[i], state_.thrust_torque[i + 1]);
+        setText(panel_.position[i], state_.p[i]);
+        setText(panel_.velocity[i], state_.v[i]);
     }
+    for (std::size_t i = 0; i < panel_.rotor.size(); ++i)
+        setText(panel_.rotor[i], state_.motor_rpm[i]);
 
-    // Calculate average error
+    setText(panel_.timestamp, clock_);
+    setText(panel_.optimization_cost, opt_cost_);
+    setText(panel_.speed, state_.v.norm(), 4);
+    setText(panel_.solve_time, solve_time_ms_, 4);
+    setText(panel_.mean_solve_time, mean_solve_time_ms_, 4);
+    setText(panel_.p95_solve_time, p95_solve_time_ms_, 4);
+    setText(panel_.cpu, cpu_percent_, 4);
+    *panel_.deadline_misses = std::to_string(deadline_misses_);
+    *panel_.collision = collision_active_ ? "COLLISION" : "CLEAR";
+    *panel_.obstacles = std::to_string(visible_obstacles_);
+    if (std::isfinite(minimum_clearance_)) setText(panel_.clearance, minimum_clearance_, 4);
+    else *panel_.clearance = "n/a";
+
     double error_sum = 0.0;
-    for (const auto& err : errs_) {
-        error_sum += err.squaredNorm();
-    }
-    double average_error = errs_.empty() ? 0.0 : std::sqrt(error_sum / errs_.size());
-    setPrecision(str_AVE_ERR_, average_error, 6);
+    for (const auto& error : errs_) error_sum += error.squaredNorm();
+    const double average_error = errs_.empty() ? 0.0 : std::sqrt(error_sum / errs_.size());
+    setText(panel_.average_error, average_error);
 }
 } // namespace QuadrotorSim_SO3

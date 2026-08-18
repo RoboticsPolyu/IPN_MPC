@@ -13,6 +13,12 @@ thrust_noise_cov:   0.0
 angular_speed_mean: 0.0
 angular_speed_cov:  0.0
 
+# IMU continuous-time noise densities and bias random walks.
+imu_accel_noise_sigma:   0.0003924
+imu_gyro_noise_sigma:    0.000205689024915
+imu_accel_bias_rw_sigma: 0.004905
+imu_gyro_bias_rw_sigma:  0.000001454441043
+
 radius:     1.5
 linear_vel: 5.0
 

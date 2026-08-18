@@ -15,12 +15,17 @@ std::string trajectoryRecordPath(const std::string& simulator_config_path) {
         .string();
 }
 
+double configValue(const YAML::Node& config, const char* key, double fallback) {
+    return config[key] ? config[key].as<double>() : fallback;
+}
+
 } // namespace
 
 Quadrotor::Quadrotor(void) {
     // Existing constructor code
     YAML::Node config = YAML::LoadFile("../config/quadrotor_thrust_gyro.yaml");
     g_ = config["g"].as<double>();
+    configureIMU(config);
     mass_ = config["mass"].as<double>();
     kf_ = config["k_f"].as<double>();
     km_ = config["k_m"].as<double>();
@@ -128,6 +133,7 @@ Quadrotor::Quadrotor(const std::string& yaml_file, bool enable_visualization) {
     // Existing constructor code
     YAML::Node config = YAML::LoadFile(yaml_file);
     g_ = config["g"].as<double>();
+    configureIMU(config);
     mass_ = config["mass"].as<double>();
     kf_ = config["k_f"].as<double>();
     km_ = config["k_m"].as<double>();
@@ -273,8 +279,19 @@ void Quadrotor::loadObstacles(const YAML::Node& config) {
     IPN_LOG_INFO << "Loaded " << obstacles_.size() << " configured obstacles";
 }
 
+void Quadrotor::configureIMU(const YAML::Node& config) {
+    imu_ = Sensors_Sim::IMU(configValue(config, "imu_accel_noise_sigma", 0.0003924),
+                            configValue(config, "imu_gyro_noise_sigma", 0.000205689024915),
+                            configValue(config, "imu_accel_bias_rw_sigma", 0.004905),
+                            configValue(config, "imu_gyro_bias_rw_sigma", 0.000001454441043), g_);
+}
+
+void Quadrotor::updateIMUMeasurement(double dt) {
+    latest_imu_measurement_ = imu_.measure(state_, acc_, dt);
+}
+
 void Quadrotor::step(double dt) {
-    State predicted_state_;
+    State predicted_state_ = state_;
 
     Eigen::Vector3d vnorm;
     Eigen::Array4d motor_rpm_sq;
@@ -299,6 +316,7 @@ void Quadrotor::step(double dt) {
     Eigen::Vector3d v_dot = -Eigen::Vector3d(0, 0, g_) +
                             state_.rot.rotate(gtsam::Vector3(0, 0, thrust)) / mass_ +
                             external_force_ / mass_ + drag_force;
+    acc_ = v_dot;
 
     Eigen::Vector3d p_dot = state_.v;
 
@@ -316,11 +334,13 @@ void Quadrotor::step(double dt) {
     predicted_state_.body_rate = state_.body_rate + body_rate_dot * dt;
 
     state_ = predicted_state_;
+    state_.timestamp += dt;
     // Don't go below zero, simulate floor
     if (state_.p(2) < 0.0 && state_.v(2) < 0) {
         state_.p(2) = 0;
         state_.v(2) = 0;
     }
+    updateIMUMeasurement(dt);
 }
 
 void Quadrotor::operator()(const Quadrotor::stateType& x, Quadrotor::stateType& dxdt,
@@ -447,6 +467,15 @@ void Quadrotor::stepODE(double dt, gtsam::Vector4 fm) {
     state_.p = state_.p;
     state_.v = state_.v;
     state_.body_rate = state_.body_rate + ome_noise;
+
+    const Eigen::Vector3d drag_force =
+        state_.rot.matrix() * Eigen::Matrix3d(drag_force_params_.asDiagonal()) *
+        state_.rot.matrix().transpose() * state_.v;
+    acc_ = -Eigen::Vector3d(0, 0, g_) +
+           state_.rot.rotate(gtsam::Vector3(0, 0, state_.thrust_torque(0) / mass_)) +
+           external_force_ / mass_ + drag_force / mass_;
+    state_.timestamp += dt;
+    updateIMUMeasurement(dt);
 
     // printCurState();
 }

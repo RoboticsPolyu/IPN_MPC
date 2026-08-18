@@ -21,6 +21,7 @@ using Features = std::vector<Feature>;
 
 struct IMUMeasurement {
     int32_t idx{0};
+    double timestamp{0.0};
     gtsam::Vector3 acc{gtsam::Vector3::Zero()};
     gtsam::Vector3 angular_speed{gtsam::Vector3::Zero()};
 

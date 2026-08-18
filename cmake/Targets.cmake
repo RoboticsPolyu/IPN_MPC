@@ -1,7 +1,6 @@
 set(IPN_MPC_CORE_SOURCES
   src/control/cbf_factor.cpp
   src/control/dynamics_control_factor.cpp
-  src/control/dynamics_factor.cpp
   src/control/energy_control_factor.cpp
   src/control/lqr_terminal_weight.cpp
   src/dynamics/quadrotor_so3.cpp
@@ -47,20 +46,27 @@ endif()
 
 if(IPN_MPC_BUILD_APPS)
   set(IPN_MPC_APPS
-    circle_trajectory
-    constrained_joint_estimation_control
     joint_estimation_control
-    joint_estimation_control_isam
     jpcm_thrust_gyro
     jpcm_thrust_gyro_cbf
-    jpcm_thrust_gyro_wall
-    sliding_window_joint_estimation_control
-    terminal_acceleration_gyro_mpc
     terminal_acceleration_gyro_setpoint_mpc
   )
 
   foreach(app IN LISTS IPN_MPC_APPS)
     add_executable(${app} apps/${app}.cpp)
+    target_link_libraries(${app} PRIVATE IPN_MPC::core)
+  endforeach()
+
+  set(IPN_MPC_DEPRECATED_APPS
+    constrained_joint_estimation_control
+    joint_estimation_control_isam
+    jpcm_thrust_gyro_wall
+    sliding_window_joint_estimation_control
+    terminal_acceleration_gyro_mpc
+  )
+
+  foreach(app IN LISTS IPN_MPC_DEPRECATED_APPS)
+    add_executable(${app} apps/deprecated/${app}.cpp)
     target_link_libraries(${app} PRIVATE IPN_MPC::core)
   endforeach()
 endif()

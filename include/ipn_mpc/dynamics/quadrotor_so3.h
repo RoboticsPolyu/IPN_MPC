@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iostream>
 #include <ipn_mpc/factors/gtsam_compatibility.h>
+#include <ipn_mpc/simulation/imu.h>
 #include <ipn_mpc/simulation/types.h>
 #include <ipn_mpc/visualization/ui.h>
 #include <yaml-cpp/yaml.h>
@@ -82,6 +83,7 @@ class Quadrotor {
     Eigen::Vector4d inverseRotorVelocities(Eigen::Vector4d rotor_speed);
 
     Eigen::Vector3d getAcc() const;
+    const IMUMeasurement& getIMUMeasurement() const { return latest_imu_measurement_; }
 
     bool renderHistoryTrj() {
         return ui_ptr ? ui_ptr->renderHistoryTrj(state_) : true;
@@ -130,6 +132,8 @@ class Quadrotor {
 
     void updateObstaclePositions(double dt);
     void loadObstacles(const YAML::Node& config);
+    void configureIMU(const YAML::Node& config);
+    void updateIMUMeasurement(double dt);
 
     double g_; // gravity
     double mass_;
@@ -150,7 +154,9 @@ class Quadrotor {
     float clock_ = 0.;
     float dt_ = 0.01;
 
-    Eigen::Vector3d acc_;
+    Eigen::Vector3d acc_{Eigen::Vector3d::Zero()};
+    Sensors_Sim::IMU imu_;
+    IMUMeasurement latest_imu_measurement_;
 
     Eigen::Array4d input_;
     Eigen::Vector3d external_force_;

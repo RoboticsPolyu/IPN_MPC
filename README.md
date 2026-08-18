@@ -6,6 +6,12 @@ control limits, and obstacle avoidance in a GTSAM factor graph.
 
 The current codebase targets GTSAM 4.3 and uses Pangolin for interactive 3D visualization.
 
+## Quick Start
+
+Please ref demos:
+- apps/terminal_acceleration_gyro_setpoint_mpc.cpp (on-manifold mpc demo)
+- apps/jpcm_thrust_gyro_cbf.cpp (control barrier function demo)
+
 ## Features
 
 - Joint positioning and model predictive control with factor-graph optimization.
@@ -71,16 +77,13 @@ to the current directory or absolute.
 
 | Executable | Arguments and defaults |
 | --- | --- |
-| `circle_trajectory` | `[simulator_config=../config/quadrotor_thrust_gyro.yaml]` |
-| `constrained_joint_estimation_control` | `[factor_graph_config=../config/factor_graph_hin.yaml] [quadrotor_config=../config/quadrotor.yaml] [simulator_config=../config/quadrotor_thrust_gyro.yaml]` |
 | `joint_estimation_control` | `[factor_graph_config=../config/factor_graph.yaml] [quadrotor_config=../config/quadrotor.yaml] [simulator_config=../config/quadrotor_thrust_gyro.yaml]` |
-| `joint_estimation_control_isam` | `[simulator_config=../config/quadrotor_thrust_gyro.yaml]` |
 | `jpcm_thrust_gyro` | `[factor_graph_config=../config/factor_graph_thrust_gyro.yaml] [quadrotor_config=../config/quadrotor_thrust_gyro.yaml]` |
 | `jpcm_thrust_gyro_cbf` | `[factor_graph_config=../config/factor_graph_thrust_gyro_cbf.yaml] [quadrotor_config=../config/quadrotor_thrust_gyro_cbf.yaml]` |
-| `jpcm_thrust_gyro_wall` | `[factor_graph_config=../config/factor_graph_thrust_gyro.yaml] [quadrotor_config=../config/quadrotor_thrust_gyro.yaml]` |
-| `sliding_window_joint_estimation_control` | `[factor_graph_config=../config/factor_graph.yaml] [quadrotor_config=../config/quadrotor.yaml] [simulator_config=../config/quadrotor_thrust_gyro.yaml]` |
-| `terminal_acceleration_gyro_mpc` | `[mpc_config=../config/terminal_acceleration_gyro_mpc.yaml] [--headless]` |
 | `terminal_acceleration_gyro_setpoint_mpc` | `[mpc_config=../config/terminal_acceleration_gyro_mpc.yaml] [--headless]` |
+
+Older application sources are retained in `apps/deprecated/` and are built alongside the active
+applications when `IPN_MPC_BUILD_APPS` is enabled.
 
 For example, select custom factor-graph and quadrotor configurations with:
 

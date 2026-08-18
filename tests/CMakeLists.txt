@@ -18,6 +18,19 @@ target_link_libraries(lqr_terminal_weight_test PRIVATE IPN_MPC::core)
 
 add_test(NAME lqr_terminal_weight COMMAND lqr_terminal_weight_test)
 
+add_executable(energy_factor_test energy_factor_test.cpp)
+target_link_libraries(energy_factor_test PRIVATE IPN_MPC::core)
+
+add_test(NAME energy_factor COMMAND energy_factor_test)
+
+add_executable(imu_simulation_test imu_simulation_test.cpp)
+target_link_libraries(imu_simulation_test PRIVATE IPN_MPC::core)
+
+add_test(
+  NAME imu_simulation
+  COMMAND imu_simulation_test ${PROJECT_SOURCE_DIR}/config/quadrotor_thrust_gyro.yaml
+)
+
 if(TARGET terminal_acceleration_gyro_mpc)
   add_test(
     NAME terminal_acceleration_gyro_mpc
