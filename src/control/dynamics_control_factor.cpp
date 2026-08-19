@@ -328,6 +328,193 @@ gtsam::Vector TerminalAccelerationGyroMeasurementFactor::unwhitenedError(
     return error;
 }
 
+TerminalStateFactor::TerminalStateFactor(
+    Key pose_0, Key velocity_0, const gtsam::KeyVector& control_keys,
+    const gtsam::Pose3& measured_pose_j, const gtsam::Vector3& measured_velocity_j, double dt,
+    const SharedNoiseModel& model)
+    : NoiseModelFactor(model, [&] {
+          gtsam::KeyVector keys{pose_0, velocity_0};
+          keys.insert(keys.end(), control_keys.begin(), control_keys.end());
+          return keys;
+      }()),
+      pose_0_(pose_0), velocity_0_(velocity_0), control_keys_(control_keys),
+      measured_pose_j_(measured_pose_j), measured_velocity_j_(measured_velocity_j), dt_(dt) {
+    if (!model || model->dim() != 9)
+        throw std::invalid_argument(
+            "TerminalStateFactor requires a 9D Q_j noise model");
+    if (control_keys_.empty())
+        throw std::invalid_argument(
+            "TerminalStateFactor requires at least one control");
+    if (dt_ <= 0.0)
+        throw std::invalid_argument(
+            "TerminalStateFactor requires dt > 0");
+}
+
+void TerminalStateFactor::propagate(
+    DynamicsState& predicted, StateJacobian& jacobian_x,
+    StateControlJacobian& jacobian_control, const gtsam::Vector6& control) const {
+    const gtsam::Vector3 acceleration = control.head<3>();
+    const gtsam::Vector3 angular_rate = control.tail<3>();
+    gtsam::Matrix3 increment_angular_rate;
+    const gtsam::Rot3 rotation_increment =
+        gtsam::Rot3::Expmap(angular_rate * dt_, increment_angular_rate);
+    increment_angular_rate *= dt_;
+
+    // jacobian_x is the local one-step transition dx_(k+1)/dx_k. It is
+    // overwritten on every call; intermediate-state Jacobians are not stored.
+    jacobian_x = StateJacobian::Identity();
+    jacobian_x.block<3, 3>(0, 6) = dt_ * gtsam::Matrix3::Identity();
+    jacobian_x.block<3, 3>(3, 3) = rotation_increment.matrix().transpose();
+
+    // jacobian_control is the local one-step derivative dx_(k+1)/du_k.
+    jacobian_control = StateControlJacobian::Zero();
+    jacobian_control.block<3, 3>(0, 0) =
+        0.5 * dt_ * dt_ * gtsam::Matrix3::Identity();
+    jacobian_control.block<3, 3>(3, 3) = increment_angular_rate;
+    jacobian_control.block<3, 3>(6, 0) = dt_ * gtsam::Matrix3::Identity();
+
+    predicted.pose = gtsam::Pose3(
+        predicted.pose.rotation() * rotation_increment,
+        predicted.pose.translation() + predicted.velocity * dt_ +
+            0.5 * acceleration * dt_ * dt_);
+    predicted.velocity += acceleration * dt_;
+    predicted.body_rate = angular_rate;
+}
+
+DynamicsState TerminalStateFactor::predict(
+    const DynamicsState& initial_state, const std::vector<gtsam::Vector6>& controls,
+    StateJacobian& initial_state_jacobian,
+    std::vector<StateControlJacobian>& control_jacobians) const {
+    if (controls.size() != horizon())
+        throw std::invalid_argument(
+            "Control count must equal TerminalStateFactor horizon");
+    DynamicsState predicted = initial_state;
+    initial_state_jacobian = StateJacobian::Identity();
+    control_jacobians.clear();
+    control_jacobians.reserve(horizon());
+    for (const auto& control : controls) {
+        StateJacobian jacobian_x;
+        StateControlJacobian jacobian_control;
+        propagate(predicted, jacobian_x, jacobian_control, control);
+
+        // Chain all earlier control sensitivities through the current state transition.
+        for (auto& control_jacobian : control_jacobians)
+            control_jacobian = jacobian_x * control_jacobian;
+
+        // The current control acts directly on the current transition.
+        control_jacobians.push_back(jacobian_control);
+
+        // Keep only the accumulated terminal-to-initial state Jacobian.
+        initial_state_jacobian = jacobian_x * initial_state_jacobian;
+    }
+    return predicted;
+}
+
+DynamicsState TerminalStateFactor::predict(
+    const DynamicsState& initial_state, const std::vector<gtsam::Vector6>& controls,
+    std::vector<StateControlJacobian>& control_jacobians) const {
+    StateJacobian unused_initial_state_jacobian;
+    return predict(initial_state, controls, unused_initial_state_jacobian, control_jacobians);
+}
+
+DynamicsState TerminalStateFactor::predict(
+    const DynamicsState& initial_state, const std::vector<gtsam::Vector6>& controls) const {
+    StateJacobian unused_initial_state_jacobian;
+    std::vector<StateControlJacobian> unused_jacobians;
+    return predict(initial_state, controls, unused_initial_state_jacobian, unused_jacobians);
+}
+
+gtsam::Vector9 TerminalStateFactor::residual(
+    const DynamicsState& predicted, gtsam::OptionalMatrixType predicted_jacobian) const {
+    gtsam::Matrix3 between_predicted;
+    const gtsam::Rot3 relative_rotation = predicted.pose.rotation().between(
+        measured_pose_j_.rotation(), between_predicted);
+    gtsam::Matrix3 log_relative;
+    const gtsam::Vector3 rotation_error =
+        gtsam::Rot3::Logmap(relative_rotation, log_relative);
+
+    gtsam::Vector9 error;
+    error.segment<3>(0) = measured_pose_j_.translation() - predicted.pose.translation();
+    error.segment<3>(3) = rotation_error;
+    error.segment<3>(6) = measured_velocity_j_ - predicted.velocity;
+
+    if (predicted_jacobian) {
+        predicted_jacobian->setZero(9, 9);
+        predicted_jacobian->block<3, 3>(0, 0) = -gtsam::Matrix3::Identity();
+        predicted_jacobian->block<3, 3>(3, 3) = log_relative * between_predicted;
+        predicted_jacobian->block<3, 3>(6, 6) = -gtsam::Matrix3::Identity();
+    }
+    return error;
+}
+
+gtsam::Vector TerminalStateFactor::unwhitenedError(
+    const gtsam::Values& values, gtsam::OptionalMatrixVecType jacobians) const {
+    // Read the optimized initial pose associated with the factor's first key.
+    const gtsam::Pose3& initial_pose = values.at<gtsam::Pose3>(pose_0_);
+
+    // Read the optimized initial world-frame velocity associated with the second key.
+    const gtsam::Vector3& initial_velocity = values.at<gtsam::Vector3>(velocity_0_);
+
+    // Copy the horizon's [world acceleration, body angular rate] controls out of Values.
+    std::vector<gtsam::Vector6> controls;
+
+    // Reserve the final size because the number of controls is known from the key list.
+    controls.reserve(horizon());
+
+    // Keep the control vector in exactly the same order as the factor's control keys.
+    for (Key key : control_keys_) controls.push_back(values.at<gtsam::Vector6>(key));
+
+    // This vector will receive d(predicted terminal state)/d(control_k) for every step k.
+    std::vector<StateControlJacobian> propagated_control_jacobians;
+
+    // This matrix will receive d(predicted terminal state)/d(initial 9D state).
+    StateJacobian propagated_initial_state_jacobian;
+
+    // Roll the initial state through all controls while propagating the control Jacobians.
+    // Body rate is initialized to zero because it is not an optimized state in this model.
+    const DynamicsState predicted =
+        predict({initial_pose, initial_velocity, gtsam::Vector3::Zero()}, controls,
+                propagated_initial_state_jacobian, propagated_control_jacobians);
+
+    // GTSAM may request only the residual; avoid all residual-Jacobian work in that case.
+    if (!jacobians) return residual(predicted);
+
+    // This matrix is d(error)/d(predicted terminal state), with terminal-state ordering
+    // [position, local rotation tangent, velocity].
+    gtsam::Matrix predicted_residual;
+
+    // Evaluate the residual and its 9-by-9 derivative with respect to the prediction.
+    const gtsam::Vector9 error = residual(predicted, &predicted_residual);
+
+    // Allocate one output Jacobian for the initial pose, initial velocity, and each control.
+    jacobians->assign(keys().size(), gtsam::Matrix());
+
+    // Lift Pose3's [local rotation, local translation] perturbation into the
+    // rollout state's [world position, local rotation, world velocity] coordinates.
+    StateControlJacobian initial_pose_lift = StateControlJacobian::Zero();
+    initial_pose_lift.block<3, 3>(0, 3) = initial_pose.rotation().matrix();
+    initial_pose_lift.block<3, 3>(3, 0) = gtsam::Matrix3::Identity();
+
+    // Select initial velocity from the 9D rollout state.
+    Eigen::Matrix<double, 9, 3> initial_velocity_lift =
+        Eigen::Matrix<double, 9, 3>::Zero();
+    initial_velocity_lift.block<3, 3>(6, 0) = gtsam::Matrix3::Identity();
+
+    // The accumulated state transition now gives both initial-state residual
+    // Jacobians directly; no intermediate-state Jacobian is needed here.
+    (*jacobians)[0] =
+        predicted_residual * propagated_initial_state_jacobian * initial_pose_lift;
+    (*jacobians)[1] =
+        predicted_residual * propagated_initial_state_jacobian * initial_velocity_lift;
+
+    // Convert every propagated terminal-state/control Jacobian into a residual Jacobian.
+    for (std::size_t k = 0; k < horizon(); ++k)
+        (*jacobians)[k + 2] = predicted_residual * propagated_control_jacobians[k];
+
+    // Return the raw residual; GTSAM applies the configured noise-model whitening afterward.
+    return error;
+}
+
 DynamicsFactor::DynamicsFactor(Key p_i, Key vel_i, Key omega_i, Key input_i, Key p_j, Key vel_j,
                                Key omega_j, float dt, const SharedNoiseModel& model)
     : Base(model, p_i, vel_i, omega_i, input_i, p_j, vel_j, omega_j), dt_(dt) {}

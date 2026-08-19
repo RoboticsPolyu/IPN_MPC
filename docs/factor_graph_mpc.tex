@@ -1,0 +1,341 @@
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=25mm]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{microtype}
+
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue,citecolor=blue}
+
+\newcommand{\SO}{\mathrm{SO}(3)}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Exp}{\operatorname{Exp}}
+\newcommand{\Log}{\operatorname{Log}}
+\newcommand{\diag}{\operatorname{diag}}
+\newcommand{\transpose}{\mathsf{T}}
+
+\title{Factor-Graph Model Predictive Control and\\
+Terminal-Measurement Factor MPC}
+\author{IPN\_MPC}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This note introduces model predictive control (MPC) expressed as nonlinear factor-graph
+optimization and a reduced-variable variant based on the
+\texttt{TerminalAccelerationGyroMeasurementFactor}.  The conventional formulation represents
+future states and controls as optimization variables.  The terminal-measurement formulation
+instead rolls the current state forward through prefixes of the control sequence and compares each
+prediction directly with a fixed trajectory set point.  The latter removes future-state variables,
+uses analytical chain-rule Jacobians, employs a discrete Riccati terminal weight for local
+stability, and enforces hard control bounds with a constrained quadratic-programming refinement.
+\end{abstract}
+
+\section{MPC as factor-graph optimization}
+
+For a horizon of length $N$, let $x_k$ denote the state, $u_k$ the control input, and
+$x_k^{\mathrm{ref}}$ the reference state.  A standard discrete-time MPC problem is
+\begin{align}
+\min_{x_{1:N},u_{0:N-1}}\quad
+& \sum_{k=1}^{N-1}\frac{1}{2}
+  \lVert x_k-x_k^{\mathrm{ref}}\rVert_{Q_k}^{2}
+  +\sum_{k=0}^{N-1}\frac{1}{2}\lVert u_k-u_k^{\mathrm{ref}}\rVert_{R_k}^{2}
+  +\frac{1}{2}\lVert x_N-x_N^{\mathrm{ref}}\rVert_{P}^{2},
+\label{eq:standard-mpc-cost}\\
+\text{subject to}\quad
+&x_{k+1}=f(x_k,u_k),\qquad k=0,\ldots,N-1,\label{eq:dynamics}\
+&u_{\min}\leq u_k\leq u_{\max}.\label{eq:bounds}
+\end{align}
+Here $\lVert e\rVert_W^2=e^\transpose W e$.  In a factor graph, every quadratic term is a
+factor and every unknown state or control is a variable node.  A Gaussian factor with covariance
+$\Sigma$ contributes
+\begin{equation}
+\frac{1}{2}e^\transpose\Sigma^{-1}e,
+\end{equation}
+so the desired weight matrix is supplied to GTSAM as the information matrix
+$W=\Sigma^{-1}$.
+
+Typical graph components are:
+\begin{itemize}
+  \item a strong prior on the measured current state $x_0$;
+  \item dynamics factors joining adjacent states $x_k,u_k,x_{k+1}$;
+  \item tracking factors on $x_k$;
+  \item control regularization and smoothness factors on $u_k$ and $(u_{k-1},u_k)$;
+  \item a terminal tracking factor on $x_N$; and
+  \item optional obstacle, safety, and actuator constraints.
+\end{itemize}
+
+After optimization, MPC applies only $u_0$, advances the simulator or vehicle, shifts the previous
+solution to form a warm start, and solves the horizon again.
+
+\section{Acceleration--angular-speed model}
+
+The terminal-factor applications use
+\begin{equation}
+x_k=(R_k,p_k,v_k),\qquad R_k\in\SO,quad p_k,v_k\in\R^3,
+\end{equation}
+and the six-dimensional control
+\begin{equation}
+u_k=\begin{bmatrix}a_k\\\omega_k\end{bmatrix}\in\R^6,
+\end{equation}
+where $a_k$ is world-frame acceleration and $\omega_k$ is body angular speed.  With sampling time
+$\Delta t$, the rollout is
+\begin{align}
+p_{k+1} &= p_k+v_k\Delta t+\frac{1}{2}a_k\Delta t^2,\label{eq:position}\
+v_{k+1} &= v_k+a_k\Delta t,\label{eq:velocity}\
+R_{k+1} &= R_k\Exp(\omega_k\Delta t).\label{eq:rotation}
+\end{align}
+The optimized kinematic command is converted to collective thrust and torque before it is applied
+to the full quadrotor simulator.
+
+\section{State-variable terminal rollout factor}
+
+The \texttt{TerminalAccelerationGyroFactor} connects the initial state, a control prefix, and an
+optimized future state:
+\begin{equation}
+\{X_0,V_0,U_0,\ldots,U_{j-1},X_j,V_j\}.
+\end{equation}
+Starting from $x_0$, define
+\begin{equation}
+\widehat{x}_j=f^{(j)}(x_0,u_0,\ldots,u_{j-1}).
+\end{equation}
+Its residual is
+\begin{equation}
+e_j=
+\begin{bmatrix}
+p_j-\widehat p_j\\
+\Log(\widehat R_j^{-1}R_j)\\
+v_j-\widehat v_j
+\end{bmatrix}\in\R^9,
+\qquad
+E_j=\frac{1}{2}e_j^\transpose Q_j e_j.
+\label{eq:state-terminal-residual}
+\end{equation}
+The factor is a soft multiple-shooting constraint.  Separate priors or tracking factors attract
+$X_j,V_j$ to the desired trajectory.  This formulation retains explicit predicted-state variables,
+which are useful when other factors must attach directly to future states, for example obstacle,
+sensor, or state-boundary factors.
+
+\section{Terminal-measurement factor MPC}
+
+\subsection{Fixed set point instead of a future-state variable}
+
+The \texttt{TerminalAccelerationGyroMeasurementFactor} stores a desired pose and velocity as fixed
+factor measurements.  Its variable set is only
+\begin{equation}
+\{X_0,V_0,U_0,\ldots,U_{j-1}\};
+\end{equation}
+there is no $X_j$ or $V_j$ variable.  For the measured set point
+$z_j=(R_j^{\mathrm{ref}},p_j^{\mathrm{ref}},v_j^{\mathrm{ref}})$, the factor residual is
+\begin{equation}
+e_j=
+\begin{bmatrix}
+p_j^{\mathrm{ref}}-\widehat p_j\\
+\Log(\widehat R_j^{-1}R_j^{\mathrm{ref}})\\
+v_j^{\mathrm{ref}}-\widehat v_j
+\end{bmatrix},
+\qquad
+E_j=\frac{1}{2}e_j^\transpose Q_j e_j.
+\label{eq:measurement-residual}
+\end{equation}
+The MPC graph adds $N$ prefix factors:
+\begin{align}
+e_1 &= z_1-f(x_0,u_0),\nonumber\\
+e_2 &= z_2-f^{(2)}(x_0,u_0,u_1),\nonumber\\
+&\ \vdots\nonumber\\
+e_N &= z_N-f^{(N)}(x_0,u_0,\ldots,u_{N-1}).
+\end{align}
+Consequently, the unknowns are the current state and control sequence, rather than an entire
+state--control trajectory.
+
+\subsection{Comparison of the two formulations}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+Property & State-variable factor & Measurement factor \\
+\midrule
+Future $X_j,V_j$ variables & Required & Removed \\
+Set point & Separate prior/factor & Stored in factor \\
+Attach factors to future state & Direct & Requires rollout-dependent factor \\
+Graph size & Larger & Smaller \\
+Tracking residual & Future state minus rollout & Set point minus rollout \\
+Application & \texttt{terminal\_acceleration\_gyro\_mpc} &
+\texttt{terminal\_acceleration\_gyro\_setpoint\_mpc} \\
+\bottomrule
+\end{tabular}
+\caption{Comparison of terminal acceleration--gyro MPC formulations.}
+\end{table}
+
+\section{Analytical chain-rule Jacobians}
+
+Numerically differentiating every prefix repeats many rollouts and is unnecessarily expensive.
+The measurement factor therefore uses analytical derivatives.  For a $j$-step rollout,
+\begin{align}
+\widehat v_j &= v_0+\Delta t\sum_{k=0}^{j-1}a_k,\\
+\widehat p_j &= p_0+j\Delta t\,v_0
+ +\Delta t^2\sum_{k=0}^{j-1}\left(j-k-\frac{1}{2}\right)a_k.
+\end{align}
+Thus,
+\begin{align}
+\frac{\partial e_p}{\partial v_0}&=-j\Delta t I,&
+\frac{\partial e_v}{\partial v_0}&=-I,\\
+\frac{\partial e_p}{\partial a_k}&=-\left(j-k-\frac{1}{2}\right)\Delta t^2I,&
+\frac{\partial e_v}{\partial a_k}&=-\Delta t I.
+\end{align}
+
+For rotation, write
+\begin{equation}
+\widehat R_j=R_0E_0E_1\cdots E_{j-1},
+\qquad E_k=\Exp(\omega_k\Delta t).
+\end{equation}
+Let $S_k=E_{k+1}\cdots E_{j-1}$ be the rotation suffix after $E_k$.  A local perturbation of
+$E_k$ is transported to the final rotation through $\operatorname{Ad}_{S_k^{-1}}$.  Combining
+this transport with the exponential-map Jacobian and the Jacobian of
+$\Log(\widehat R_j^{-1}R_j^{\mathrm{ref}})$ gives
+\begin{equation}
+\frac{\partial e_R}{\partial\omega_k}
+=J_{\Log}\,J_{\mathrm{between}}\,
+\operatorname{Ad}_{S_k^{-1}}J_{\Exp}(\omega_k\Delta t)\Delta t.
+\end{equation}
+All suffixes are accumulated in one backward pass.  This avoids finite differences and keeps the
+default 20-step MPC comfortably below its 10-ms solve-time target on the development machine.
+
+\section{Terminal weight for local stability}
+
+Near zero tracking error, use the local vector
+\begin{equation}
+\xi_k=\begin{bmatrix}\delta p_k&\delta\theta_k&\delta v_k\end{bmatrix}^\transpose
+\in\R^9,
+\qquad
+\nu_k=\begin{bmatrix}\delta a_k&\delta\omega_k\end{bmatrix}^\transpose\in\R^6.
+\end{equation}
+The linearized model is
+\begin{equation}
+\xi_{k+1}=A\xi_k+B\nu_k,
+\end{equation}
+with
+\begin{equation}
+A=\begin{bmatrix}
+I&0&\Delta t I\\
+0&I&0\\
+0&0&I
+\end{bmatrix},
+\qquad
+B=\begin{bmatrix}
+\tfrac{1}{2}\Delta t^2I&0\\
+0&\Delta t I\\
+\Delta t I&0
+\end{bmatrix}.
+\end{equation}
+Given positive-definite stage weights $Q$ and $R$, the terminal information matrix $P$ is the
+stabilizing solution of the discrete algebraic Riccati equation
+\begin{equation}
+P=Q+A^\transpose PA
+-A^\transpose PB(R+B^\transpose PB)^{-1}B^\transpose PA.
+\label{eq:dare}
+\end{equation}
+The feedback gain is
+\begin{equation}
+K=(R+B^\transpose PB)^{-1}B^\transpose PA.
+\end{equation}
+The implementation verifies that $\rho(A-BK)<1$, that the normalized Riccati residual is small,
+and that the Lyapunov terminal cost strictly decreases under the local feedback.  This establishes
+local stability of the unconstrained linearized error dynamics.  A full constrained nonlinear MPC
+proof additionally requires a feasible invariant terminal set.
+
+\section{Hard control-input bounds}
+
+Standard GTSAM nonlinear optimizers do not directly impose inequality constraints.  The set-point
+application first computes a nonlinear Levenberg--Marquardt solution and then applies a
+sequential-quadratic-programming refinement using
+\texttt{gtsam\_unstable::QPSolver}.  At an iterate $u_k$, the QP increment $\delta u_k$ obeys
+\begin{align}
+ \delta u_{k,i} &\leq u_{\max,i}-u_{k,i},\\
+-\delta u_{k,i} &\leq u_{k,i}-u_{\min,i}.
+\end{align}
+These are exact box constraints for the linear control variables.  The QP is initialized with the
+projected feasible increment
+\begin{equation}
+\delta u_k^{(0)}=\operatorname{clip}(u_k,u_{\min},u_{\max})-u_k.
+\end{equation}
+Before $u_0$ is applied, the complete optimized horizon is checked against the configured bounds
+with a tolerance of $10^{-8}$.
+
+\section{Receding-horizon algorithm}
+
+At each control cycle, the set-point application performs the following steps:
+\begin{enumerate}
+  \item Read the current simulated pose and velocity and add strong priors on $X_0,V_0$.
+  \item Generate $N$ circle-trajectory set points.
+  \item Add one terminal-measurement factor for every control prefix.
+  \item Add control regularization and control-smoothness factors.
+  \item Use the DARE matrix $P$ for the final factor and $Q$ for intermediate factors.
+  \item Solve the nonlinear least-squares problem from the shifted warm start.
+  \item Refine the solution with hard box-constrained QPs.
+  \item Verify feasibility and apply only $u_0$.
+  \item Shift the control sequence and repeat at the next measurement.
+\end{enumerate}
+
+\section{Configuration and execution}
+
+The principal settings are stored in
+\texttt{config/terminal\_acceleration\_gyro\_mpc.yaml}.  The control ordering is
+\begin{equation}
+U(k)=[a_x,a_y,a_z,\omega_x,\omega_y,\omega_z]^\transpose.
+\end{equation}
+For example,
+\begin{verbatim}
+horizon: 20
+dt: 0.10
+terminal_position_sigma: 0.02
+terminal_rotation_sigma: 0.02
+terminal_velocity_sigma: 0.05
+control_min: [-4.0, -4.0, -4.0, -2.0, -2.0, -2.0]
+control_max: [ 4.0,  4.0,  4.0,  2.0,  2.0,  2.0]
+hard_control_constraint_iterations: 2
+\end{verbatim}
+
+Build and run the two formulations with
+\begin{verbatim}
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+
+./build/terminal_acceleration_gyro_mpc \
+  config/terminal_acceleration_gyro_mpc.yaml
+
+./build/terminal_acceleration_gyro_setpoint_mpc \
+  config/terminal_acceleration_gyro_mpc.yaml
+\end{verbatim}
+Append \texttt{--headless} to either command for automated testing without Pangolin visualization.
+
+\section{Implementation map}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Purpose & Source \\
+\midrule
+Terminal factor declarations &
+\texttt{include/ipn\_mpc/control/dynamics\_control\_factor.h} \\
+Factor residuals and Jacobians &
+\texttt{src/control/dynamics\_control\_factor.cpp} \\
+DARE terminal weight &
+\texttt{src/control/lqr\_terminal\_weight.cpp} \\
+State-variable MPC &
+\texttt{apps/terminal\_acceleration\_gyro\_mpc.cpp} \\
+Set-point MPC &
+\texttt{apps/terminal\_acceleration\_gyro\_setpoint\_mpc.cpp} \\
+Factor tests &
+\texttt{tests/terminal\_dynamics\_factor\_test.cpp} \\
+Terminal stability test &
+\texttt{tests/lqr\_terminal\_weight\_test.cpp} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{document}

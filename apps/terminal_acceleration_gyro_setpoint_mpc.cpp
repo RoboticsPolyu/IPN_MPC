@@ -275,6 +275,7 @@ int main(int argc, char** argv) {
                 const UAVFactor::DynamicsState set_point = circleReference(
                     circle_center, circle_radius, circle_angular_speed, time + j * dt,
                     face_velocity);
+                // graph.add(UAVFactor::TerminalStateFactor(
                 graph.add(UAVFactor::TerminalAccelerationGyroMeasurementFactor(
                     X(0), V(0), control_prefix, set_point.pose, set_point.velocity, dt,
                     j == horizon ? terminal_noise : tracking_noise));
@@ -292,7 +293,7 @@ int main(int argc, char** argv) {
             initial_values.insert(V(0), state.velocity);
             for (std::size_t k = 0; k < horizon; ++k)
                 initial_values.insert(U(k), warm_start[k]);
-
+            
             const double initial_cost = graph.error(initial_values);
             const auto solve_start = std::chrono::steady_clock::now();
             const std::clock_t cpu_start = std::clock();

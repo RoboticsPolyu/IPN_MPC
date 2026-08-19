@@ -221,6 +221,7 @@ clang-format -i path/to/file.cpp path/to/file.h
 
 ## References
 
+- [Factor-graph MPC and terminal-measurement MPC formulation](docs/factor_graph_mpc.tex)
 - [VeCBFPdFactor mathematical formulation](docs/vecbf_pd_factor_mathematical_formulation.pdf)
 - [Simulation video](https://youtu.be/QBPwTr4mFy4)
 

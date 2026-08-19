@@ -120,6 +120,58 @@ class GTSAM_EXPORT TerminalAccelerationGyroMeasurementFactor
     double dt_{0.0};
 };
 
+/** Measurement rollout factor with Jacobians propagated alongside the state.
+ *
+ * This is an alternative to TerminalAccelerationGyroMeasurementFactor. It has
+ * the same residual and key layout, but predict() explicitly returns the
+ * terminal-to-initial state Jacobian and one terminal-state Jacobian for every
+ * control. State rows and columns are ordered [position, local rotation
+ * tangent, velocity], and control columns are [world acceleration, body
+ * angular rate]. Intermediate-state Jacobians are composed during propagation
+ * and are not retained.
+ */
+class GTSAM_EXPORT TerminalStateFactor
+    : public gtsam::NoiseModelFactor {
+  public:
+    using shared_ptr = boost::shared_ptr<TerminalStateFactor>;
+    using StateJacobian = Eigen::Matrix<double, 9, 9>;
+    using StateControlJacobian = Eigen::Matrix<double, 9, 6>;
+    using gtsam::NoiseModelFactor::unwhitenedError;
+
+    TerminalStateFactor() = default;
+    TerminalStateFactor(
+        Key pose_0, Key velocity_0, const gtsam::KeyVector& control_keys,
+        const gtsam::Pose3& measured_pose_j, const gtsam::Vector3& measured_velocity_j,
+        double dt, const SharedNoiseModel& model);
+
+    gtsam::Vector unwhitenedError(const gtsam::Values& values,
+                                  gtsam::OptionalMatrixVecType jacobians = nullptr) const override;
+    DynamicsState predict(const DynamicsState& initial_state,
+                          const std::vector<gtsam::Vector6>& controls) const;
+    DynamicsState predict(const DynamicsState& initial_state,
+                          const std::vector<gtsam::Vector6>& controls,
+                          std::vector<StateControlJacobian>& control_jacobians) const;
+    DynamicsState predict(const DynamicsState& initial_state,
+                          const std::vector<gtsam::Vector6>& controls,
+                          StateJacobian& initial_state_jacobian,
+                          std::vector<StateControlJacobian>& control_jacobians) const;
+    std::size_t horizon() const { return control_keys_.size(); }
+
+  private:
+    // jacobian_x is the local one-step transition dx_(k+1)/dx_k, and jacobian_control is the local one-step derivative dx_(k+1)/du_k. 
+    void propagate(DynamicsState& predicted, StateJacobian& jacobian_x,
+                   StateControlJacobian& jacobian_control,
+                   const gtsam::Vector6& control) const;
+    gtsam::Vector9 residual(const DynamicsState& predicted,
+                            gtsam::OptionalMatrixType predicted_jacobian = nullptr) const;
+
+    gtsam::Key pose_0_, velocity_0_;
+    gtsam::KeyVector control_keys_;
+    gtsam::Pose3 measured_pose_j_;
+    gtsam::Vector3 measured_velocity_j_{gtsam::Vector3::Zero()};
+    double dt_{0.0};
+};
+
 class GTSAM_EXPORT DynamicFactor
     : public NoiseModelFactor7<gtsam::Pose3, gtsam::Vector3, gtsam::Vector3, gtsam::Pose3,
                                gtsam::Vector3, gtsam::Vector3, gtsam::Vector4> {

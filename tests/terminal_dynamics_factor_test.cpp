@@ -1,4 +1,5 @@
 #include <cmath>
+#include <gtsam/base/numericalDerivative.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/linear/NoiseModel.h>
 #include <gtsam/nonlinear/Values.h>
@@ -8,6 +9,12 @@
 namespace {
 bool near(double actual, double expected, double tolerance = 1.0e-6) {
     return std::abs(actual - expected) <= tolerance;
+}
+
+bool nearMatrix(const gtsam::Matrix& actual, const gtsam::Matrix& expected,
+                double tolerance = 1.0e-6) {
+    return actual.rows() == expected.rows() && actual.cols() == expected.cols() &&
+           (actual - expected).norm() <= tolerance;
 }
 } // namespace
 
@@ -172,6 +179,122 @@ int main() {
     if (!near(weighted_measurement_factor.error(measurement_values), 0.5, 1.0e-7)) {
         std::cerr << "Measurement set-point Q_j weighting is incorrect\n";
         return 12;
+    }
+
+    // Factor2 propagates one terminal-state Jacobian per control during rollout.
+    gtsam::Vector6 second_input;
+    second_input << -0.4, 0.7, 0.2, -0.2, 0.1, 0.15;
+    const std::vector<gtsam::Vector6> factor2_controls{kinematic_input, second_input};
+    UAVFactor::TerminalStateFactor rollout_factor(
+        X(0), V(0), kinematic_controls, gtsam::Pose3(), gtsam::Vector3::Zero(), dt,
+        kinematic_model);
+    std::vector<UAVFactor::TerminalStateFactor::StateControlJacobian>
+        propagated_jacobians;
+    UAVFactor::TerminalStateFactor::StateJacobian propagated_state_jacobian;
+    const auto factor2_prediction =
+        rollout_factor.predict(initial, factor2_controls, propagated_state_jacobian,
+                               propagated_jacobians);
+    if (propagated_jacobians.size() != factor2_controls.size()) {
+        std::cerr << "Factor2 did not return one propagated Jacobian per control\n";
+        return 13;
+    }
+
+    const gtsam::Matrix numerical_state_jacobian =
+        gtsam::numericalDerivative11<gtsam::Vector9, gtsam::Vector9>(
+            [&](const gtsam::Vector9& perturbation) {
+                UAVFactor::DynamicsState perturbed_initial = initial;
+                perturbed_initial.pose = gtsam::Pose3(
+                    initial.pose.rotation() *
+                        gtsam::Rot3::Expmap(perturbation.segment<3>(3)),
+                    initial.pose.translation() + perturbation.head<3>());
+                perturbed_initial.velocity = initial.velocity + perturbation.tail<3>();
+                const auto prediction = rollout_factor.predict(perturbed_initial, factor2_controls);
+                gtsam::Vector9 coordinates;
+                coordinates.segment<3>(0) = prediction.pose.translation();
+                coordinates.segment<3>(3) = gtsam::Rot3::Logmap(
+                    factor2_prediction.pose.rotation().between(prediction.pose.rotation()));
+                coordinates.segment<3>(6) = prediction.velocity;
+                return coordinates;
+            },
+            gtsam::Vector9::Zero());
+    if (!nearMatrix(propagated_state_jacobian, numerical_state_jacobian)) {
+        std::cerr << "TerminalStateFactor propagated initial-state Jacobian mismatch\n";
+        return 14;
+    }
+
+    const auto terminal_coordinates = [&](const std::vector<gtsam::Vector6>& controls_to_test) {
+        const auto prediction = rollout_factor.predict(initial, controls_to_test);
+        gtsam::Vector9 coordinates;
+        coordinates.segment<3>(0) = prediction.pose.translation();
+        coordinates.segment<3>(3) = gtsam::Rot3::Logmap(
+            factor2_prediction.pose.rotation().between(prediction.pose.rotation()));
+        coordinates.segment<3>(6) = prediction.velocity;
+        return coordinates;
+    };
+    for (std::size_t k = 0; k < factor2_controls.size(); ++k) {
+        const gtsam::Matrix numerical =
+            gtsam::numericalDerivative11<gtsam::Vector9, gtsam::Vector6>(
+                [&](const gtsam::Vector6& perturbed) {
+                    auto controls_to_test = factor2_controls;
+                    controls_to_test[k] = perturbed;
+                    return terminal_coordinates(controls_to_test);
+                },
+                factor2_controls[k]);
+        if (!nearMatrix(propagated_jacobians[k], numerical)) {
+            std::cerr << "Factor2 propagated control Jacobian mismatch at index " << k << '\n';
+            return 15;
+        }
+    }
+
+    UAVFactor::TerminalStateFactor factor2(
+        X(0), V(0), kinematic_controls, factor2_prediction.pose,
+        factor2_prediction.velocity, dt, kinematic_model);
+    gtsam::Values factor2_values;
+    factor2_values.insert(X(0), initial.pose);
+    factor2_values.insert(V(0), initial.velocity);
+    factor2_values.insert(U(0), factor2_controls[0]);
+    factor2_values.insert(U(1), factor2_controls[1]);
+    std::vector<gtsam::Matrix> factor2_jacobians;
+    const gtsam::Vector factor2_error =
+        factor2.unwhitenedError(factor2_values, factor2_jacobians);
+    if (factor2_error.norm() > 1.0e-9 || factor2_jacobians.size() != 4) {
+        std::cerr << "Factor2 exact rollout residual or Jacobian count is incorrect\n";
+        return 16;
+    }
+    const gtsam::Matrix numerical_initial_pose =
+        gtsam::numericalDerivative11<gtsam::Vector, gtsam::Pose3>(
+            [&](const gtsam::Pose3& perturbed) {
+                gtsam::Values perturbed_values(factor2_values);
+                perturbed_values.update(X(0), perturbed);
+                return factor2.unwhitenedError(perturbed_values);
+            },
+            initial.pose);
+    const gtsam::Matrix numerical_initial_velocity =
+        gtsam::numericalDerivative11<gtsam::Vector, gtsam::Vector3>(
+            [&](const gtsam::Vector3& perturbed) {
+                gtsam::Values perturbed_values(factor2_values);
+                perturbed_values.update(V(0), perturbed);
+                return factor2.unwhitenedError(perturbed_values);
+            },
+            initial.velocity);
+    if (!nearMatrix(factor2_jacobians[0], numerical_initial_pose) ||
+        !nearMatrix(factor2_jacobians[1], numerical_initial_velocity)) {
+        std::cerr << "Factor2 initial-state Jacobian mismatch\n";
+        return 17;
+    }
+    for (std::size_t k = 0; k < factor2_controls.size(); ++k) {
+        const gtsam::Matrix numerical =
+            gtsam::numericalDerivative11<gtsam::Vector, gtsam::Vector6>(
+                [&](const gtsam::Vector6& perturbed) {
+                    gtsam::Values perturbed_values(factor2_values);
+                    perturbed_values.update(kinematic_controls[k], perturbed);
+                    return factor2.unwhitenedError(perturbed_values);
+                },
+                factor2_controls[k]);
+        if (!nearMatrix(factor2_jacobians[k + 2], numerical)) {
+            std::cerr << "Factor2 residual control Jacobian mismatch at index " << k << '\n';
+            return 18;
+        }
     }
 
     std::cout << "Terminal dynamics factor tests passed\n";
