@@ -95,19 +95,6 @@ double rotationError(const gtsam::Rot3& actual, const gtsam::Rot3& target) {
     return gtsam::Rot3::Logmap(actual.between(target)).norm();
 }
 
-UAVFactor::DynamicsState circleReference(const gtsam::Vector3& center, double radius,
-                                         double angular_speed, double time, bool face_velocity) {
-    const double angle = angular_speed * time;
-    UAVFactor::DynamicsState reference;
-    reference.pose = gtsam::Pose3(
-        gtsam::Rot3::Rz(face_velocity ? angle + M_PI_2 : 0.0),
-        center + gtsam::Vector3(radius * std::cos(angle), radius * std::sin(angle), 0.0));
-    reference.velocity = gtsam::Vector3(-radius * angular_speed * std::sin(angle),
-                                        radius * angular_speed * std::cos(angle), 0.0);
-    reference.body_rate = gtsam::Vector3(0.0, 0.0, face_velocity ? angular_speed : 0.0);
-    return reference;
-}
-
 gtsam::Rot3 thrustAlignedRotation(const gtsam::Vector3& force, double yaw) {
     const gtsam::Vector3 body_z = force.normalized();
     const gtsam::Vector3 heading(std::cos(yaw), std::sin(yaw), 0.0);
@@ -120,6 +107,56 @@ gtsam::Rot3 thrustAlignedRotation(const gtsam::Vector3& force, double yaw) {
     rotation.col(1) = body_y;
     rotation.col(2) = body_z;
     return gtsam::Rot3(rotation);
+}
+
+struct CircleMotion {
+    double angle;
+    double angular_speed;
+    double angular_acceleration;
+};
+
+CircleMotion rampedCircleMotion(double target_angular_speed, double ramp_duration, double time) {
+    if (ramp_duration <= 0.0 || time >= ramp_duration)
+        return {target_angular_speed * (time - 0.5 * ramp_duration), target_angular_speed,
+                0.0};
+    const double phase = std::max(0.0, time / ramp_duration);
+    const double phase2 = phase * phase;
+    const double phase3 = phase2 * phase;
+    return {target_angular_speed * ramp_duration * (phase3 - 0.5 * phase3 * phase),
+            target_angular_speed * (3.0 * phase2 - 2.0 * phase3),
+            target_angular_speed * (6.0 * phase - 6.0 * phase2) / ramp_duration};
+}
+
+UAVFactor::DynamicsState circleReference(const gtsam::Vector3& center, double radius,
+                                         double target_speed, double ramp_duration, double gravity,
+                                         double time, bool face_velocity) {
+    const CircleMotion motion =
+        rampedCircleMotion(target_speed / radius, ramp_duration, time);
+    const double cosine = std::cos(motion.angle);
+    const double sine = std::sin(motion.angle);
+    const gtsam::Vector3 radial(cosine, sine, 0.0);
+    const gtsam::Vector3 tangent(-sine, cosine, 0.0);
+    const gtsam::Vector3 acceleration =
+        radius * (motion.angular_acceleration * tangent -
+                  motion.angular_speed * motion.angular_speed * radial);
+    UAVFactor::DynamicsState reference;
+    reference.pose = gtsam::Pose3(
+        thrustAlignedRotation(acceleration + gtsam::Vector3(0.0, 0.0, gravity),
+                              face_velocity ? motion.angle + M_PI_2 : 0.0),
+        center + radius * radial);
+    reference.velocity = radius * motion.angular_speed * tangent;
+    reference.body_rate =
+        gtsam::Vector3(0.0, 0.0, face_velocity ? motion.angular_speed : 0.0);
+    return reference;
+}
+
+gtsam::Vector6 trajectoryControl(const UAVFactor::DynamicsState& current,
+                                 const UAVFactor::DynamicsState& next, double dt) {
+    gtsam::Vector6 control;
+    control.head<3>() = (next.velocity - current.velocity) / dt;
+    control.tail<3>() =
+        gtsam::Rot3::Logmap(current.pose.rotation().between(next.pose.rotation())) / dt;
+    return control;
 }
 
 struct TimingStatistics {
@@ -194,12 +231,22 @@ int main(int argc, char** argv) {
             readVector3(config, "initial_velocity"), gtsam::Vector3::Zero()};
         const gtsam::Vector3 circle_center = readVector3(config, "circle_center");
         const double circle_radius = config["circle_radius"].as<double>();
-        const double circle_angular_speed = config["circle_angular_speed"].as<double>();
+        const double circle_target_speed = config["circle_target_speed"].as<double>();
+        const double speed_ramp_duration = config["speed_ramp_duration"].as<double>();
         const bool face_velocity = config["face_velocity"].as<bool>();
+        if (circle_radius <= 0.0 || circle_target_speed < 0.0 || speed_ramp_duration <= 0.0)
+            throw std::invalid_argument(
+                "circle_radius and speed_ramp_duration must be positive, and "
+                "circle_target_speed must be nonnegative");
         const std::filesystem::path simulator_config =
             std::filesystem::path(config_path).parent_path() /
             config["quadrotor_config"].as<std::string>();
         QuadrotorSim_SO3::Quadrotor quadrotor(simulator_config.string(), visualize);
+        const YAML::Node quadrotor_config = YAML::LoadFile(simulator_config.string());
+        const gtsam::Vector3 drag_coefficients(
+            quadrotor_config["drag_force_x"].as<double>(),
+            quadrotor_config["drag_force_y"].as<double>(),
+            quadrotor_config["drag_force_z"].as<double>());
         State simulator_state;
         simulator_state.p = state.pose.translation();
         simulator_state.rot = state.pose.rotation();
@@ -241,8 +288,8 @@ int main(int argc, char** argv) {
 
         gtsam::LevenbergMarquardtParams optimizer_params;
         optimizer_params.maxIterations = config["optimizer_iterations"].as<std::size_t>();
-        optimizer_params.absoluteErrorTol = 1.0e-9;
-        optimizer_params.relativeErrorTol = 1.0e-9;
+        optimizer_params.absoluteErrorTol = 1.0e-5;
+        optimizer_params.relativeErrorTol = 1.0e-5;
         optimizer_params.verbosity = gtsam::NonlinearOptimizerParams::SILENT;
 
         gtsam::KeyVector control_keys;
@@ -273,16 +320,25 @@ int main(int argc, char** argv) {
             for (std::size_t j = 1; j <= horizon; ++j) {
                 control_prefix.push_back(control_keys[j - 1]);
                 const UAVFactor::DynamicsState set_point = circleReference(
-                    circle_center, circle_radius, circle_angular_speed, time + j * dt,
-                    face_velocity);
+                    circle_center, circle_radius, circle_target_speed, speed_ramp_duration,
+                    quadrotor.getGravity(), time + j * dt, face_velocity);
                 // graph.add(UAVFactor::TerminalStateFactor(
                 graph.add(UAVFactor::TerminalAccelerationGyroMeasurementFactor(
                     X(0), V(0), control_prefix, set_point.pose, set_point.velocity, dt,
                     j == horizon ? terminal_noise : tracking_noise));
             }
             for (std::size_t k = 0; k < horizon; ++k) {
-                graph.add(gtsam::PriorFactor<gtsam::Vector6>(U(k), gtsam::Vector6::Zero(),
-                                                              control_noise));
+                const UAVFactor::DynamicsState reference_start = circleReference(
+                    circle_center, circle_radius, circle_target_speed, speed_ramp_duration,
+                    quadrotor.getGravity(), time + k * dt, face_velocity);
+                const UAVFactor::DynamicsState reference_end = circleReference(
+                    circle_center, circle_radius, circle_target_speed, speed_ramp_duration,
+                    quadrotor.getGravity(), time + (k + 1) * dt, face_velocity);
+                const gtsam::Vector6 reference_control =
+                    trajectoryControl(reference_start, reference_end, dt);
+                // graph.add(gtsam::PriorFactor<gtsam::Vector6>(U(k), reference_control,
+                //                                               control_noise));
+                if (iteration == 0) warm_start[k] = reference_control;
                 if (k > 0)
                     graph.add(gtsam::BetweenFactor<gtsam::Vector6>(
                         U(k - 1), U(k), gtsam::Vector6::Zero(), smoothness_noise));
@@ -319,12 +375,17 @@ int main(int argc, char** argv) {
             const gtsam::Vector3 acceleration = applied_control.head<3>();
             const gtsam::Vector3 angular_speed = applied_control.tail<3>();
             const UAVFactor::DynamicsState current_reference = circleReference(
-                circle_center, circle_radius, circle_angular_speed, time + dt, face_velocity);
+                circle_center, circle_radius, circle_target_speed, speed_ramp_duration,
+                quadrotor.getGravity(), time + dt, face_velocity);
 
             // Convert the kinematic MPC command to the simulator's thrust/torque input.
             const double mass = quadrotor.getMass();
+            const gtsam::Vector3 estimated_drag =
+                simulator_state.rot.matrix() * drag_coefficients.asDiagonal() *
+                simulator_state.rot.matrix().transpose() * simulator_state.v;
             const gtsam::Vector3 desired_force =
-                mass * (acceleration + gtsam::Vector3(0.0, 0.0, quadrotor.getGravity()));
+                mass * (acceleration + gtsam::Vector3(0.0, 0.0, quadrotor.getGravity())) -
+                estimated_drag;
             const gtsam::Rot3 desired_rotation =
                 thrustAlignedRotation(desired_force, current_reference.pose.rotation().yaw());
             const Eigen::Matrix3d inertia = quadrotor.getInertia();
@@ -394,8 +455,8 @@ int main(int argc, char** argv) {
                     point.v = predicted.velocity;
                     last_predicted_trajectory.push_back(point);
                     const UAVFactor::DynamicsState reference = circleReference(
-                        circle_center, circle_radius, circle_angular_speed,
-                        time + (k + 2) * dt, face_velocity);
+                        circle_center, circle_radius, circle_target_speed, speed_ramp_duration,
+                        quadrotor.getGravity(), time + (k + 2) * dt, face_velocity);
                     State reference_point;
                     reference_point.p = reference.pose.translation();
                     reference_point.rot = reference.pose.rotation();

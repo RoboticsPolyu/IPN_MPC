@@ -351,6 +351,18 @@ TerminalStateFactor::TerminalStateFactor(
 }
 
 void TerminalStateFactor::propagate(
+    DynamicsState& predicted, const gtsam::Vector6& control) const {
+    const gtsam::Vector3 acceleration = control.head<3>();
+    const gtsam::Vector3 angular_rate = control.tail<3>();
+    predicted.pose = gtsam::Pose3(
+        predicted.pose.rotation() * gtsam::Rot3::Expmap(angular_rate * dt_),
+        predicted.pose.translation() + predicted.velocity * dt_ +
+            0.5 * acceleration * dt_ * dt_);
+    predicted.velocity += acceleration * dt_;
+    predicted.body_rate = angular_rate;
+}
+
+void TerminalStateFactor::propagate(
     DynamicsState& predicted, StateJacobian& jacobian_x,
     StateControlJacobian& jacobian_control, const gtsam::Vector6& control) const {
     const gtsam::Vector3 acceleration = control.head<3>();
@@ -389,24 +401,22 @@ DynamicsState TerminalStateFactor::predict(
         throw std::invalid_argument(
             "Control count must equal TerminalStateFactor horizon");
     DynamicsState predicted = initial_state;
-    initial_state_jacobian = StateJacobian::Identity();
-    control_jacobians.clear();
-    control_jacobians.reserve(horizon());
-    for (const auto& control : controls) {
-        StateJacobian jacobian_x;
-        StateControlJacobian jacobian_control;
-        propagate(predicted, jacobian_x, jacobian_control, control);
-
-        // Chain all earlier control sensitivities through the current state transition.
-        for (auto& control_jacobian : control_jacobians)
-            control_jacobian = jacobian_x * control_jacobian;
-
-        // The current control acts directly on the current transition.
-        control_jacobians.push_back(jacobian_control);
-
-        // Keep only the accumulated terminal-to-initial state Jacobian.
-        initial_state_jacobian = jacobian_x * initial_state_jacobian;
+    std::vector<StateJacobian> local_state_jacobians(horizon());
+    std::vector<StateControlJacobian> local_control_jacobians(horizon());
+    for (std::size_t k = 0; k < horizon(); ++k) {
+        propagate(predicted, local_state_jacobians[k], local_control_jacobians[k], controls[k]);
     }
+
+    // Reverse-mode chain rule. The suffix maps a perturbation at x_(k+1) to x_j.
+    // Each local F_k and G_k is therefore multiplied exactly once, rather than updating
+    // every earlier control sensitivity after every forward step.
+    StateJacobian suffix = StateJacobian::Identity();
+    control_jacobians.resize(horizon());
+    for (std::size_t k = horizon(); k-- > 0;) {
+        control_jacobians[k] = suffix * local_control_jacobians[k];
+        suffix = suffix * local_state_jacobians[k];
+    }
+    initial_state_jacobian = suffix;
     return predicted;
 }
 
@@ -419,9 +429,12 @@ DynamicsState TerminalStateFactor::predict(
 
 DynamicsState TerminalStateFactor::predict(
     const DynamicsState& initial_state, const std::vector<gtsam::Vector6>& controls) const {
-    StateJacobian unused_initial_state_jacobian;
-    std::vector<StateControlJacobian> unused_jacobians;
-    return predict(initial_state, controls, unused_initial_state_jacobian, unused_jacobians);
+    if (controls.size() != horizon())
+        throw std::invalid_argument(
+            "Control count must equal TerminalStateFactor horizon");
+    DynamicsState predicted = initial_state;
+    for (const auto& control : controls) propagate(predicted, control);
+    return predicted;
 }
 
 gtsam::Vector9 TerminalStateFactor::residual(
@@ -464,20 +477,18 @@ gtsam::Vector TerminalStateFactor::unwhitenedError(
     // Keep the control vector in exactly the same order as the factor's control keys.
     for (Key key : control_keys_) controls.push_back(values.at<gtsam::Vector6>(key));
 
-    // This vector will receive d(predicted terminal state)/d(control_k) for every step k.
+    const DynamicsState initial_state{
+        initial_pose, initial_velocity, gtsam::Vector3::Zero()};
+
+    // Cost-only evaluations are frequent in nonlinear optimization. Do not allocate or
+    // propagate any Jacobian matrices unless GTSAM explicitly requests them.
+    if (!jacobians) return residual(predict(initial_state, controls));
+
     std::vector<StateControlJacobian> propagated_control_jacobians;
-
-    // This matrix will receive d(predicted terminal state)/d(initial 9D state).
     StateJacobian propagated_initial_state_jacobian;
-
-    // Roll the initial state through all controls while propagating the control Jacobians.
-    // Body rate is initialized to zero because it is not an optimized state in this model.
     const DynamicsState predicted =
-        predict({initial_pose, initial_velocity, gtsam::Vector3::Zero()}, controls,
-                propagated_initial_state_jacobian, propagated_control_jacobians);
-
-    // GTSAM may request only the residual; avoid all residual-Jacobian work in that case.
-    if (!jacobians) return residual(predicted);
+        predict(initial_state, controls, propagated_initial_state_jacobian,
+                propagated_control_jacobians);
 
     // This matrix is d(error)/d(predicted terminal state), with terminal-state ordering
     // [position, local rotation tangent, velocity].

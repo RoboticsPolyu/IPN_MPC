@@ -18,6 +18,7 @@ namespace QuadrotorSim_SO3 {
 class UI {
   public:
     using StringUI = std::shared_ptr<pangolin::Var<std::string>>;
+    using ButtonUI = std::shared_ptr<pangolin::Var<bool>>;
     using StateType = boost::array<double, 22>;
 
     UI(float max_trajectory_length, uint8_t obstacle_count, double collision_distance,
@@ -61,6 +62,7 @@ class UI {
         StringUI p95_solve_time;
         StringUI cpu;
         StringUI deadline_misses;
+        StringUI simulation_state;
     };
 
     void beginFrame();
@@ -88,6 +90,7 @@ class UI {
     void drawCollisionPoint(const gtsam::Vector3& p);
 
     void renderPanel();
+    void updatePauseState();
     bool checkCollision(const State& state, const Obstacle& obstacle) const;
     void drawCylinder(const gtsam::Vector3& position, float radius, float height,
                       const gtsam::Vector3& color, int segments = 32);
@@ -97,6 +100,8 @@ class UI {
     pangolin::View* camera_view_{nullptr};
     std::shared_ptr<pangolin::OpenGlRenderState> s_cam_;
     Panel panel_;
+    ButtonUI stop_button_;
+    ButtonUI continue_button_;
     std::vector<Point3D> obstacle_centers_;
     State state_;
     std::vector<State> trj_;
@@ -106,6 +111,7 @@ class UI {
     double collision_distance_{0.0};
     double minimum_clearance_{0.0};
     bool collision_active_{false};
+    bool paused_{false};
     std::size_t visible_obstacles_{0};
     double solve_time_ms_{0.0}, mean_solve_time_ms_{0.0}, p95_solve_time_ms_{0.0},
         cpu_percent_{0.0};

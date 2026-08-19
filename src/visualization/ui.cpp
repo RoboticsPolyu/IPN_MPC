@@ -11,6 +11,7 @@
 #include <pangolin/display/widgets.h>
 #include <pangolin/gl/gldraw.h>
 #include <pangolin/handler/handler.h>
+#include <pangolin/var/varextra.h>
 #include <sstream>
 #include <unistd.h>
 
@@ -181,6 +182,9 @@ void UI::displaySetup() {
 
     pangolin::CreatePanel("ui").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(UI_WIDTH));
 
+    stop_button_ = std::make_shared<pangolin::Var<bool>>("ui.Stop", false, false);
+    continue_button_ = std::make_shared<pangolin::Var<bool>>("ui.Continue", false, false);
+    panel_.simulation_state = makeText("SIMULATION", "RUNNING");
     panel_.force = makeText("Force(N)", "Force");
     const std::array<std::string, 3> axes = {"x", "y", "z"};
     for (std::size_t i = 0; i < axes.size(); ++i) {
@@ -380,20 +384,20 @@ bool UI::renderHistoryTrj(const State& state) {
 
     state_ = state;
     appendHistory(state_);
-    beginFrame();
-    glLineWidth(2);
-
-    drawGroundPlane();
-    drawFrame(gtsam::Vector3(0, 0, 0), gtsam::Rot3::Identity());
-
-    // Draw trajectory
-    for (std::size_t i = 1; i < trj_.size(); ++i) {
-        drawLine(gtsam::Vector3(0.15, 0.82, 0.95), trj_[i - 1].p, trj_[i].p);
-    }
-
-    drawVehicleShadow(state_.p);
-    drawQuadrotor(state_.p, state_.rot);
-    finishFrame();
+    do {
+        updatePauseState();
+        beginFrame();
+        glLineWidth(2);
+        drawGroundPlane();
+        drawFrame(gtsam::Vector3(0, 0, 0), gtsam::Rot3::Identity());
+        for (std::size_t i = 1; i < trj_.size(); ++i)
+            drawLine(gtsam::Vector3(0.15, 0.82, 0.95), trj_[i - 1].p, trj_[i].p);
+        drawVehicleShadow(state_.p);
+        drawQuadrotor(state_.p, state_.rot);
+        finishFrame();
+        updatePauseState();
+        if (paused_) usleep(16000);
+    } while (paused_ && !pangolin::ShouldQuit());
     usleep(100);
     return !pangolin::ShouldQuit();
 }
@@ -554,25 +558,37 @@ bool UI::renderHistoryOpt(State& state, std::vector<State>& pred_trj,
     }
 
     appendHistory(state_);
-    beginFrame();
-    drawGroundPlane();
-    drawFrame(gtsam::Vector3(0, 0, 0), gtsam::Rot3::Identity());
-    if (ref_trj) drawReferenceTrajectory(*ref_trj);
-    drawPredictedTrajectory(pred_trj);
-    if (obstacle_centers) {
-        updateObstacleStatus(state, *obstacle_centers);
-        drawObstacles(state, pred_trj, *obstacle_centers);
-    } else {
-        updateObstacleStatus(state, {});
-    }
-    drawHistoryTrajectory();
-    drawVehicleShadow(state_.p);
-    drawQuadrotor(state_.p, state_.rot);
-    if (features) drawLidarCloud(*features);
-    if (vicon_measurement) drawTrjPoint(*vicon_measurement, 10.0F, gtsam::Vector3(0.6, 0.2, 0.5));
-    finishFrame();
+    do {
+        updatePauseState();
+        beginFrame();
+        drawGroundPlane();
+        drawFrame(gtsam::Vector3(0, 0, 0), gtsam::Rot3::Identity());
+        if (ref_trj) drawReferenceTrajectory(*ref_trj);
+        drawPredictedTrajectory(pred_trj);
+        if (obstacle_centers) {
+            updateObstacleStatus(state, *obstacle_centers);
+            drawObstacles(state, pred_trj, *obstacle_centers);
+        } else {
+            updateObstacleStatus(state, {});
+        }
+        drawHistoryTrajectory();
+        drawVehicleShadow(state_.p);
+        drawQuadrotor(state_.p, state_.rot);
+        if (features) drawLidarCloud(*features);
+        if (vicon_measurement)
+            drawTrjPoint(*vicon_measurement, 10.0F, gtsam::Vector3(0.6, 0.2, 0.5));
+        finishFrame();
+        updatePauseState();
+        if (paused_) usleep(16000);
+    } while (paused_ && !pangolin::ShouldQuit());
     usleep(1000);
     return !pangolin::ShouldQuit();
+}
+
+void UI::updatePauseState() {
+    if (stop_button_ && pangolin::Pushed(*stop_button_)) paused_ = true;
+    if (continue_button_ && pangolin::Pushed(*continue_button_)) paused_ = false;
+    if (panel_.simulation_state) *panel_.simulation_state = paused_ ? "PAUSED" : "RUNNING";
 }
 
 void UI::renderPanel() {

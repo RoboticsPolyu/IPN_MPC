@@ -49,8 +49,3 @@ max_iters: 10
 cbf_alpha: 0.2
 # vel factor
 cbf_beta: 0.5
-
-# Experimental sequential quadratic programming with GTSAM's active-set QP solver.
-# Obstacle boundaries are enforced as hard linearized inequalities at every horizon state.
-use_hard_constraints      : false
-hard_constraint_iterations: 3

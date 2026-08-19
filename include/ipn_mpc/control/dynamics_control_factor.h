@@ -158,7 +158,9 @@ class GTSAM_EXPORT TerminalStateFactor
     std::size_t horizon() const { return control_keys_.size(); }
 
   private:
-    // jacobian_x is the local one-step transition dx_(k+1)/dx_k, and jacobian_control is the local one-step derivative dx_(k+1)/du_k. 
+    void propagate(DynamicsState& predicted, const gtsam::Vector6& control) const;
+    // jacobian_x is the local one-step transition dx_(k+1)/dx_k, and
+    // jacobian_control is the local one-step derivative dx_(k+1)/du_k.
     void propagate(DynamicsState& predicted, StateJacobian& jacobian_x,
                    StateControlJacobian& jacobian_control,
                    const gtsam::Vector6& control) const;
